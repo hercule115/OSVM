@@ -2,7 +2,7 @@
 
 _myName_     = 'OSVM'
 _myLongName_ = 'Olympus Sync & View Manager'
-_myVersion_  = '2.0'
+_myVersion_  = '1.0'
 
 import wx.lib.platebtn as platebtn
 
@@ -51,7 +51,6 @@ import argparse
 import wx.html
 import os
 import inspect
-#from operator import itemgetter, attrgetter
 from os.path import expanduser
 from urllib.request import Request, urlopen
 from urllib.error import URLError
@@ -60,22 +59,16 @@ import re
 import configparser
 import time
 import threading
-#import tarfile
 import platform
 #import traceback
 import subprocess
-#import string
-#import glob
 import shutil
 import queue
-#import smtplib
-#import base64
 import struct
 import tempfile
 import math
 import wx.lib.colourdb as wb
 import http.client
-#import csv
 from urllib.parse import urlparse
 from copy import deepcopy
 import io
@@ -83,9 +76,44 @@ import wx.lib.scrolledpanel as scrolled
 import wx.adv
 import socket
 import datetime
-import pychromecast 
-import vlc
-import objc # WifiDialog
+
+disabledModules= list()
+try:
+    import pychromecast
+except ImportError:
+        msg = 'PyChromeCast module not installed. Disabling Casting'
+        print(msg)
+#        dial = wx.MessageDialog(None, msg , 'Error', wx.OK | wx.ICON_ERROR)
+#        dial.ShowModal()
+        pycc = False
+        disabledModules.append(('PyChromecast',msg))
+else:
+    pycc = True
+
+try:
+    import vlc
+except ImportError:
+        msg = 'Vlc module not installed. Disabling Video Viewer'
+        print(msg)
+#        dial = wx.MessageDialog(None, msg , 'Error', wx.OK | wx.ICON_ERROR)
+#        dial.ShowModal()
+        vlcVideoViewer = False
+        disabledModules.append(('VLC',msg))
+else:
+    vlcVideoViewer = True
+
+try:
+    import objc # WifiDialog
+except ImportError:
+        msg = 'Objc module not installed. Disabling Network Selector'
+        print(msg)
+#        dial = wx.MessageDialog(None, msg , 'Error', wx.OK | wx.ICON_ERROR)
+#        dial.ShowModal()
+        networkSelector = False
+        disabledModules.append(('Objc',msg))
+else:
+    networkSelector = True
+
 from PIL import Image
 
 CWSecurityModes = {
@@ -2168,6 +2196,8 @@ class SlideShowThread(threading.Thread):
 ### class MediaViewer
 class MediaViewer(wx.Dialog):
     def __init__(self, mediaFileListOrPath):
+        global vlcVideoViewer
+
         wx.Dialog.__init__(self, None, wx.ID_ANY, title="Media Viewer")
 
         self.mediaFileListOrPath = mediaFileListOrPath
@@ -2181,7 +2211,11 @@ class MediaViewer(wx.Dialog):
         if suffix == 'JPG' or suffix == 'jpg':
             self.imageViewer()
         else:
-            self.videoViewer()
+            if vlcVideoViewer:
+                self.videoViewer()
+            else:
+                self.Destroy()#???????
+                return
 
         self.panel1.SetSizerAndFit(self.mainSizer)
         self.SetClientSize(self.mainSizer.GetSize())
@@ -2810,6 +2844,7 @@ class FileOperationMenu(wx.Menu):
     global slideShowNextIdx
     global castMediaCtrl
     global castDevice
+    global vlcVideoViewer
 
     def __init__(self, parent, button, oplist):
         """
@@ -2825,6 +2860,7 @@ class FileOperationMenu(wx.Menu):
 
         try:
             fileName = self.button.GetName()
+            fileType = fileName.split('.')[1]	# File suffix
         except:
             print('FileOperationMenu(): Invalid file %s' % (fileName))
             return
@@ -2842,9 +2878,10 @@ class FileOperationMenu(wx.Menu):
             id = 0  
 
 	# Start Slideshow from here
-        menuEntry = [fileName, FILE_SLIDESHOW, None]
-        self.popupMenuTitles.append((id, menuEntry))
-        id += 1
+        if fileType == 'JPG' or (fileType == 'MOV' and vlcVideoViewer):
+            menuEntry = [fileName, FILE_SLIDESHOW, None]
+            self.popupMenuTitles.append((id, menuEntry))
+            id += 1
 
         # Next entry is: 'Properties'
         menuEntry = [fileName, FILE_PROPERTIES, None]
@@ -2874,9 +2911,10 @@ class FileOperationMenu(wx.Menu):
                     id += 1
                     break
             if not found:
-                menuEntry = [fileName, FILE_SELECT, None, filePath]
-                self.popupMenuTitles.append((id, menuEntry)) 
-                id += 1
+                if fileType == 'JPG' or (fileType == 'MOV' and vlcVideoViewer):
+                    menuEntry = [fileName, FILE_SELECT, None, filePath]
+                    self.popupMenuTitles.append((id, menuEntry)) 
+                    id += 1
             if overwriteLocalFiles:
                 menuEntry = [fileName, FILE_DOWNLOAD, None, filePath]
                 self.popupMenuTitles.append((id, menuEntry)) 
@@ -4023,6 +4061,10 @@ class OSVMConfigThread(threading.Thread):
         msg1 = 'Configuration is READY'
         wx.CallAfter(self._pDialog.setTitleStaticText1, msg1)
         wx.CallAfter(self._pDialog.enableEnter)
+
+        # Notify user about any disabled module
+        wx.CallAfter(self._pDialog.notifyDisabledModules)
+
         # Simulate a 'Enter View Mode' event if requested
         if autoViewMode:
             self._btnEnterViewMode = getattr(self._pDialog, 'btnEnterViewMode')
@@ -4276,6 +4318,14 @@ class OSVMConfig(wx.Frame):
 
     #def resizeEvent(self):
         #self.SendSizeEvent() # to recalculate position
+
+    # Notify user about any disabled module
+    def notifyDisabledModules(self):
+        global disabledModules
+
+        for mod in disabledModules:
+            dlg = wx.MessageDialog(None, mod[1], 'Warning', wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
 
     # Enable Enter button (from thread)
     def enableEnter(self):
@@ -5052,6 +5102,7 @@ class OSVM(wx.Frame):
         global localFilesSorted
         global castMediaCtrl
         global viewMode
+        global vlcVideoViewer
 
         setBusyCursor(True)
 
@@ -5080,14 +5131,15 @@ class OSVM(wx.Frame):
                                name=remFileName,
                                style=0)
             if viewMode:
-                button.Bind(wx.EVT_BUTTON, self.LaunchViewer)
-                button.Bind(wx.EVT_RIGHT_DOWN, self.OnPkgButtonRightDown)
+                if vlcVideoViewer:
+                    button.Bind(wx.EVT_BUTTON, self.LaunchViewer)
+                button.Bind(wx.EVT_RIGHT_DOWN, self.OnThumbButtonRightDown)
             else:
-                if remFileName in list(localFileInfos.keys()):
+                if remFileName in list(localFileInfos.keys()) and vlcVideoViewer:
                     button.Bind(wx.EVT_BUTTON, self.LaunchViewer)
                 else:
-                    button.Bind(wx.EVT_BUTTON, self.OnPkgButton)
-                button.Bind(wx.EVT_RIGHT_DOWN, self.OnPkgButtonRightDown)
+                    button.Bind(wx.EVT_BUTTON, self.OnThumbButton)
+                button.Bind(wx.EVT_RIGHT_DOWN, self.OnThumbButtonRightDown)
 
             if float(remFileSize) < ONEMEGA:
                 remFileSizeString = '%.1f KB' % (remFileSize / ONEKILO)
@@ -5131,6 +5183,7 @@ class OSVM(wx.Frame):
         global localFileInfos
         global fileColors
         global viewMode
+        global vlcVideoViewer
 
         if viewMode:
             fileListToUse = localFilesSorted
@@ -5191,11 +5244,11 @@ class OSVM(wx.Frame):
             button.SetName(remFileName)
 
             # Bind an event to the button
-            if remFileName in list(localFileInfos.keys()):
+            if remFileName in list(localFileInfos.keys()) and vlcVideoViewer:
                 button.Bind(wx.EVT_BUTTON, self.LaunchViewer)
             else:
-                button.Bind(wx.EVT_BUTTON, self.OnPkgButton)
-            button.Bind(wx.EVT_RIGHT_DOWN, self.OnPkgButtonRightDown)
+                button.Bind(wx.EVT_BUTTON, self.OnThumbButton)
+            button.Bind(wx.EVT_RIGHT_DOWN, self.OnThumbButtonRightDown)
 
             # Display thumbnail (with scaling)
             thumbnailPath = os.path.join(__thumbDir__, remFileName)
@@ -5647,6 +5700,9 @@ class OSVM(wx.Frame):
         global viewMode
         global localFilesSorted
         global viewMode
+        global pycc
+        global networkSelector
+        global vlcVideoViewer
 
         # Package buttons list
         self.thumbButtons = []
@@ -5705,6 +5761,8 @@ class OSVM(wx.Frame):
 
         if viewMode:
             self.cb2 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Select Videos')
+            if not vlcVideoViewer:
+                self.cb2.Disable()
         else:
             self.cb2 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Sync Videos')
         self.cb2.SetValue(False)
@@ -5766,6 +5824,8 @@ class OSVM(wx.Frame):
         self._displayBitmap(self.btnCast, 'cast-32.jpg', wx.BITMAP_TYPE_JPEG)
         self.btnCast.SetToolTip('Cast images to a GoogleCast')
         self.btnCast.Bind(wx.EVT_BUTTON, self.OnBtnCast)
+        if not pycc:
+            self.btnCast.Disable()
 
         self.btnRew = wx.Button(size=wx.Size(32,32), name='btnRew', parent=self.panel1, style=wx.NO_BORDER)
         self._displayBitmap(self.btnRew, 'rew.png', wx.BITMAP_TYPE_PNG)
@@ -5873,7 +5933,7 @@ class OSVM(wx.Frame):
                                           label='Switch Network', 
                                           parent=self.panel1, style=0)
         self.btnSwitchNetwork.Bind(wx.EVT_BUTTON, self.OnBtnSwitchNetwork)
-        if __system__ != 'Darwin':
+        if __system__ != 'Darwin' or not networkSelector:
             self.btnSwitchNetwork.Disable()
 
         self.btnHelp = wx.Button(id=wx.ID_HELP, label='Help',
@@ -5999,7 +6059,7 @@ class OSVM(wx.Frame):
         sbWidth,dummy = self.statusBar1.GetSize()
         print("OnSize(): Resize event",sbWidth)
 
-    def OnPkgButtonRightDown(self, event):
+    def OnThumbButtonRightDown(self, event):
         button = event.GetEventObject()
 
         # Retrieve the button in self.thumbButtons
@@ -6010,7 +6070,7 @@ class OSVM(wx.Frame):
                 found = True
                 break
         if not found:
-            print('OnPkgButtonRightDown(): Button not found')
+            print('OnThumbButtonRightDown(): Button not found')
             FileOperationMenu(self, button, self.opList)
             return
 
@@ -6034,7 +6094,7 @@ class OSVM(wx.Frame):
         event.Skip()
 
     # Left Click on a File button, zoom in the thumbnail
-    def OnPkgButton(self, event):
+    def OnThumbButton(self, event):
         global __thumbDir__
 
         button = event.GetEventObject()
@@ -7142,6 +7202,7 @@ def main():
     global autoViewMode
     global autoSyncMode
     global iface
+    global networkSelector
 
     args = parse_argv()
 
@@ -7191,7 +7252,8 @@ def main():
         printToolsVersion()
         print('PyChromeCast:',module_path(pychromecast))
         print('Vlc:',module_path(vlc))
-        print('Objc:',module_path(objc))
+        if networkSelector:
+            print('Objc:',module_path(objc))
         sys.exit(0)
 
     if args.viewmode:
@@ -7242,7 +7304,7 @@ def main():
     fileColors = [[wx.GREY,wx.WHITE],[wx.GREEN,wx.WHITE],[wx.ORANGE,wx.WHITE]]
 
     # Init network (Mac only!!!)
-    if __system__ == 'Darwin':
+    if __system__ == 'Darwin' and networkSelector:
         objc.loadBundle('CoreWLAN',
                         bundle_path='/System/Library/Frameworks/CoreWLAN.framework',
                         module_globals=globals())
