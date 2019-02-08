@@ -4797,9 +4797,9 @@ class CleanDownloadDirDialog(wx.Dialog):
         self.Centre()
 
     def _initialize(self):
-    """
-    Create and layout the widgets in the dialog
-    """
+        """
+        Create and layout the widgets in the dialog
+        """
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self,
                                size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
 
