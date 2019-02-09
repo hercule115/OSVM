@@ -83,20 +83,16 @@ try:
 except ImportError:
         msg = 'PyChromeCast module not installed. Disabling Casting'
         print(msg)
-#        dial = wx.MessageDialog(None, msg , 'Error', wx.OK | wx.ICON_ERROR)
-#        dial.ShowModal()
         pycc = False
         disabledModules.append(('PyChromecast',msg))
 else:
     pycc = True
 
 try:
-    import vlc
+    import vlc # MediaViewer
 except ImportError:
         msg = 'Vlc module not installed. Disabling Video Viewer'
         print(msg)
-#        dial = wx.MessageDialog(None, msg , 'Error', wx.OK | wx.ICON_ERROR)
-#        dial.ShowModal()
         vlcVideoViewer = False
         disabledModules.append(('VLC',msg))
 else:
@@ -107,8 +103,6 @@ try:
 except ImportError:
         msg = 'Objc module not installed. Disabling Network Selector'
         print(msg)
-#        dial = wx.MessageDialog(None, msg , 'Error', wx.OK | wx.ICON_ERROR)
-#        dial.ShowModal()
         networkSelector = False
         disabledModules.append(('Objc',msg))
 else:
@@ -450,18 +444,17 @@ def module_path(local_function):
 def cleanup():
     print ('Cleanup(): Removing temporary files')
     try:
-        #print "Skipping cleanup" # XXX
-        #os.remove(htmlRootFile)
+        os.remove(htmlRootFile)
         pass
     except:
         print('cleanup(): Failed to remove %s' % (htmlRootFile))
         pass
+
     try:
-        #os.remove(htmlDirFile)
+        os.remove(htmlDirFile)
         pass
     except:
         print('cleanup(): Failed to remove %s' % (htmlDirFile))
-#        pass
 
 def printGlobals():
     global cameraConnected
