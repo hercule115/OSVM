@@ -1895,10 +1895,10 @@ class LED(wx.Control):
 #        colour = str(fileColors[i][0].GetAsString(flags=wx.C2S_HTML_SYNTAX))
 #        colour = LEDS_COLOURS[i][0].GetAsString(flags=wx.C2S_HTML_SYNTAX)
         colour = LEDS_COLOURS[i][0]
-        xpmFileName = 'led_%s.xpm' % colour
+        xpmFilePath = os.path.join(__tmpDir__, 'led_%s.xpm' % colour)
+        if not os.path.exists(xpmFilePath):
         # Create an XPM file with desired color
-        if not os.path.exists(xpmFileName):
-            f = open(xpmFileName, 'w')
+            f = open(xpmFilePath, 'w')
             for l in ascii_led_header:
                 f.write(l)
             f.write('"X c %s",\n' % colour)  # '"X c #00FF00",\n',
@@ -1906,7 +1906,7 @@ class LED(wx.Control):
                 f.write(l)
             f.close()
 
-        self.bmp = wx.Bitmap(xpmFileName, type=wx.BITMAP_TYPE_XPM)
+        self.bmp = wx.Bitmap(xpmFilePath, type=wx.BITMAP_TYPE_XPM)
         self.Refresh()
         
     def GetState(self):
