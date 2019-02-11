@@ -358,6 +358,10 @@ LEDS_COLOURS = [['#929292', '#A8A8A8', '#9C9C9C', '#B7B7B7'], # grey
 
 [LED_OFF, LED_BLINK, LED_ON] = [i for i in range(3)]
 
+# File Types to view/sync
+FILETYPES = ['', 'JPG', 'MOV', 'ALL']
+FILETYPES_NOVLC = ['', 'JPG']
+
 # Wifi networks parameters (scanForNetworks())
 [NET_SSID,
  NET_BSSID,
@@ -5544,21 +5548,31 @@ class OSVM(wx.Frame):
         parent.Add(self.btn1BoxSizer1, 0, border=5, flag= wx.ALL | wx.EXPAND)
 
     def _init_btn1FlexGridSizer1_Items(self, parent):
-        parent.Add(self.cb1, 0, border=0, flag=wx.EXPAND)
-        parent.Add(self.cb2, 0, border=0, flag=wx.EXPAND)
-        parent.Add(self.cb3, 0, border=0, flag=wx.EXPAND)
+#        parent.Add(self.cb1, 0, border=0, flag=wx.EXPAND)
+#        parent.Add(self.cb2, 0, border=0, flag=wx.EXPAND)
+#        parent.Add(self.cb3, 0, border=0, flag=wx.EXPAND)
+
+        sts0 = wx.BoxSizer(orient=wx.VERTICAL)
+        sts0.AddStretchSpacer(prop=1)
+        sts0.Add(self.fileTypesTxt, 0, border=0, flag=wx.EXPAND)
+        sts0.AddStretchSpacer(prop=1)
+        parent.Add(sts0, 0, border=0, flag=wx.EXPAND)
+#        parent.Add(self.fileTypesTxt, 0, border=0, flag=wx.EXPAND)
+        parent.Add(self.fileTypesChoice, 0, border=0, flag=wx.EXPAND)
+
         parent.Add(8, 4, border=0, flag=0)
-        sts = wx.BoxSizer(orient=wx.VERTICAL)
-        sts.AddStretchSpacer(prop=1)
-        sts.Add(self.cb4, 0, border=0, flag=wx.EXPAND)
-        sts.AddStretchSpacer(prop=1)
-        parent.Add(sts, 0, border=0, flag=wx.EXPAND)
+        sts1 = wx.BoxSizer(orient=wx.VERTICAL)
+        sts1.AddStretchSpacer(prop=1)
+        sts1.Add(self.cb4, 0, border=0, flag=wx.EXPAND)
+        sts1.AddStretchSpacer(prop=1)
+        parent.Add(sts1, 0, border=0, flag=wx.EXPAND)
         parent.Add(self.dpc1, 0, border=0, flag=wx.EXPAND)
-        sts = wx.BoxSizer(orient=wx.VERTICAL)
-        sts.AddStretchSpacer(prop=1)
-        sts.Add(self.cb5, 0, border=0, flag=wx.EXPAND)
-        sts.AddStretchSpacer(prop=1)
-        parent.Add(sts, 0, border=0, flag=wx.EXPAND)
+
+        sts2 = wx.BoxSizer(orient=wx.VERTICAL)
+        sts2.AddStretchSpacer(prop=1)
+        sts2.Add(self.cb5, 0, border=0, flag=wx.EXPAND)
+        sts2.AddStretchSpacer(prop=1)
+        parent.Add(sts2, 0, border=0, flag=wx.EXPAND)
         parent.Add(self.dpc2, 0, border=0, flag=wx.EXPAND)
 
     def _init_btn1BoxSizer1_Items(self, parent):
@@ -5644,7 +5658,7 @@ class OSVM(wx.Frame):
         # File selection grid sizer in staticBoxSizer
         self.btn1FlexGridSizer = wx.StaticBoxSizer(box=self.staticBox4,
                                                    orient=wx.HORIZONTAL)
-        self.btn1FlexGridSizer1 = wx.FlexGridSizer(cols=8, hgap=8, rows=1, vgap=0)
+        self.btn1FlexGridSizer1 = wx.FlexGridSizer(cols=9, hgap=8, rows=1, vgap=0) #DP
         self.btn1BoxSizer1 = wx.BoxSizer(orient=wx.HORIZONTAL)
 
         # Package Box sizer in staticBoxSizer
@@ -5741,27 +5755,39 @@ class OSVM(wx.Frame):
         self.panel1.Bind(wx.EVT_LEFT_UP, self._setFocus)
 
         #### wx Controls ####
+#        if viewMode:
+#            self.cb1 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Select Images')
+#        else:
+#            self.cb1 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Sync Images')
+#        self.cb1.SetValue(False)
+#        self.cb1.Bind(wx.EVT_CHECKBOX, self.OnSyncImages, id=wx.ID_ANY)
 
-        # Add a preferences "Sync All" by default XXX
-        if viewMode:
-            self.cb1 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Select Images')
+#        if viewMode:
+#            self.cb2 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Select Videos')
+#            if not vlcVideoViewer:
+#                self.cb2.Disable()
+#        else:
+#            self.cb2 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Sync Videos')
+#        self.cb2.SetValue(False)
+#        self.cb2.Bind(wx.EVT_CHECKBOX, self.OnSyncVideos, id=wx.ID_ANY)
+
+#        self.cb3 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Sync All')
+#        self.cb3.SetValue(False)
+#        self.cb3.Bind(wx.EVT_CHECKBOX, self.OnSyncAll, id=wx.ID_ANY)
+
+#DP
+        self.fileTypesTxt = wx.StaticText(label='File Type:', parent=self.panel1, id=wx.ID_ANY)
+        if not vlcVideoViewer:
+            self.fileTypesChoice = wx.Choice(choices=[v for v in FILETYPES_NOVLC], 
+                                             id=wx.ID_ANY, parent=self.panel1, style=0)
         else:
-            self.cb1 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Sync Images')
-        self.cb1.SetValue(False)
-        self.cb1.Bind(wx.EVT_CHECKBOX, self.OnSyncImages, id=wx.ID_ANY)
+            self.fileTypesChoice = wx.Choice(choices=[v for v in FILETYPES], 
+                                             id=wx.ID_ANY, parent=self.panel1, style=0)
 
-        if viewMode:
-            self.cb2 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Select Videos')
-            if not vlcVideoViewer:
-                self.cb2.Disable()
-        else:
-            self.cb2 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Sync Videos')
-        self.cb2.SetValue(False)
-        self.cb2.Bind(wx.EVT_CHECKBOX, self.OnSyncVideos, id=wx.ID_ANY)
-
-        self.cb3 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Sync All')
-        self.cb3.SetValue(False)
-        self.cb3.Bind(wx.EVT_CHECKBOX, self.OnSyncAll, id=wx.ID_ANY)
+        self.fileTypesChoice.SetToolTip('Select type of files to show/sync')
+        self.fileTypesChoice.SetStringSelection(FILETYPES[0])
+        self.fileTypesChoice.Bind(wx.EVT_CHOICE, self.OnFileTypesChoice, id=wx.ID_ANY)
+#DP
 
         self.cb4 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='From Date')
         self.cb4.SetValue(False)
@@ -6222,17 +6248,16 @@ class OSVM(wx.Frame):
 
         print('OnBtnSwitchMode(): Switching to: %s' % 'Sync Mode' if viewMode else 'View Mode')
         viewMode = not viewMode
-#        button.SetLabel('Switch to View Mode' if not viewMode else 'Switch to Sync Mode')
         if viewMode:
             button.SetLabel('Switch to Sync Mode')
-            self.cb1.SetLabel('Select Images')
-            self.cb2.SetLabel('Select Videos')
-            self.cb3.SetLabel('Select All')
+#            self.cb1.SetLabel('Select Images')
+#            self.cb2.SetLabel('Select Videos')
+#            self.cb3.SetLabel('Select All')
         else:
             button.SetLabel('Switch to View Mode')
-            self.cb1.SetLabel('Sync Images')
-            self.cb2.SetLabel('Sync Videos')
-            self.cb3.SetLabel('Sync All')
+#            self.cb1.SetLabel('Sync Images')
+#            self.cb2.SetLabel('Sync Videos')
+#            self.cb3.SetLabel('Sync All')
 
         # Simulate a 'Rescan' event
         self._btnRescan = getattr(self, "btnRescan")
@@ -6344,6 +6369,33 @@ class OSVM(wx.Frame):
             self.simicsLocTextCtrl.SetFocus()
         dlg.Destroy()
 
+#DP
+    def _selectFiles(self, fileType):
+        if viewMode:
+            cnt = self._selectFilesByDate(fileType)
+        else:
+            cnt = self._syncFiles(fileType)
+        pendingOpsCnt = self.pendingOperationsCount()
+        msg = '%d requests successfully scheduled, %d in the queue' % (cnt, pendingOpsCnt)
+        self.updateStatusBar(msg)
+        self.panel1.Refresh()
+
+    def OnFileTypesChoice(self, event):
+        idx = self.fileTypesChoice.GetSelection()
+        self.fileType = FILETYPES[idx]
+        print('Selected:',self.fileType)
+        if self.fileType == 'JPG' or self.fileType == 'MOV':
+            self._selectFiles(self.fileType)
+        elif self.fileType == 'ALL':
+            self._selectFiles('JPG')
+            self._selectFiles('MOV')
+        else:
+            # Clear all pending requests
+            self.OnBtnCancel(1)
+
+        event.Skip()
+#DP
+
     def OnSyncImages(self, event):
         global viewMode
 
@@ -6451,7 +6503,8 @@ class OSVM(wx.Frame):
         print ('OnFromDate(): fromDate: %s . Clearing pending list' % self.fromDate)
         self._clearAllRequests()
 
-        if self.cb1.GetValue():		# Check if Sync Images button is set
+#        if self.cb1.GetValue():		# Check if Sync Images button is set
+        if self.fileType == 'JPG':
             # If true, browse the availRemoteFiles[] and schedule requests
             print ('Must schedule a request for available images matching interval')
             if viewMode:
@@ -6463,7 +6516,8 @@ class OSVM(wx.Frame):
             self.updateStatusBar(msg)
             self.panel1.Refresh()
 
-        if self.cb2.GetValue():		# Check if Sync Video button is set
+#        if self.cb2.GetValue():		# Check if Sync Video button is set
+        if self.fileType == 'MOV':
             # If true, browse the availRemoteFiles[] and schedule requests
             print ('Must schedule a request for available video matching interval')
             if viewMode:
@@ -6475,9 +6529,10 @@ class OSVM(wx.Frame):
             self.updateStatusBar(msg)
             self.panel1.Refresh()
 
-        if self.cb3.GetValue():		# Check if Sync All button is set
+#        if self.cb3.GetValue():		# Check if Sync All button is set
+        if self.fileType == 'ALL':
             # If true, browse the availRemoteFiles[] and schedule requests
-            print ('Must schedule a request for available image/video matching inteval')
+            print ('Must schedule a request for available image/video matching interval')
             if viewMode:
                 cnt1 = self._selectFilesByDate('JPG')
                 cnt2 = self._selectFilesByDate('MOV')
@@ -6512,7 +6567,8 @@ class OSVM(wx.Frame):
         print ('OnToDate(): Clearing pending list')
         self._clearAllRequests()
 
-        if self.cb1.GetValue():		# Check if Sync Images button is set
+#        if self.cb1.GetValue():		# Check if Sync Images button is set
+        if self.fileType == 'JPG':
             # If true, browse the availRemoteFiles[] and schedule requests
             print ('Must schedule a request for available images matching inteval')
             if viewMode:
@@ -6524,11 +6580,12 @@ class OSVM(wx.Frame):
             self.updateStatusBar(msg)
             self.panel1.Refresh()
 
-        if self.cb2.GetValue():		# Check if Sync Video button is set
+#        if self.cb2.GetValue():		# Check if Sync Video button is set
+        if self.fileType == 'MOV':
             # If true, browse the availRemoteFiles[] and schedule requests
             print ('Must schedule a request for available video matching inteval')
             if viewMode:
-                cnt = self._selectFilesByDate('JPG')
+                cnt = self._selectFilesByDate('MOV')
             else:
                 cnt = self._syncFiles('MOV')
             pendingOpsCnt = self.pendingOperationsCount()
@@ -6536,9 +6593,10 @@ class OSVM(wx.Frame):
             self.updateStatusBar(msg)
             self.panel1.Refresh()
 
-        if self.cb3.GetValue():		# Check if Sync All button is set
+#        if self.cb3.GetValue():		# Check if Sync All button is set
+        if self.fileType == 'ALL':
             # If true, browse the availRemoteFiles[] and schedule requests
-            print ('Must schedule a request for available image/video matching inteval')
+            print ('Must schedule a request for available image/video matching interval')
             if viewMode:
                 cnt1 = self._selectFilesByDate('JPG')
                 cnt2 = self._selectFilesByDate('MOV')
@@ -6574,7 +6632,8 @@ class OSVM(wx.Frame):
         print ('Clearing pending list')
         self._clearAllRequests()
 
-        if self.cb1.GetValue():		# Check if Sync Images button is set
+#        if self.cb1.GetValue():		# Check if Sync Images button is set
+        if self.fileType == 'JPG':
             # If true, browse the availRemoteFiles[] and schedule requests
             print('Must schedule a request for available images matching interval')
             cnt = self._syncFiles('JPG')
@@ -6583,7 +6642,8 @@ class OSVM(wx.Frame):
             self.updateStatusBar(msg)
             self.panel1.Refresh()
 
-        if self.cb2.GetValue():		# Check if Sync Video button is set
+#        if self.cb2.GetValue():		# Check if Sync Video button is set
+        if self.fileType == 'MOV':
             # If true, browse the availRemoteFiles[] and schedule requests
             print ('Must schedule a request for available video matching interval')
             cnt = self._syncFiles('MOV')
@@ -6592,7 +6652,8 @@ class OSVM(wx.Frame):
             self.updateStatusBar(msg)
             self.panel1.Refresh()
 
-        if self.cb3.GetValue():		# Check if Sync All button is set
+#        if self.cb3.GetValue():		# Check if Sync All button is set
+        if self.fileType == 'ALL':
             # If true, browse the availRemoteFiles[] and schedule requests
             print ('Must schedule a request for available image/video matching inteval')
             cnt1 = self._syncFiles('JPG')
@@ -7059,7 +7120,8 @@ class OSVM(wx.Frame):
         self._setMode(MODE_ENABLED, msg)
 
         # Reset file selection check boxes
-        for cb in [self.cb1,self.cb2,self.cb3,self.cb4,self.cb5]:
+#        for cb in [self.cb1,self.cb2,self.cb3,self.cb4,self.cb5]:
+        for cb in [self.cb4,self.cb5]:
             cb.SetValue(False)
 
     def OnCbOperation(self, event):
