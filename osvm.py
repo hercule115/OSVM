@@ -521,7 +521,6 @@ def addHistoryEntry(operation, msg):
         time.sleep(waitTime)
     assert acquired, 'maximum tries reached, failed to acquire lock file'
 
-
 def dumpOperationList(title, oplist):
     optype = ["NOT USED", "DOWNLOAD", "DELETE"]
     opstep = ["DOWNLOAD", "EXTRACT", "INSTALL"]
@@ -830,8 +829,7 @@ def getRootDirInfo(rootDir, uri): # XXX
     availRemoteFiles = {}
     i = 0
     for line in tmp2:
-        info = line.split('=')[1][1:] 	   		# e.g.: /DCIM/100OLYMP,PC020065.JPG,1482293,0,19330,31239";
-
+        info = line.split('=')[1][1:] # e.g.: /DCIM/100OLYMP,PC020065.JPG,1482293,0,19330,31239";
 #        dirName  = /DCIM/100OLYMP
 #        fileName = PC020065.JPG
 #        fileSize = 1482293
@@ -940,6 +938,8 @@ def updateFileDicts():
     if rootDirCnt <= 0:
         availRemoteFilesCnt = 0
         cameraConnected = False
+        availRemoteFiles.clear()
+        availRemoteFilesSorted.clear()
     else:
         for d in rootDirList:
             uri = '%s%s/%s' % (osvmFilesDownloadUrl, remBaseDir, d)
@@ -2894,7 +2894,6 @@ class FileOperationMenu(wx.Menu):
             id += 1
         else:
             filePath = localFileInfos[fileName][F_PATH]
-            ##DIDIER
             found = False
             for op in self.opList:
                 if op[OP_STATUS] and op[OP_FILENAME] == fileName:
@@ -4037,10 +4036,22 @@ class OSVMConfigThread(threading.Thread):
         global availRemoteFilesCnt
         global autoViewMode
         global autoSyncMode
+        global __thumbDir__
+        global osvmDownloadDir
 
         print("%s Starting." % (self._name))
 
         wx.CallAfter(self._pDialog.setBusyCursor, 1)
+
+        __thumbDir__ = os.path.join(osvmDownloadDir, '.thumbnails')
+        if not os.path.isdir(__thumbDir__):
+            print('Creating:', __thumbDir__)
+            try:
+                os.mkdir(__thumbDir__)
+            except OSError as e:
+                msg = "Cannot create %s: %s" % (__thumbDir__, "{0}".format(e.strerror))
+                dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
+                dlg.ShowModal()
 
         # Update dictionaries using current config parameters
         localFilesCnt,availRemoteFilesCnt = updateFileDicts()
@@ -4075,6 +4086,9 @@ class OSVMConfigThread(threading.Thread):
 
 ####
 class OSVMConfig(wx.Frame):
+    global osvmDownloadDir
+    global __thumbDir__
+
     def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         self.parent = parent
@@ -4089,6 +4103,7 @@ class OSVMConfig(wx.Frame):
 #        dlg = PreferencesDialog(self.prefs)
 #        ret = dlg.ShowModal()
 #        dlg.Destroy()
+
 
         self._initGUI()
 
@@ -4533,9 +4548,8 @@ class InstallDialog(wx.Dialog):
         # the range is rounded up to meet wxwidget 3.0.
         self.ggAll = wx.Gauge(range=math.ceil(self.totalBlocks), parent=self.panel1, 
                               id=wx.ID_ANY, size=(-1, 20))
-        print('InstallDialog(): totalBlocks=%f range=%d' % (
-            self.totalBlocks,
-            math.ceil(self.totalBlocks)))
+        print('InstallDialog(): totalBlocks=%f range=%d' % (self.totalBlocks, 
+                                                            math.ceil(self.totalBlocks)))
         
         # Add a Total elapsed time counter and gauge
         self.totalElapTxt = wx.StaticText(label='Total Time:', 
@@ -4806,12 +4820,6 @@ class InstallDialog(wx.Dialog):
         if step == 2:
             #  Clear Remaining time widget
             op[OP_INWGT][INST_REMCNT].SetLabel('00:00:00')
-
-    def packageIsModified(self, path, ret):
-        msg = "Package %s has been modified !" % (path)
-        dlg = wx.MessageDialog(None, msg , 'Warning',
-                               wx.OK | wx.ICON_EXCLAMATION)
-        ret = dlg.ShowModal()
 
 ####
 class CleanDownloadDirDialog(wx.Dialog):
@@ -5681,7 +5689,7 @@ class OSVM(wx.Frame):
 
     def _initialize(self):
         global __imgDir__
-        global __thumbDir__
+#        global __thumbDir__
         global localFilesCnt
         global availRemoteFilesSorted
         global availRemoteFilesCnt
@@ -5720,16 +5728,6 @@ class OSVM(wx.Frame):
         # Load Preferences
         self.prefs = Preferences(self)
         self.prefs._loadPreferences()
-
-        __thumbDir__ = os.path.join(osvmDownloadDir, '.thumbnails')
-        if not os.path.isdir(__thumbDir__):
-            print('Creating:', __thumbDir__)
-            try:
-                os.mkdir(__thumbDir__)
-            except OSError as e:
-                msg = "Cannot create %s: %s" % (__thumbDir__, "{0}".format(e.strerror))
-                dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
-                dlg.ShowModal()
 
         self._init_utils()
 
@@ -5966,12 +5964,14 @@ class OSVM(wx.Frame):
 
     def _dpcSetValue(self, date1, w1, date2, w2):
         if date1:
+            print(date1)
             d1 = wx.DateTime.FromDMY(int(date1.split('/')[1]),
                                      int(date1.split('/')[0]) - 1,	# Month starts from 0
                                      int(date1.split('/')[2]))
             w1.SetValue(d1)
 
         if date2:
+            print(date2)
             d2 = wx.DateTime.FromDMY(int(date2.split('/')[1]),
                                      int(date2.split('/')[0]) - 1,	# Month starts from 0
                                      int(date2.split('/')[2]))
@@ -7002,7 +7002,7 @@ class OSVM(wx.Frame):
         self.timerCnt = 0
         self.timer.Start(TIMER3_FREQ)
 
-        self.installDlg = InstallDialog(self, download=self.downloadDir, oplist=self.opList, title='Installing Files')
+        self.installDlg = InstallDialog(self, download=self.downloadDir, oplist=self.opList, title='Downloading Files')
         self.installDlg.ShowModal()
         self.installDlg.Destroy()
         self.installDlg = None
@@ -7174,7 +7174,7 @@ def main():
     global __modPath__
     global __system__
     global __imgDir__
-    global __thumbDir__
+#    global __thumbDir__
     global __tmpDir__
     global __hostarch__
     global __initFilePath__
@@ -7280,7 +7280,7 @@ def main():
     print('Host Archictecture:', __hostarch__)
     print('Path:', __modPath__)
     print('Image Dir:', __imgDir__)
-    print('Thumbnail Dir:', __thumbDir__)
+#    print('Thumbnail Dir:', __thumbDir__)
     print('Help Path:', __helpPath__)
     print('Init File:', __initFilePath__)
     if args.logfile:
