@@ -229,6 +229,7 @@ serverAddr = '0.0.0.0'
 iface = None
 allNetWorks = list() # List of all available networks
 knownNetworks = list()
+fileSortReverse = True
 
 # List of root directories on the camera
 rootDirList = []
@@ -697,6 +698,7 @@ def localFilesInfo(dirName):
     global localFilesSorted
     global availRemoteFiles
     global viewMode
+    global fileSortReverse
 
     print('localFilesInfo():',dirName)
     localFileInfos = {}
@@ -736,7 +738,7 @@ def localFilesInfo(dirName):
         fileDate = statinfo.st_mtime # in seconds
         localFileInfos[fileName] = [fileName,localFileSize,fileDate,filePath]
         i += 1
-    localFilesSorted = sorted(list(localFileInfos.items()), key=lambda x: int(x[1][F_DATE]), reverse=True)
+    localFilesSorted = sorted(list(localFileInfos.items()), key=lambda x: int(x[1][F_DATE]), reverse=fileSortReverse) #True)
     return i
 
 def downloadThumbnail(e):
@@ -793,6 +795,7 @@ def getRootDirInfo(rootDir, uri): # XXX
     global htmlRootFile
     global htmlDirFile
     global availRemoteFilesSorted
+    global fileSortReverse
 
     if cameraConnected:
         print("getRootDirInfo(): Downloading from network: %s" % (uri))
@@ -852,7 +855,7 @@ def getRootDirInfo(rootDir, uri): # XXX
     print("getRootDirInfo(): %d files found" % i)
 
     # Sort the dict by date: Latest file first
-    availRemoteFilesSorted = sorted(list(availRemoteFiles.items()), key=lambda x: int(x[1][F_DATEINSECS]), reverse=True)
+    availRemoteFilesSorted = sorted(list(availRemoteFiles.items()), key=lambda x: int(x[1][F_DATEINSECS]), reverse=fileSortReverse) #True)
     for e in availRemoteFilesSorted:
         print("Detected remote file: %s size %d created %s %s %d" % (e[1][F_NAME],e[1][F_SIZE],getHumanDate(e[1][F_DATE]),getHumanTime(e[1][F_TIME]),int(e[1][F_DATEINSECS])))
     return i
@@ -1134,9 +1137,7 @@ def fileColor(fileName):
 
     try:
         e = localFileInfos[fileName]
-        #print ("fileColor(): %s local", fileName)
     except:
-        #print ("fileColor():",fileName," not found locally")
         return color
 
     color = fileColors[FILE_INSTALLED]
@@ -2977,7 +2978,6 @@ class FileOperationMenu(wx.Menu):
         idx = [x[0] for x in localFilesSorted].index(fileName)
         fileType = fileName.split('.')[1]	# File suffix
         filesSelected = self.parent.selectFilesByPosition(fileType, idx)
-#        print('%d files marked' % filesSelected)
 
         # Simulate a button 'Play' press
         self._btnPlayInfo = getattr(self.parent, "btnPlay")
@@ -3004,7 +3004,6 @@ class FileOperationMenu(wx.Menu):
         menuEntry = self.popupMenuTitles[id][1]
         fileName  = menuEntry[0]
         what      = menuEntry[1]
-        print("_MenuSelectionCb():",fileName,what)
 
         if what == FILE_PROPERTIES:
             self._MenuPropertiesCb(event)
@@ -3465,7 +3464,6 @@ class ChromeCastDialog(wx.Dialog):
             self.fields.append(field)
 
         for i in range(1,rows):
-#            print(i,self.ccProps[i][0])
             btn = wx.RadioButton(self.panel1, label=self.ccProps[i][0], style=(wx.RB_GROUP if not i else 0)) # cc name
             if (castDevice and self.ccProps[i][0] == castDevice.name) or (found and found == i) :
                 btn.SetValue(True)
@@ -3474,7 +3472,6 @@ class ChromeCastDialog(wx.Dialog):
             self.fields.append(btn)
 
             for j in range(1,len(self.ccProps[0])):
-#                print(j,self.ccProps[i][j])
                 self.fields.append(wx.StaticText(self.panel1, label=self.ccProps[i][j])) # cc information
         # Add all widgets in the grid
         for i in range(rows * cols):
@@ -4108,7 +4105,6 @@ class OSVMConfig(wx.Frame):
 #        ret = dlg.ShowModal()
 #        dlg.Destroy()
 
-
         self._initGUI()
 
         self.Center()
@@ -4261,8 +4257,8 @@ class OSVMConfig(wx.Frame):
         self.titleStaticText1.SetLabel(msg)
         #print self.timerCnt,msg
 
-    def OnBtnDebug(self, event):
-        print ('Using local files for debug purposes. TBD')
+#    def OnBtnDebug(self, event):
+        #print ('Using local files for debug purposes. TBD')
         #if self.MainConfigThread.isAlive():
         #    self.MainConfigThread.stop()
 
@@ -4448,7 +4444,6 @@ class InstallDialog(wx.Dialog):
                 op[OP_SIZE] = (ret1, nBlocks)
                 op[OP_REMURL] = ret2
             else:
-#                print ("Skipping _checkRemoteFile()")
                 nBlocks = fileSize / URLLIB_READ_BLKSIZE
                 op[OP_SIZE] = (fileSize, nBlocks)
                 fileUrl = '%s%s/%s' % (osvmFilesDownloadUrl, dirName, fileName)
@@ -4663,7 +4658,7 @@ class InstallDialog(wx.Dialog):
         self._updateTotalCounter()
 
     # Local methods
-    def _runThread(self): #_startThread(self):
+    def _runThread(self):
         # Process all DELETE operations first
         deleteLocalFiles(self, self.opList)
 
@@ -4675,13 +4670,10 @@ class InstallDialog(wx.Dialog):
         self.mainInstallThrLock.release()	#Let the install threads run
         self.timer.Start(TIMER1_FREQ)
 
-	#dumpOperationList("Installation Operation List", self.tmpOpList)
-
     # Check if a package URL is valid
     def _checkRemoteFile(self, dirName, fileName):
         global osvmFilesDownloadUrl
 
-        #print ('dn %s fn %s' % (dirName,fileName))
         fileUrl = '%s%s/%s' % (osvmFilesDownloadUrl, dirName, fileName)
         try:
             u = urllib.request.urlopen(fileUrl)
@@ -5205,7 +5197,7 @@ class OSVM(wx.Frame):
             for i in range(missing):
                 idx = self.numPkgButtons + i
                 button = wx.Button(parent=self.scrollWin1, id=wx.ID_ANY, style=0)
-                self.pkgGridSizer1.Add(button, proportion=1, border=0, flag=wx.EXPAND)
+                self.thumbGridSizer1.Add(button, proportion=1, border=0, flag=wx.EXPAND)
 
                 # each entry in thumbButtons[] is: [widget, filename, fgcol, bgcol]
                 bgcol = button.GetBackgroundColour()
@@ -5244,8 +5236,6 @@ class OSVM(wx.Frame):
             # each entry in thumbButtons[] is: [widget, filename, fgcol, bgcol]
             button = self.thumbButtons[i][0]
             self.thumbButtons[i][1] = remFileName
-
-#            print(i,remFileName,button)
             button.SetName(remFileName)
 
             # Bind an event to the button
@@ -5500,14 +5490,98 @@ class OSVM(wx.Frame):
         # convert it to a wx.Bitmap, and put it on the wx.StaticBitmap
         widget.SetBitmap(wx.Bitmap(Img.Scale(w*thumbnailScaleFactor, h*thumbnailScaleFactor)))
 
-    def _init_pkgGridSizer1_Items(self, parent):
+    def _init_topBoxSizer_Items(self, parent):
+        parent.Add(self.titleBoxSizer, 0, border=10, flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT) #| wx.ALL)
+        parent.Add(self.btnGridBagBoxSizer, 0, border=10, flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT)
+        parent.Add(self.thumbBoxSizer, 1, border=10, flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT)
+        parent.Add(self.bottomBoxSizer, 0, border=10, flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT)
+
+    def _init_titleBoxSizer_Items(self, parent):
+        parent.AddStretchSpacer(prop=1)
+        parent.Add(self.staticBitmap1, 0, border=0, flag=wx.ALL | wx.ALIGN_CENTER)
+        parent.AddStretchSpacer(prop=1)
+        parent.Add(self.staticBitmap2, 0, border=0, flag=wx.ALL | wx.ALIGN_CENTER)
+
+    def _init_btnGridBagBoxSizer_Items(self, parent):
+        parent.Add(self.btnGridBagSizer, 0, border=5, flag=wx.ALL | wx.CENTER)
+
+    def _init_btnGridBagSizer_Items(self, parent):
+        sts1 = wx.BoxSizer(orient=wx.VERTICAL)
+        sts1.Add(self.fileTypesTxt, 0, border=0, flag=wx.EXPAND)
+        sts1.AddStretchSpacer(prop=1)
+        sts1.Add(self.fileTypesChoice, 0, border=0, flag=wx.EXPAND)
+        parent.Add(sts1, pos=(0, 0), flag=wx.ALL | wx.EXPAND, border=0)
+
+        sts3 = wx.BoxSizer(orient=wx.VERTICAL)
+        sts3.AddStretchSpacer(prop=1)
+        sts3.Add(self.fromCb, 0, border=0, flag=wx.EXPAND)
+        sts3.Add(self.dpc1, 0, border=0, flag=wx.EXPAND)
+        sts3.AddStretchSpacer(prop=1)
+        parent.Add(sts3, pos=(0, 1), flag=wx.ALL| wx.EXPAND, border=0)
+
+        sts4 = wx.BoxSizer(orient=wx.VERTICAL)
+        sts4.AddStretchSpacer(prop=1)
+        sts4.Add(self.toCb, 0, border=0, flag=wx.EXPAND)
+        sts4.Add(self.dpc2, 0, border=0, flag=wx.EXPAND)
+        sts4.AddStretchSpacer(prop=1)
+        parent.Add(sts4, pos=(0, 2), flag=wx.ALL, border=0)
+
+        sts2 = wx.BoxSizer(orient=wx.VERTICAL)
+        sts2.Add(self.fileSortTxt, 0, border=0, flag=wx.EXPAND)
+        sts2.AddStretchSpacer(prop=1)
+        sts2.Add(self.fileSortChoice, 0, border=0, flag=wx.EXPAND)
+        parent.Add(sts2, pos=(0, 3), flag=wx.ALL | wx.EXPAND, border=0)
+
+        parent.Add(40,0, pos=(0, 4)) # Some space before Cast button
+
+        sts5 = wx.BoxSizer(orient=wx.VERTICAL)
+        sts5.AddStretchSpacer(prop=1)
+        sts5.Add(self.btnCast, 0, border=0, flag=wx.EXPAND)
+        sts5.AddStretchSpacer(prop=1)
+        parent.Add(sts5, pos=(0, 5), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+        parent.Add(self.castDeviceName, pos=(1, 5), flag=wx.ALL| wx.ALIGN_CENTER, border=0)
+
+        parent.Add(10,0, pos=(0, 6)) # Some space after Cast button
+
+        sts6 = wx.BoxSizer(orient=wx.VERTICAL)
+        sts6.AddStretchSpacer(prop=1)
+        sts6.Add(self.btnRew, 0, border=0, flag=wx.EXPAND)
+        sts6.AddStretchSpacer(prop=1)
+        parent.Add(sts6, pos=(0, 7), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+
+        sts7 = wx.BoxSizer(orient=wx.VERTICAL)
+        sts7.AddStretchSpacer(prop=1)
+        sts7.Add(self.btnPlay, 0, border=0, flag=wx.EXPAND)
+        sts7.AddStretchSpacer(prop=1)
+        parent.Add(sts7, pos=(0, 8), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+
+        parent.Add(30,0, pos=(0, 9)) # Some space after Play button
+
+        parent.Add(self.btnCancel, pos=(0, 10), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+        parent.Add(self.btnCommit, pos=(0, 11), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+
+        parent.Add(50,0, pos=(0, 12))
+
+        parent.Add(self.btnRescan, pos=(0, 13), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+
+    def _init_thumbBoxSizer_Items(self, parent):
+        # Thumbnail window
+        parent.Add(self.scrollWin1, 1, border=0, flag=wx.EXPAND)
+        parent.Add(0, 8, border=0, flag=0)
+        # Button colors meaning
+        parent.Add(self.thumbGridSizer2, 0, border=0, flag=wx.EXPAND)
+
+    def _init_thumbGridSizer1_Items(self, parent):
         for button in self.thumbButtons:
-            # each entry in thumbButtons[] is: [widget, pkgnum, fgcol, bgcol]
             parent.Add(button[0], proportion=1, border=0, flag=wx.EXPAND)
 
         self.scrollWin1.SetSizer(parent)
         self.scrollWin1.SetAutoLayout(1)
         self.scrollWin1.SetupScrolling()
+
+    def _init_thumbGridSizer2_Items(self, parent):
+        for entry in self.colorGrid:
+            parent.Add(entry, 0, border=0, flag=wx.ALL)
 
     def _init_bottomBoxSizer1_Items(self, parent):
         parent.Add(self.btnHelp, 0, border=0, flag=0)
@@ -5517,8 +5591,8 @@ class OSVM(wx.Frame):
     def _init_bottomBoxSizer2_Items(self, parent):
         parent.Add(self.pltfInfo, 0, border=0, flag=wx.ALL | wx.ALIGN_LEFT)
         parent.AddStretchSpacer(prop=1)
-        parent.Add(self.bottomBoxSizer3, 0, border=0, flag=wx.ALL | wx.ALIGN_CENTER)##+
-        parent.AddStretchSpacer(prop=1)##
+        parent.Add(self.bottomBoxSizer3, 0, border=0, flag=wx.ALL | wx.ALIGN_CENTER)##
+        parent.AddStretchSpacer(prop=1)
         parent.Add(self.bottomBoxSizer1, 0, border=0, flag=wx.ALL | wx.ALIGN_RIGHT)
 
     def _init_bottomBoxSizer3_Items(self, parent):
@@ -5526,92 +5600,10 @@ class OSVM(wx.Frame):
         parent.Add(4, 4, border=0, flag=0)
         parent.Add(self.btnSwitchNetwork, 0, border=0, flag=wx.ALL | wx.EXPAND)
 
-    def _init_btnBoxSizer3_Items(self, parent):
-        parent.Add(self.btnCancel, 0, border=0, flag=0)
-        parent.Add(8, 4, border=0, flag=0)
-        parent.Add(self.btnCommit, 0, border=0, flag=0)	# XXX
-
-    def _init_btnBoxSizer4_Items(self, parent):        # for slideshow
-        parent.Add(self.btnBoxSizer5, 0, border=0, flag=wx.ALL | wx.EXPAND)
-        parent.Add(32, 4, border=0, flag=0)
-        parent.Add(self.btnRew, 0, border=0, flag=0)
-        parent.Add(8, 4, border=0, flag=0)
-        parent.Add(self.btnPlay, 0, border=0, flag=0)
-        
-    def _init_btnBoxSizer5_Items(self, parent):        # for cast button
-        parent.Add(self.btnCast, 0, border=0, flag=wx.ALL| wx.ALIGN_CENTER)
-        parent.Add(self.castDeviceName, 0, border=0, flag=wx.ALL| wx.ALIGN_CENTER)
-
-    def _init_btn1FlexGridSizer_Items(self, parent):
-        parent.Add(self.btn1FlexGridSizer1, 0, border=5, flag=wx.ALL | wx.CENTER)
-        parent.AddStretchSpacer(prop=1)
-        parent.Add(self.btn1BoxSizer1, 0, border=5, flag= wx.ALL | wx.EXPAND)
-
-    def _init_btn1FlexGridSizer1_Items(self, parent):
-#        parent.Add(self.cb1, 0, border=0, flag=wx.EXPAND)
-#        parent.Add(self.cb2, 0, border=0, flag=wx.EXPAND)
-#        parent.Add(self.cb3, 0, border=0, flag=wx.EXPAND)
-
-        sts0 = wx.BoxSizer(orient=wx.VERTICAL)
-        sts0.AddStretchSpacer(prop=1)
-        sts0.Add(self.fileTypesTxt, 0, border=0, flag=wx.EXPAND)
-        sts0.AddStretchSpacer(prop=1)
-        parent.Add(sts0, 0, border=0, flag=wx.EXPAND)
-#        parent.Add(self.fileTypesTxt, 0, border=0, flag=wx.EXPAND)
-        parent.Add(self.fileTypesChoice, 0, border=0, flag=wx.EXPAND)
-
-        parent.Add(8, 4, border=0, flag=0)
-        sts1 = wx.BoxSizer(orient=wx.VERTICAL)
-        sts1.AddStretchSpacer(prop=1)
-        sts1.Add(self.cb4, 0, border=0, flag=wx.EXPAND)
-        sts1.AddStretchSpacer(prop=1)
-        parent.Add(sts1, 0, border=0, flag=wx.EXPAND)
-        parent.Add(self.dpc1, 0, border=0, flag=wx.EXPAND)
-
-        sts2 = wx.BoxSizer(orient=wx.VERTICAL)
-        sts2.AddStretchSpacer(prop=1)
-        sts2.Add(self.cb5, 0, border=0, flag=wx.EXPAND)
-        sts2.AddStretchSpacer(prop=1)
-        parent.Add(sts2, 0, border=0, flag=wx.EXPAND)
-        parent.Add(self.dpc2, 0, border=0, flag=wx.EXPAND)
-
-    def _init_btn1BoxSizer1_Items(self, parent):
-        parent.Add(self.btnBoxSizer4, 0, border=5, flag=wx.ALL | wx.ALIGN_RIGHT)
-        parent.AddStretchSpacer(prop=1)
-        parent.Add(self.btnBoxSizer3, 0, border=5, flag=wx.ALL | wx.ALIGN_CENTER)
-        parent.AddStretchSpacer(prop=1)
-        parent.Add(self.btnRescan, 0, border=5, flag=wx.ALL | wx.ALIGN_CENTER)
-
-    def _init_pkgBoxSizer_Items(self, parent):
-        parent.Add(self.scrollWin1, 1, border=0, flag=wx.EXPAND)
-        parent.Add(0, 8, border=0, flag=0)
-        # Button colors meaning
-        parent.Add(self.pkgGridSizer2, 0, border=0, flag=wx.EXPAND)
-
-    def _init_pkgGridSizer2_Items(self, parent):
-        for entry in self.colorGrid:
-            parent.Add(entry, 0, border=0, flag=wx.ALL)
-
-    def _init_titleBoxSizer1_Items(self, parent):
-        parent.AddStretchSpacer(prop=1)
-        parent.Add(self.staticBitmap1, 0, border=0, flag=wx.ALL | wx.ALIGN_CENTER)
-        parent.AddStretchSpacer(prop=1)
-        parent.Add(self.staticBitmap2, 0, border=0, flag=wx.ALL | wx.ALIGN_CENTER)
-
     def _init_bottomBoxSizer_Items(self, parent):
         parent.Add(self.statusBar1, 0, border=5, flag=wx.EXPAND | wx.ALL)
         parent.Add(4, 4, border=0, flag=0)
         parent.Add(self.bottomBoxSizer2, 0, border=5, flag=wx.ALL | wx.EXPAND)
-
-    def _init_topBoxSizer1_Items(self, parent):
-        parent.Add(self.titleBoxSizer1, 0, border=10, flag=wx.EXPAND | wx.ALL)
-        parent.Add(self.btn1FlexGridSizer, 0, border=10,
-                        flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT)
-        parent.Add(4, 4, proportion=0, border=0, flag=0)
-        parent.Add(self.pkgBoxSizer, 1, border=10, flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT)
-        parent.Add(4, 4, proportion=0, border=0, flag=0)
-        parent.Add(self.bottomBoxSizer, 0, border=10,
-                   flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT)
 
     def _init_menuBar_Menus(self, parent):
         parent.Append(self.menuFile, '&File')
@@ -5650,60 +5642,49 @@ class OSVM(wx.Frame):
         global thumbnailGridColumns
 
         # TOP Level BoxSizer
-        self.topBoxSizer1 = wx.BoxSizer(orient=wx.VERTICAL)
+        self.topBoxSizer = wx.BoxSizer(orient=wx.VERTICAL)
 
         # Title BoxSizer
-        self.titleBoxSizer1 = wx.BoxSizer(orient=wx.HORIZONTAL)
+        self.titleBoxSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
 
         # File selection grid sizer in staticBoxSizer
-        self.btn1FlexGridSizer = wx.StaticBoxSizer(box=self.staticBox4,
-                                                   orient=wx.HORIZONTAL)
-        self.btn1FlexGridSizer1 = wx.FlexGridSizer(cols=9, hgap=8, rows=1, vgap=0) #DP
-        self.btn1BoxSizer1 = wx.BoxSizer(orient=wx.HORIZONTAL)
+        self.btnGridBagBoxSizer = wx.StaticBoxSizer(box=self.staticBox4, orient=wx.HORIZONTAL)
+        self.btnGridBagSizer = wx.GridBagSizer(hgap=20,vgap=0)
 
         # Package Box sizer in staticBoxSizer
-        self.pkgBoxSizer = wx.StaticBoxSizer(box=self.staticBox3,
-                                             orient=wx.VERTICAL)
+        self.thumbBoxSizer = wx.StaticBoxSizer(box=self.staticBox3, orient=wx.VERTICAL)
 
         gsNumCols = thumbnailGridColumns
-        self.pkgGridSizer1 = wx.GridSizer(cols=gsNumCols, vgap=5, hgap=5)
+        self.thumbGridSizer1 = wx.GridSizer(cols=gsNumCols, vgap=5, hgap=5)
 
-        # Box Sizer to contain LEDs for color labels
-        self.pkgGridSizer2 = wx.FlexGridSizer(cols=10, hgap=8, rows=1, vgap=0)
+        # Grid Sizer to contain LEDs for color labels
+        self.thumbGridSizer2 = wx.FlexGridSizer(cols=10, hgap=8, rows=1, vgap=0)
 
         # Bottom button boxSizer
         self.bottomBoxSizer = wx.BoxSizer(orient=wx.VERTICAL)
         self.bottomBoxSizer1 = wx.BoxSizer(orient=wx.HORIZONTAL)
         self.bottomBoxSizer2 = wx.BoxSizer(orient=wx.HORIZONTAL)
-        self.bottomBoxSizer3 = wx.BoxSizer(orient=wx.HORIZONTAL)##
-        self.btnBoxSizer3 = wx.BoxSizer(orient=wx.HORIZONTAL)
-        self.btnBoxSizer4 = wx.BoxSizer(orient=wx.HORIZONTAL)	# for slideshow
-        self.btnBoxSizer5 = wx.BoxSizer(orient=wx.VERTICAL)	# for cast device
+        self.bottomBoxSizer3 = wx.BoxSizer(orient=wx.HORIZONTAL)
 
         # Initialize each boxSizer
-        self._init_topBoxSizer1_Items(self.topBoxSizer1)
-        self._init_btn1FlexGridSizer_Items(self.btn1FlexGridSizer)
-        self._init_btn1FlexGridSizer1_Items(self.btn1FlexGridSizer1)
-        self._init_btn1BoxSizer1_Items(self.btn1BoxSizer1)
-        self._init_pkgBoxSizer_Items(self.pkgBoxSizer)
+        self._init_topBoxSizer_Items(self.topBoxSizer)
+        self._init_titleBoxSizer_Items(self.titleBoxSizer)
+        self._init_btnGridBagBoxSizer_Items(self.btnGridBagBoxSizer)
+        self._init_btnGridBagSizer_Items(self.btnGridBagSizer)
 
-        self._init_pkgGridSizer1_Items(self.pkgGridSizer1)
-        self._init_pkgGridSizer2_Items(self.pkgGridSizer2)
+        self._init_thumbBoxSizer_Items(self.thumbBoxSizer)
+        self._init_thumbGridSizer1_Items(self.thumbGridSizer1)
+        self._init_thumbGridSizer2_Items(self.thumbGridSizer2)
 
-        self._init_titleBoxSizer1_Items(self.titleBoxSizer1)
         self._init_bottomBoxSizer_Items(self.bottomBoxSizer)
         self._init_bottomBoxSizer1_Items(self.bottomBoxSizer1)
         self._init_bottomBoxSizer2_Items(self.bottomBoxSizer2)
         self._init_bottomBoxSizer3_Items(self.bottomBoxSizer3)
-        self._init_btnBoxSizer3_Items(self.btnBoxSizer3)
-        self._init_btnBoxSizer4_Items(self.btnBoxSizer4) # for slideshow
-        self._init_btnBoxSizer5_Items(self.btnBoxSizer5) # for cast
 
-        self.panel1.SetSizerAndFit(self.topBoxSizer1)
+        self.panel1.SetSizerAndFit(self.topBoxSizer)
 
     def _initialize(self):
         global __imgDir__
-#        global __thumbDir__
         global localFilesCnt
         global availRemoteFilesSorted
         global availRemoteFilesCnt
@@ -5718,6 +5699,7 @@ class OSVM(wx.Frame):
         global pycc
         global networkSelector
         global vlcVideoViewer
+        global fileSortReverse
 
         # Package buttons list
         self.thumbButtons = []
@@ -5754,29 +5736,7 @@ class OSVM(wx.Frame):
         self.panel1.SetFocusIgnoringChildren()
         self.panel1.Bind(wx.EVT_LEFT_UP, self._setFocus)
 
-        #### wx Controls ####
-#        if viewMode:
-#            self.cb1 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Select Images')
-#        else:
-#            self.cb1 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Sync Images')
-#        self.cb1.SetValue(False)
-#        self.cb1.Bind(wx.EVT_CHECKBOX, self.OnSyncImages, id=wx.ID_ANY)
-
-#        if viewMode:
-#            self.cb2 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Select Videos')
-#            if not vlcVideoViewer:
-#                self.cb2.Disable()
-#        else:
-#            self.cb2 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Sync Videos')
-#        self.cb2.SetValue(False)
-#        self.cb2.Bind(wx.EVT_CHECKBOX, self.OnSyncVideos, id=wx.ID_ANY)
-
-#        self.cb3 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Sync All')
-#        self.cb3.SetValue(False)
-#        self.cb3.Bind(wx.EVT_CHECKBOX, self.OnSyncAll, id=wx.ID_ANY)
-
-#DP
-        self.fileTypesTxt = wx.StaticText(label='File Type:', parent=self.panel1, id=wx.ID_ANY)
+        self.fileTypesTxt = wx.StaticText(label='File Type', parent=self.panel1, id=wx.ID_ANY)
         if not vlcVideoViewer:
             self.fileTypesChoice = wx.Choice(choices=[v for v in FILETYPES_NOVLC], 
                                              id=wx.ID_ANY, parent=self.panel1, style=0)
@@ -5787,11 +5747,10 @@ class OSVM(wx.Frame):
         self.fileTypesChoice.SetToolTip('Select type of files to show/sync')
         self.fileTypesChoice.SetStringSelection(FILETYPES[0])
         self.fileTypesChoice.Bind(wx.EVT_CHOICE, self.OnFileTypesChoice, id=wx.ID_ANY)
-#DP
 
-        self.cb4 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='From Date')
-        self.cb4.SetValue(False)
-        self.cb4.Bind(wx.EVT_CHECKBOX, self.OnFromDate, id=wx.ID_ANY)
+        self.fromCb = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='From Date')
+        self.fromCb.SetValue(False)
+        self.fromCb.Bind(wx.EVT_CHECKBOX, self.OnFromDate, id=wx.ID_ANY)
 
         if viewMode:
             if not localFilesCnt:	# No local file available
@@ -5821,9 +5780,9 @@ class OSVM(wx.Frame):
         self.dpc1 = wx.adv.DatePickerCtrl(self.panel1,
                                           style = wx.adv.DP_SHOWCENTURY | wx.adv.DP_ALLOWNONE)
 
-        self.cb5 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='To Date')
-        self.cb5.SetValue(False)
-        self.cb5.Bind(wx.EVT_CHECKBOX, self.OnToDate, id=wx.ID_ANY)
+        self.toCb = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='To Date')
+        self.toCb.SetValue(False)
+        self.toCb.Bind(wx.EVT_CHECKBOX, self.OnToDate, id=wx.ID_ANY)
 
         self.dpc2 = wx.adv.DatePickerCtrl(self.panel1,
                                           style = wx.adv.DP_DROPDOWN | wx.adv.DP_SHOWCENTURY | wx.adv.DP_ALLOWNONE)
@@ -5833,11 +5792,20 @@ class OSVM(wx.Frame):
         self.castDeviceName = wx.StaticText(id=wx.ID_ANY,
                                             name='castDeviceName',
                                             parent=self.panel1,
-                                            size=(90,16),
+#                                            size=(90,16),
+                                            size=(60,16),
                                             style=wx.ST_ELLIPSIZE_MIDDLE)
         self.castDeviceName.SetLabelMarkup("<span foreground='red'><small>%s</small></span>" % '            ')
 
-        self.btnCast = wx.Button(label="Cast",name='btnCast', size=wx.Size(32,23), parent=self.panel1, style=wx.NO_BORDER)
+        self.sortTypes = ['Recent First', 'Older First']
+        self.fileSortTxt = wx.StaticText(label='Sorting Order', parent=self.panel1, id=wx.ID_ANY)
+        self.fileSortChoice = wx.Choice(choices=[v for v in self.sortTypes], 
+                                        id=wx.ID_ANY, parent=self.panel1, style=0)
+        self.fileSortChoice.SetToolTip('Select sort order')
+        self.fileSortChoice.SetStringSelection(self.sortTypes[0] if fileSortReverse else self.sortTypes[1])
+        self.fileSortChoice.Bind(wx.EVT_CHOICE, self.OnFileSortChoice, id=wx.ID_ANY)
+
+        self.btnCast = wx.Button(label="Cast",name='btnCast', size=wx.Size(32,32), parent=self.panel1, style=wx.NO_BORDER)
         self._displayBitmap(self.btnCast, 'cast-32.jpg', wx.BITMAP_TYPE_JPEG)
         self.btnCast.SetToolTip('Cast images to a GoogleCast')
         self.btnCast.Bind(wx.EVT_BUTTON, self.OnBtnCast)
@@ -5898,8 +5866,8 @@ class OSVM(wx.Frame):
         else:
             lbl = ' Select Files to Sync... '
         self.staticBox4 = wx.StaticBox(id=wx.ID_ANY,
-              label=lbl, name='staticBox4',
-              parent=self.panel1, pos=wx.Point(10, 64), style=0)
+                                       label=lbl, name='staticBox4',
+                                       parent=self.panel1, pos=wx.Point(10, 64), style=0)
 
         self.statusBar1 = wx.StatusBar(id=wx.ID_ANY,
                                        name='statusBar1', parent=self.panel1, style=0)
@@ -5907,7 +5875,7 @@ class OSVM(wx.Frame):
         self.statusBar1.SetFont(wx.Font(11, wx.SWISS, wx.ITALIC, wx.NORMAL, False, 'foo'))
 
         # Configure the status bar with 2 fields
-        self.statusBar1.SetFieldsCount(3) #2
+        self.statusBar1.SetFieldsCount(3)
         self.statusBar1.SetStatusText(_myName_, 0)
         self.statusBar1.SetStatusText('View Mode' if viewMode else 'Sync Mode', 1)
 
@@ -5940,25 +5908,20 @@ class OSVM(wx.Frame):
 #                                             style=0)
 #        self.modeStaticText1.SetFont(wx.Font(16, wx.SWISS, wx.NORMAL, wx.NORMAL, False))
 #        self.modeStaticText1.SetLabelMarkup("<span foreground='blue'><big>%s</big></span>" % 'View Mode' if viewMode else 'Sync Mode')
-        self.btnSwitchMode = wx.Button(id=wx.ID_ANY, 
-                                       name='btnSwitchMode', 
-                                       parent=self.panel1, style=0)
+        self.btnSwitchMode = wx.Button(id=wx.ID_ANY, parent=self.panel1, style=0)
         self.btnSwitchMode.SetLabel('Switch to Sync Mode' if viewMode else 'Switch to View Mode')
         self.btnSwitchMode.Bind(wx.EVT_BUTTON, self.OnBtnSwitchMode)
 
-        self.btnSwitchNetwork = wx.Button(id=wx.ID_ANY, 
-                                          label='Switch Network', 
+        self.btnSwitchNetwork = wx.Button(id=wx.ID_ANY, label='Switch Network', 
                                           parent=self.panel1, style=0)
         self.btnSwitchNetwork.Bind(wx.EVT_BUTTON, self.OnBtnSwitchNetwork)
         if __system__ != 'Darwin' or not networkSelector:
             self.btnSwitchNetwork.Disable()
 
-        self.btnHelp = wx.Button(id=wx.ID_HELP, label='Help',
-                                 name='btnHelp', parent=self.panel1, style=0)
+        self.btnHelp = wx.Button(id=wx.ID_HELP, label='Help', parent=self.panel1, style=0)
         self.btnHelp.Bind(wx.EVT_BUTTON, self.OnBtnHelp)
 
-        self.btnQuit = wx.Button(id=wx.ID_EXIT, label='Quit',
-                                 name='btnQuit', parent=self.panel1, style=0)
+        self.btnQuit = wx.Button(id=wx.ID_EXIT, label='Quit', parent=self.panel1, style=0)
 #        self.btnQuit.SetLabelMarkup("<b>%s</b>" % 'Quit')
         self.btnQuit.SetToolTip('Quit Application')
         self.btnQuit.Bind(wx.EVT_BUTTON, self.OnBtnQuit)
@@ -5990,14 +5953,12 @@ class OSVM(wx.Frame):
 
     def _dpcSetValue(self, date1, w1, date2, w2):
         if date1:
-            print(date1)
             d1 = wx.DateTime.FromDMY(int(date1.split('/')[1]),
                                      int(date1.split('/')[0]) - 1,	# Month starts from 0
                                      int(date1.split('/')[2]))
             w1.SetValue(d1)
 
         if date2:
-            print(date2)
             d2 = wx.DateTime.FromDMY(int(date2.split('/')[1]),
                                      int(date2.split('/')[0]) - 1,	# Month starts from 0
                                      int(date2.split('/')[2]))
@@ -6236,8 +6197,8 @@ class OSVM(wx.Frame):
         dlg = MediaViewer(filePath)
         ret = dlg.ShowModal()
         print('Exit of New MediaViewer. ret:%d' % ret)
-#       dlg.Destroy()
 
+        # Reset scrolling
         self.scrollWin1.ScrollChildIntoView(button)
         event.Skip()
 
@@ -6245,19 +6206,12 @@ class OSVM(wx.Frame):
         global viewMode
 
         button = event.GetEventObject()
-
         print('OnBtnSwitchMode(): Switching to: %s' % 'Sync Mode' if viewMode else 'View Mode')
         viewMode = not viewMode
         if viewMode:
             button.SetLabel('Switch to Sync Mode')
-#            self.cb1.SetLabel('Select Images')
-#            self.cb2.SetLabel('Select Videos')
-#            self.cb3.SetLabel('Select All')
         else:
             button.SetLabel('Switch to View Mode')
-#            self.cb1.SetLabel('Sync Images')
-#            self.cb2.SetLabel('Sync Videos')
-#            self.cb3.SetLabel('Sync All')
 
         # Simulate a 'Rescan' event
         self._btnRescan = getattr(self, "btnRescan")
@@ -6369,7 +6323,6 @@ class OSVM(wx.Frame):
             self.simicsLocTextCtrl.SetFocus()
         dlg.Destroy()
 
-#DP
     def _selectFiles(self, fileType):
         if viewMode:
             cnt = self._selectFilesByDate(fileType)
@@ -6385,6 +6338,7 @@ class OSVM(wx.Frame):
         self.fileType = FILETYPES[idx]
         print('Selected:',self.fileType)
         if self.fileType == 'JPG' or self.fileType == 'MOV':
+            self.OnBtnCancel(1)
             self._selectFiles(self.fileType)
         elif self.fileType == 'ALL':
             self._selectFiles('JPG')
@@ -6394,7 +6348,6 @@ class OSVM(wx.Frame):
             self.OnBtnCancel(1)
 
         event.Skip()
-#DP
 
     def OnSyncImages(self, event):
         global viewMode
@@ -6435,7 +6388,6 @@ class OSVM(wx.Frame):
             event.Skip()
             return
 
-        # If True, must browse the availRemoteFiles[] and schedule an operation for all available videos
         if button.GetValue():
             print ('Must schedule a request for selected/all videos')
             if viewMode:
@@ -6459,7 +6411,6 @@ class OSVM(wx.Frame):
     def OnSyncAll(self, event):
         button = event.GetEventObject()
 
-        # If True, must browse the availRemoteFiles[] and schedule an operation for all available files
         if button.GetValue():
             # Clear pending request list
             self._clearAllRequests()
@@ -6494,7 +6445,6 @@ class OSVM(wx.Frame):
                 self.fromDate = remOldestDate
                 button.SetValue(False)
             dlg.Destroy()
-#            self.fromDate = self._wxdate2pydate(fd) # Convert date to list
         else:
             self.fromDate = remOldestDate
 
@@ -6503,9 +6453,7 @@ class OSVM(wx.Frame):
         print ('OnFromDate(): fromDate: %s . Clearing pending list' % self.fromDate)
         self._clearAllRequests()
 
-#        if self.cb1.GetValue():		# Check if Sync Images button is set
         if self.fileType == 'JPG':
-            # If true, browse the availRemoteFiles[] and schedule requests
             print ('Must schedule a request for available images matching interval')
             if viewMode:
                 cnt = self._selectFilesByDate('JPG')
@@ -6516,9 +6464,7 @@ class OSVM(wx.Frame):
             self.updateStatusBar(msg)
             self.panel1.Refresh()
 
-#        if self.cb2.GetValue():		# Check if Sync Video button is set
         if self.fileType == 'MOV':
-            # If true, browse the availRemoteFiles[] and schedule requests
             print ('Must schedule a request for available video matching interval')
             if viewMode:
                 cnt = self._selectFilesByDate('MOV')
@@ -6529,9 +6475,7 @@ class OSVM(wx.Frame):
             self.updateStatusBar(msg)
             self.panel1.Refresh()
 
-#        if self.cb3.GetValue():		# Check if Sync All button is set
         if self.fileType == 'ALL':
-            # If true, browse the availRemoteFiles[] and schedule requests
             print ('Must schedule a request for available image/video matching interval')
             if viewMode:
                 cnt1 = self._selectFilesByDate('JPG')
@@ -6567,9 +6511,7 @@ class OSVM(wx.Frame):
         print ('OnToDate(): Clearing pending list')
         self._clearAllRequests()
 
-#        if self.cb1.GetValue():		# Check if Sync Images button is set
         if self.fileType == 'JPG':
-            # If true, browse the availRemoteFiles[] and schedule requests
             print ('Must schedule a request for available images matching inteval')
             if viewMode:
                 cnt = self._selectFilesByDate('JPG')
@@ -6580,9 +6522,7 @@ class OSVM(wx.Frame):
             self.updateStatusBar(msg)
             self.panel1.Refresh()
 
-#        if self.cb2.GetValue():		# Check if Sync Video button is set
         if self.fileType == 'MOV':
-            # If true, browse the availRemoteFiles[] and schedule requests
             print ('Must schedule a request for available video matching inteval')
             if viewMode:
                 cnt = self._selectFilesByDate('MOV')
@@ -6593,9 +6533,7 @@ class OSVM(wx.Frame):
             self.updateStatusBar(msg)
             self.panel1.Refresh()
 
-#        if self.cb3.GetValue():		# Check if Sync All button is set
         if self.fileType == 'ALL':
-            # If true, browse the availRemoteFiles[] and schedule requests
             print ('Must schedule a request for available image/video matching interval')
             if viewMode:
                 cnt1 = self._selectFilesByDate('JPG')
@@ -6619,12 +6557,12 @@ class OSVM(wx.Frame):
         td = self.dpc2.GetValue()
 
         self.fromDate = remOldestDate
-        if self.cb4.GetValue():	# Check if From Date cb is set
+        if self.fromCb.GetValue():	# Check if From Date cb is set
             self.fromDate = self._wxdate2pydate(fd)
             print('From Date:',self.fromDate)
 
         self.toDate = remNewestDate
-        if self.cb5.GetValue():	# Check if To Date cb is set
+        if self.toCb.GetValue():	# Check if To Date cb is set
             self.toDate = self._wxdate2pydate(td)
             print('To Date:',self.toDate)
 
@@ -6632,9 +6570,7 @@ class OSVM(wx.Frame):
         print ('Clearing pending list')
         self._clearAllRequests()
 
-#        if self.cb1.GetValue():		# Check if Sync Images button is set
         if self.fileType == 'JPG':
-            # If true, browse the availRemoteFiles[] and schedule requests
             print('Must schedule a request for available images matching interval')
             cnt = self._syncFiles('JPG')
             pendingOpsCnt = self.pendingOperationsCount()
@@ -6642,9 +6578,7 @@ class OSVM(wx.Frame):
             self.updateStatusBar(msg)
             self.panel1.Refresh()
 
-#        if self.cb2.GetValue():		# Check if Sync Video button is set
         if self.fileType == 'MOV':
-            # If true, browse the availRemoteFiles[] and schedule requests
             print ('Must schedule a request for available video matching interval')
             cnt = self._syncFiles('MOV')
             pendingOpsCnt = self.pendingOperationsCount()
@@ -6652,10 +6586,8 @@ class OSVM(wx.Frame):
             self.updateStatusBar(msg)
             self.panel1.Refresh()
 
-#        if self.cb3.GetValue():		# Check if Sync All button is set
         if self.fileType == 'ALL':
-            # If true, browse the availRemoteFiles[] and schedule requests
-            print ('Must schedule a request for available image/video matching inteval')
+            print ('Must schedule a request for available image/video matching interval')
             cnt1 = self._syncFiles('JPG')
             cnt2 = self._syncFiles('MOV')
             pendingOpsCnt = self.pendingOperationsCount()
@@ -6664,6 +6596,17 @@ class OSVM(wx.Frame):
             self.panel1.Refresh()
 
         #dumpOperationList("Pendng Request List", self.opList)
+        event.Skip()
+
+    def OnFileSortChoice(self, event):
+        global fileSortReverse
+
+        idx = self.fileSortChoice.GetSelection()
+        if (fileSortReverse and not idx) or (not fileSortReverse and idx):
+            print('OnFileSortChoice(): Nothing to do')
+        else:
+            fileSortReverse = (idx == 0)
+            self.OnBtnRescan(1)
         event.Skip()
 
     def OnBtnCast(self, event):
@@ -6725,7 +6668,6 @@ class OSVM(wx.Frame):
                     dlg = MediaViewer(localFilesSorted)
                 ret = dlg.ShowModal()
                 dlg.Destroy()
-                print('ret:',ret)
                 button.Enable()
             else:
                 msg = 'Starting Slideshow on %s' % (castDevice.name)
@@ -6743,18 +6685,6 @@ class OSVM(wx.Frame):
             # Must stop the Slideshow
             msg = 'Stopping the Slideshow'
             self.updateStatusBar(msg)
-#            if not castMediaCtrl:
-#                if self.mvFrame:
-#                    self.mvFrame.Destroy()
-#            else:
-#                self.ssThrLock.acquire()	# Block the thread
-#                print('Slideshow is paused')
-#                msg = ''
-#                self.updateStatusBar(msg)
-#            self._displayBitmap(button, 'play.png', wx.BITMAP_TYPE_PNG)
-#            button.SetName('btnPlay')
-#            button.SetToolTip('Start the Slideshow')
-
             self.ssThrLock.acquire()	# Block the thread
             print('Slideshow is paused')
             msg = ''
@@ -6767,8 +6697,6 @@ class OSVM(wx.Frame):
     def OnBtnRescan(self, event):
         global localFileInfos
         global slideShowLastIdx
-
-        button = event.GetEventObject()
 
         found = False
         # Is there any pending operation?
@@ -6822,7 +6750,7 @@ class OSVM(wx.Frame):
             self.statusBar1.SetStatusText('Sync Mode', 1)
 
         self._setMode(MODE_ENABLED, msg)
-        event.Skip()
+#        event.Skip()
 
     def _unSyncFiles(self, fileType=''): # Clear all requests associated to a given file type (JPG, MOV)
         print('Must clear all requests for %s' % (fileType))
@@ -6841,14 +6769,14 @@ class OSVM(wx.Frame):
         print('Syncing %s files' % (fileType))
         i = 0
         # Browse the list of buttons (remote files) and schedule a request if file matches fileType and date (if requested)
-        if self.cb4.GetValue():	# Check if From date cb is set
+        if self.fromCb.GetValue():	# Check if From date cb is set
             m = int(self.fromDate.split('/')[0])
             d = int(self.fromDate.split('/')[1])
             y = int(self.fromDate.split('/')[2])
             tf1 = datetime.datetime(y,m,d, 0, 0)    # year, month, day
             tf2 = time.mktime(tf1.timetuple())
 
-        if self.cb5.GetValue():	# Check if To date cb is set
+        if self.toCb.GetValue():	# Check if To date cb is set
             m = int(self.toDate.split('/')[0])
             d = int(self.toDate.split('/')[1])
             y = int(self.toDate.split('/')[2])
@@ -6869,13 +6797,13 @@ class OSVM(wx.Frame):
             remFileDate = rf[F_DATE]
             remFileSize = rf[F_SIZE]
 
-            if self.cb4.GetValue():	# Check if From date cb is set
+            if self.fromCb.GetValue():	# Check if From date cb is set
                 if remFileDateInSecs >= tf2:
                     pass
                 else:
                     continue
 
-            if self.cb5.GetValue():	# Check if To date cb is set
+            if self.toCb.GetValue():	# Check if To date cb is set
                 if remFileDateInSecs <= tt2:
                     pass
                 else:
@@ -6950,7 +6878,7 @@ class OSVM(wx.Frame):
         print('Selecting %s files' % (fileType))
         i = 0
         # Browse the list of buttons ( files) and schedule a request if file matches fileType and date (if requested)
-        if self.cb4.GetValue():	# Check if From date cb is set
+        if self.fromCb.GetValue():	# Check if From date cb is set
             m = int(self.fromDate.split('/')[0])
             d = int(self.fromDate.split('/')[1])
             y = int(self.fromDate.split('/')[2])
@@ -6959,7 +6887,7 @@ class OSVM(wx.Frame):
         else:
             tf2 = remOldestDate
 
-        if self.cb5.GetValue():	# Check if To date cb is set
+        if self.toCb.GetValue():	# Check if To date cb is set
             m = int(self.toDate.split('/')[0])
             d = int(self.toDate.split('/')[1])
             y = int(self.toDate.split('/')[2])
@@ -6976,13 +6904,13 @@ class OSVM(wx.Frame):
             if fileName.split('.')[1] != fileType:
                 continue
 
-            if self.cb4.GetValue():	# Check if From date cb is set
+            if self.fromCb.GetValue():	# Check if From date cb is set
                 if fileDate >= tf2:
                     pass
                 else:
                     continue
 
-            if self.cb5.GetValue():	# Check if To date cb is set
+            if self.toCb.GetValue():	# Check if To date cb is set
                 if fileDate <= tt2:
                     pass
                 else:
@@ -7120,8 +7048,7 @@ class OSVM(wx.Frame):
         self._setMode(MODE_ENABLED, msg)
 
         # Reset file selection check boxes
-#        for cb in [self.cb1,self.cb2,self.cb3,self.cb4,self.cb5]:
-        for cb in [self.cb4,self.cb5]:
+        for cb in [self.fromCb,self.toCb]:
             cb.SetValue(False)
 
     def OnCbOperation(self, event):
@@ -7236,7 +7163,6 @@ def main():
     global __modPath__
     global __system__
     global __imgDir__
-#    global __thumbDir__
     global __tmpDir__
     global __hostarch__
     global __initFilePath__
