@@ -175,10 +175,11 @@ DEFAULT_MAX_DOWNLOAD = 1
 DEFAULT_OVERWRITE_LOCAL_FILES = False
 DEFAULT_OSVM_ROOT_URL  = 'http://192.168.0.10:80'
 DEFAULT_OSVM_REM_BASE_DIR = '/DCIM'
-DEFAULT_OSVM_DOWNLOAD_DIR = os.path.join(expanduser("~"), 'download')
+DEFAULT_OSVM_DOWNLOAD_DIR = os.path.join(expanduser("~"), _osvmDir_, 'download')
 DEFAULT_THUMB_GRID_NUM_COLS = 10
 DEFAULT_THUMB_SCALE_FACTOR = 0.59
 DEFAULT_SLIDESHOW_DELAY = 5
+DEFAULT_SORT_ORDER = True # Mean More recent first
 
 # Preferences file option keys
 INI_VERSION = 'iniversion'
@@ -196,6 +197,7 @@ OVERWRITE_LOCAL_FILES = "overwritelocalfiles"
 SS_DELAY = 'slideshowdelay'
 LAST_CAST_DEVICE_NAME = 'lastcastdevicename'
 LAST_CAST_DEVICE_UUID = 'lastcastdeviceuuid'
+SORT_ORDER = 'filesortreverse'
 
 # Globals Managed by Preferences / Frame # In _osvmDir_
 htmlRootFile = 'htmlRootFile.html'
@@ -229,7 +231,7 @@ serverAddr = '0.0.0.0'
 iface = None
 allNetWorks = list() # List of all available networks
 knownNetworks = list()
-fileSortReverse = True
+fileSortReverse = DEFAULT_SORT_ORDER
 
 # List of root directories on the camera
 rootDirList = []
@@ -473,6 +475,7 @@ def printGlobals():
     global fileColors
     global ssDelay
     global knownNetworks
+    global fileSortReverse
 
     print('askBeforeCommit: %s' % askBeforeCommit)
     print('askBeforeExit: %s' % askBeforeExit)
@@ -487,6 +490,7 @@ def printGlobals():
     print('fileColors:', fileColors)
     print('ssDelay:', ssDelay)
     print('knownNetworks:', knownNetworks)
+    print('fileSortReverse:', fileSortReverse)
 
 def getTmpFile():
     f = tempfile.NamedTemporaryFile(delete=False)
@@ -2650,7 +2654,8 @@ class Preferences():
         self.config['Preferences'][OVERWRITE_LOCAL_FILES]  = str(DEFAULT_OVERWRITE_LOCAL_FILES)
         self.config['Preferences'][THUMB_GRID_COLUMNS]     = str(DEFAULT_THUMB_GRID_NUM_COLS)
         self.config['Preferences'][THUMB_SCALE_FACTOR]     = str(DEFAULT_THUMB_SCALE_FACTOR)
-        self.config['Preferences'][OSVM_DOWNLOAD_DIR]       = DEFAULT_OSVM_DOWNLOAD_DIR
+        self.config['Preferences'][OSVM_DOWNLOAD_DIR]      = DEFAULT_OSVM_DOWNLOAD_DIR
+        self.config['Preferences'][SORT_ORDER]             = str(DEFAULT_SORT_ORDER)
 
         self.config['Sync Mode Preferences'] = {}
         self.config['Sync Mode Preferences'][REM_BASE_DIR]           = DEFAULT_OSVM_REM_BASE_DIR
@@ -2692,6 +2697,7 @@ class Preferences():
         global lastCastDeviceName
         global lastCastDeviceUuid
         global knownNetworks
+        global fileSortReverse
 
         try:
             self.config.read( __initFilePath__)
@@ -2709,7 +2715,8 @@ class Preferences():
             overwriteLocalFiles   = str2bool(sectionPreferences[OVERWRITE_LOCAL_FILES])
             thumbnailGridColumns  = int(sectionPreferences[THUMB_GRID_COLUMNS])
             thumbnailScaleFactor  = float(sectionPreferences[THUMB_SCALE_FACTOR])
-            osvmDownloadDir        = sectionPreferences[OSVM_DOWNLOAD_DIR]
+            osvmDownloadDir       = sectionPreferences[OSVM_DOWNLOAD_DIR]
+            fileSortReverse       = str2bool(sectionPreferences[SORT_ORDER])
 
             sectionSyncModePreferences = self.config['Sync Mode Preferences']
             remBaseDir		  = sectionSyncModePreferences[REM_BASE_DIR]
@@ -2749,7 +2756,8 @@ class Preferences():
             savePreferencesOnExit = str2bool(sectionPreferences[SAVE_PREFS_ON_EXIT])
             thumbnailGridColumns  = int(sectionPreferences[THUMB_GRID_COLUMNS])
             thumbnailScaleFactor  = float(sectionPreferences[THUMB_SCALE_FACTOR])
-            osvmDownloadDir        = sectionPreferences[OSVM_DOWNLOAD_DIR]
+            osvmDownloadDir       = sectionPreferences[OSVM_DOWNLOAD_DIR]
+            fileSortReverse       = str2bool(sectionPreferences[SORT_ORDER])
 
             sectionSyncModePreferences = self.config['Sync Mode Preferences']
             remBaseDir		  = sectionSyncModePreferences[REM_BASE_DIR]
@@ -2791,6 +2799,7 @@ class Preferences():
         global overwriteLocalFiles
         global castDevice
         global knownNetworks
+        global fileSortReverse
 
         print("Saving preference file:", __initFilePath__)
 
@@ -2804,7 +2813,8 @@ class Preferences():
         self.config['Preferences'][OVERWRITE_LOCAL_FILES]  = str(overwriteLocalFiles)
         self.config['Preferences'][THUMB_GRID_COLUMNS]     = str(thumbnailGridColumns)
         self.config['Preferences'][THUMB_SCALE_FACTOR]     = str(thumbnailScaleFactor)
-        self.config['Preferences'][OSVM_DOWNLOAD_DIR]       = osvmDownloadDir
+        self.config['Preferences'][OSVM_DOWNLOAD_DIR]      = osvmDownloadDir
+        self.config['Preferences'][SORT_ORDER]             = str(fileSortReverse)
 
         self.config['Sync Mode Preferences'][REM_BASE_DIR]            = remBaseDir
         self.config['Sync Mode Preferences'][OSVM_FILES_DOWNLOAD_URL] = osvmFilesDownloadUrl
@@ -3602,6 +3612,7 @@ class PreferencesDialog(wx.Dialog):
         parent.Add(self.cb5, 0, border=0, flag=wx.EXPAND)
         parent.Add(self.cb6, 0, border=0, flag=wx.EXPAND)
         parent.Add(self.maxDownloadSizer, 0, border=0, flag= wx.EXPAND)
+        parent.Add(self.fileSortSizer, 0, border=0, flag= wx.EXPAND)
         parent.Add(self.colorPickerSizer, 0, border=0, flag= wx.EXPAND)
 
     def _init_colorPickerSizer_Items(self, parent):
@@ -3613,6 +3624,12 @@ class PreferencesDialog(wx.Dialog):
                    flag=wx.ALIGN_CENTER_VERTICAL | wx.BOTTOM | wx.LEFT | wx.TOP)
         parent.Add(4, 8, border=0, flag=0)
         parent.Add(self.maxDownloadChoice, 0, border=5, flag=wx.ALL)
+
+    def _init_fileSortSizer_Items(self, parent):
+        parent.Add(self.fileSortTxt, 0, border=5,
+                   flag=wx.ALIGN_CENTER_VERTICAL | wx.BOTTOM | wx.LEFT | wx.TOP)
+        parent.Add(4, 8, border=0, flag=0)
+        parent.Add(self.fileSortChoice, 0, border=5, flag=wx.ALL)
 
     def _init_viewModeBoxSizer_Items(self, parent):
         parent.Add(self.staticText8, 0, border=5,
@@ -3692,6 +3709,9 @@ class PreferencesDialog(wx.Dialog):
         # Max Download boxSizer
         self.maxDownloadSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
 
+        # File Sort boxSizer
+        self.fileSortSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
+
         # Color Picker boxSizer
         self.colorPickerSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
 
@@ -3724,6 +3744,7 @@ class PreferencesDialog(wx.Dialog):
         self._init_globPrefsBoxSizer_Items(self.globPrefsBoxSizer)
         self._init_prefsGridSizer1_Items(self.prefsGridSizer1)
         self._init_maxDownloadSizer_Items(self.maxDownloadSizer)
+        self._init_fileSortSizer_Items(self.fileSortSizer)
         self._init_colorPickerSizer_Items(self.colorPickerSizer)
         self._init_viewModeBoxSizer_Items(self.viewModeBoxSizer)
         self._init_localConfigBoxSizer_Items(self.localConfigBoxSizer)
@@ -3751,6 +3772,7 @@ class PreferencesDialog(wx.Dialog):
         global osvmFilesDownloadUrl
         global fileColors
         global remBaseDir
+        global fileSortReverse
 
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self,
                                size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
@@ -3784,8 +3806,16 @@ class PreferencesDialog(wx.Dialog):
         self.maxDownloadChoice.SetStringSelection(str(maxDownload))
         self.maxDownloadChoice.Bind(wx.EVT_CHOICE, self.OnMaxDownloadChoice, id=wx.ID_ANY)
 
+        self.sortTypes = ['Recent First', 'Older First']
+        self.fileSortTxt = wx.StaticText(label='Sorting Order:', parent=self.panel1, id=wx.ID_ANY)
+        self.fileSortChoice = wx.Choice(choices=[v for v in self.sortTypes], 
+                                        id=wx.ID_ANY, parent=self.panel1, style=0)
+        self.fileSortChoice.SetToolTip('Select sort order')
+        self.fileSortChoice.SetStringSelection(self.sortTypes[0] if fileSortReverse else self.sortTypes[1])
+        self.fileSortChoice.Bind(wx.EVT_CHOICE, self.OnFileSortChoice, id=wx.ID_ANY)
+
         self.colorPickerBtn = wx.Button(id=wx.ID_ANY, label='Color Chooser',
-                                        name='colorPicker', parent=self.panel1, style=0)
+                                        parent=self.panel1, style=0)
         self.colorPickerBtn.SetToolTip('Choose colors of package status')
         self.colorPickerBtn.Bind(wx.EVT_BUTTON, self.OnColorPicker)
 
@@ -3893,6 +3923,7 @@ class PreferencesDialog(wx.Dialog):
         self.cb5.SetValue(DEFAULT_ASK_BEFORE_EXIT)
         self.cb6.SetValue(DEFAULT_OVERWRITE_LOCAL_FILES)
         self.maxDownloadChoice.SetStringSelection(str(DEFAULT_MAX_DOWNLOAD))
+        self.fileSortChoice.SetStringSelection(self.sortTypes[0])
         self.ssDelayChoice.SetStringSelection(str(DEFAULT_SLIDESHOW_DELAY))
         self.downLocTextCtrl.SetValue(DEFAULT_OSVM_DOWNLOAD_DIR)
         self.cameraUrlTextCtrl.SetValue(DEFAULT_OSVM_ROOT_URL)
@@ -3913,14 +3944,16 @@ class PreferencesDialog(wx.Dialog):
         global fileColors
         global remBaseDir
         global ssDelay
+        global fileSortReverse
 
-        askBeforeCommit = self.cb2.GetValue()
+        askBeforeCommit       = self.cb2.GetValue()
         savePreferencesOnExit = self.cb3.GetValue()
         askBeforeExit         = self.cb5.GetValue()
         overwriteLocalFiles   = self.cb6.GetValue()
         maxDownload           = int(self.maxDownloadChoice.GetSelection())
         remBaseDir            = self.remBaseDirTextCtrl.GetValue()
         ssDelay               = int(self.ssDelayChoice.GetSelection()) + MIN_SS_DELAY
+        fileSortReverse       = not (int(self.fileSortChoice.GetSelection()))
 
         # Update from temporary variables
         osvmDownloadDir      = self.tmpOsvmDownloadDir
@@ -3958,14 +3991,42 @@ class PreferencesDialog(wx.Dialog):
         event.Skip()
 
     def OnBtnCancel(self, event):
+        global fileColors
+
         # Restore initial colors
         fileColors = deepcopy(self._tmpPkgColors)
         self.EndModal(wx.ID_CANCEL)
         event.Skip()
 
     def OnBtnApply(self, event):
+        global osvmDownloadDir
+        global __thumbDir__
+
         self._updateGlobalsFromGUI()
         self.parent._savePreferences()
+
+        if not os.path.isdir(osvmDownloadDir):
+            print('Creating:', osvmDownloadDir)
+            try:
+                os.mkdir(osvmDownloadDir)
+            except OSError as e:
+                msg = "Cannot create %s: %s" % (osvmDownloadDir, "{0}".format(e.strerror))
+                dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
+                dlg.ShowModal()
+                self.EndModal(wx.ID_CANCEL)
+                return
+
+        __thumbDir__ = os.path.join(osvmDownloadDir, '.thumbnails')
+        if not os.path.isdir(__thumbDir__):
+            print('Creating:', __thumbDir__)
+            try:
+                os.mkdir(__thumbDir__)
+            except OSError as e:
+                msg = "Cannot create %s: %s" % (__thumbDir__, "{0}".format(e.strerror))
+                dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
+                dlg.ShowModal()
+                self.EndModal(wx.ID_CANCEL)
+                return
         self.EndModal(wx.ID_APPLY)
         event.Skip()
 
@@ -3984,6 +4045,9 @@ class PreferencesDialog(wx.Dialog):
     def OnMaxDownloadChoice(self, event):
         global maxDownload
         maxDownload = int(self.maxDownloadChoice.GetSelection())
+        event.Skip()
+
+    def OnFileSortChoice(self, event):
         event.Skip()
 
     def OnSsDelayChoice(self, event):
@@ -6697,6 +6761,7 @@ class OSVM(wx.Frame):
     def OnBtnRescan(self, event):
         global localFileInfos
         global slideShowLastIdx
+        global fileSortReverse
 
         found = False
         # Is there any pending operation?
@@ -6717,6 +6782,8 @@ class OSVM(wx.Frame):
         wx.BeginBusyCursor(cursor=wx.HOURGLASS_CURSOR)
         # Read in new parameters
         self._updateGlobalsFromGUI()
+        # Set file sort choice
+        self.fileSortChoice.SetStringSelection(self.sortTypes[0] if fileSortReverse else self.sortTypes[1])
         # Update information
         localFilesCnt,availRemoteFilesCnt = updateFileDicts()
         slideShowLastIdx = localFilesCnt
@@ -7268,7 +7335,6 @@ def main():
     print('Host Archictecture:', __hostarch__)
     print('Path:', __modPath__)
     print('Image Dir:', __imgDir__)
-#    print('Thumbnail Dir:', __thumbDir__)
     print('Help Path:', __helpPath__)
     print('Init File:', __initFilePath__)
     if args.logfile:
