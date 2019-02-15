@@ -5527,11 +5527,11 @@ class OSVM(wx.Frame):
         if suffix == 'MOV':
             print('_displayThumbnail(): Overlaying %s' % image)
             overlay = Image.open(image)
-            background = Image.open(os.path.join(__imgDir__, "play2-160x120.png"))
+            background = Image.open(os.path.join(__imgDir__, "play4-160x120.png"))
             background = background.convert("RGB")
             overlay = overlay.convert("RGB")
 
-            newThumbnail = Image.blend(background, overlay, 0.8)
+            newThumbnail = Image.blend(background, overlay, 0.7) #0.8)
 
             d=os.path.dirname(image)
             f=os.path.basename(image)
