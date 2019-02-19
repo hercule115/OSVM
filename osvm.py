@@ -294,7 +294,7 @@ FILE_SLIDESHOW = -4
 OPERATION_NAMES = {FILE_DOWNLOAD:'DOWNLOAD', FILE_DELETE:'DELETE'}
 
 # Max # of operations to commit in a single click
-MAX_OPERATIONS = 500
+MAX_OPERATIONS = 2000
 
 # Max delay interval for slideshow
 MIN_SS_DELAY = 3
@@ -2231,7 +2231,7 @@ class MediaViewer(wx.Dialog):
 
     ######### Image Viewer ##########
     def imageViewer(self):
-        print('Launching new imageViewer')
+        print('Launching imageViewer')
         self.imageFileListOrPath = self.mediaFileListOrPath
 
         width, height = wx.DisplaySize()
@@ -2249,16 +2249,15 @@ class MediaViewer(wx.Dialog):
             self.listToUse = self.imageFileListOrPath	# Set list to use
             self.imgDirName = osvmDownloadDir
             self.imgIdx = 0
-
             # Load first image manually
             self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[0][F_NAME])
             self._imageLoad(self.imgFilePath)
         else: # Single file
-            self.listToUse = localFilesSorted            # Set list to use
             # Directory containing the images
             self.imgDirName = os.path.dirname(self.imageFileListOrPath)
             # Get image index in localFilesSorted
-            self.imgIdx = [x[0] for x in self.listToUse].index(os.path.basename(self.imageFileListOrPath))
+            self.imgIdx = [x[0] for x in localFilesSorted].index(os.path.basename(self.imageFileListOrPath))
+            self.listToUse = [localFilesSorted[self.imgIdx]]            # Set list to use
             self._imageLoad(self.imageFileListOrPath)
         
     def _imageInitialize(self):
@@ -2364,6 +2363,7 @@ class MediaViewer(wx.Dialog):
             button.SetLabel('Play')
        
     def imageOnBtnQuit(self, event):
+        self.Destroy()
         self.EndModal(wx.ID_OK)
 
     ######### Video Viewer ##########
@@ -4349,11 +4349,12 @@ class OSVMConfig(wx.Frame):
             self.MainConfigThread.join() # Block until thread has finished
 
         self.setBusyCursor(True)
-        frame = OSVM(None, -1, "%s" % (_myLongName_))
+        frame = OSVM(self, -1, "%s" % (_myLongName_))
         self.setBusyCursor(False)
-        frame.Show(True)
-        self.Close()
-        event.Skip()
+        self.panel1.Enable(False)
+        frame.ShowModal()
+        self.panel1.Enable(True)
+        self.Destroy()
 
     def OnBtnEnterSyncMode(self, event):
         global viewMode
@@ -4379,11 +4380,14 @@ class OSVMConfig(wx.Frame):
                 msg = '%s READY. You are OFFLINE' % (_myLongName_)
                 availRemoteFilesCnt = 0
 
-        frame = OSVM(None, -1, "%s" % (_myLongName_))
-        frame.Show(True)
+        self.setBusyCursor(True)
+        frame = OSVM(self, -1, "%s" % (_myLongName_))
+        self.setBusyCursor(False)
+        self.panel1.Enable(False)
+        frame.ShowModal()
+        self.panel1.Enable(True)
         self.timer.Stop()
-        self.Close()
-        event.Skip()
+        self.Destroy()
 
     def OnBtnExit(self, event):
         self.Destroy()
@@ -4422,6 +4426,12 @@ class OSVMConfig(wx.Frame):
             wx.BeginBusyCursor(cursor=wx.HOURGLASS_CURSOR)
         else:
             wx.EndBusyCursor()
+
+#    def MakeModal(self, modal=True):
+#        if modal and not hasattr(self, '_disabler'):
+#            self._disabler = wx.WindowDisabler(self)
+#        if not modal and hasattr(self, '_disabler'):
+#            del self._disabler
 
 ####
 class InstallDialog(wx.Dialog):
@@ -5124,8 +5134,24 @@ class OSVM(wx.Frame):
         self.ssThr.setDaemon(True)
         self.ssThr.start()
 
+#        self.parent.Enable(False)
+
         self._initialize()
 
+    def MakeModal(self, modal=True):
+        if modal and not hasattr(self, '_disabler'):
+            self._disabler = wx.WindowDisabler(self)
+        if not modal and hasattr(self, '_disabler'):
+            del self._disabler
+
+    def ShowModal(self):
+        self.MakeModal(True)
+        self.Show()
+
+        # now to stop execution start a event loop 
+        self.eventLoop = wx.GUIEventLoop()
+        self.eventLoop.Run()
+ 
     def _updateGlobalsFromGUI(self):
         #printGlobals()
         pass
@@ -5527,7 +5553,7 @@ class OSVM(wx.Frame):
         if suffix == 'MOV':
             print('_displayThumbnail(): Overlaying %s' % image)
             overlay = Image.open(image)
-            background = Image.open(os.path.join(__imgDir__, "play4-160x120.png"))
+            background = Image.open(os.path.join(__imgDir__, "play2-160x120.png"))
             background = background.convert("RGB")
             overlay = overlay.convert("RGB")
 
@@ -6196,6 +6222,8 @@ class OSVM(wx.Frame):
         global serverAddr
 
         button = event.GetEventObject()
+        id = event.GetId()
+
         found = False
         # Retrieve associated button entry in thumbButtons[].
         # Each entry in thumbButtons[] is: [widget, filename, fgcol, bgcol]
@@ -6330,7 +6358,10 @@ class OSVM(wx.Frame):
         else:
             if savePreferencesOnExit:
                 self.prefs._savePreferences()
-            self.Destroy()    # Bye Bye
+
+        self.MakeModal(False) # Re-enables parent window
+        self.eventLoop.Exit()
+        self.Destroy()    # Bye Bye
 
     def OnClose(self, event):
         print ('OnClose() event')
@@ -7008,7 +7039,12 @@ class OSVM(wx.Frame):
             button = [x[0] for x in self.thumbButtons if x[1] == fileName]
             e = [button, fileName, FILE_SELECT, -1, -1]
 
-            op = [x for x in self.opList if not x[OP_STATUS]][0] # First free slot
+            try:
+                op = [x for x in self.opList if not x[OP_STATUS]][0] # First free slot
+            except:
+                msg = 'Maximum selection (%d) reached' % MAX_OPERATIONS
+                self.updateStatusBar(msg, fgcolor=wx.WHITE, bgcolor=wx.RED)
+                break
             self._scheduleOperation(op, e)
             i += 1
         return i
@@ -7372,9 +7408,12 @@ RSSI:           %s""" % (iname, interface.ssid(), interface.bssid(),interface.tr
             print('No Network Interface')
 
     frame = OSVMConfig(None, -1, "%s" % (_myLongName_))
+#    frame.MakeModal(modal=True)
     frame.Show(True)
 
+#    app.SetTopWindow(frame)
     app.MainLoop()
+    print('End of MainLoop')
     # Should never happen
     #print ("Application has been killed !")
 
