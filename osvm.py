@@ -132,7 +132,6 @@ __imgDir__          = None
 __thumbDir__        = None
 __tmpDir__          = None
 __initFilePath__    = None
-__historyFilePath__ = None
 __logFilePath__     = None
 __helpPath__        = None
 __pythonBits__      = None
@@ -163,7 +162,6 @@ if __system__ == 'Windows':
 # Constants
 _osvmDir_          = '.osvm'		# In home directory
 _initFile_        = 'osvm.ini'		# In _osvmDir_
-_historyFile_     = 'osvm-hist.txt'	# In _osvmDir_
 _logFile_         = 'osvm-log.txt'	# In _osvmDir_
 _iniFileVersion_  = '1'
 
@@ -495,40 +493,6 @@ def printGlobals():
 def getTmpFile():
     f = tempfile.NamedTemporaryFile(delete=False)
     return f.name
-
-# Thread safe function to add an entry in the history file
-def addHistoryEntry(operation, msg):
-    global __historyFilePath__
-    global _osvmDir_
-
-    print('addHistoryEntry(%d, %s)' % (operation, msg))
-    numTries = 10
-    waitTime = 10
-    lockFile = os.path.join(os.path.join(expanduser("~"), _osvmDir_), '.osvm.lock')
-    acquired = False
-    for i in range(numTries):
-        tmpFile = getTmpFile()
-        if not os.path.exists(lockFile):
-            try:
-                shutil.move(tmpFile,lockFile)
-                acquired = True
-            except (OSError,ValueError,IOError) as e:
-                print("addHistoryEntry():",e)
-                pass
-        if acquired:
-            try:
-                currTime = time.strftime('%m%d%y%H%M%S', time.localtime())
-                entry = "%s: %s: %s\n" % (currTime, OPERATION_NAMES[operation], msg)
-                f = open(__historyFilePath__, 'a')
-                f.write(entry)
-                f.close()
-                print("addHistoryEntry(): %d %s" % (i,entry))
-            finally:
-                os.remove(lockFile)
-            break
-        os.remove(tmpFile)
-        time.sleep(waitTime)
-    assert acquired, 'maximum tries reached, failed to acquire lock file'
 
 def dumpOperationList(title, oplist):
     optype = ["NOT USED", "DOWNLOAD", "DELETE"]
@@ -1123,8 +1087,6 @@ def deleteLocalFile(pDialog, filePath):
     print('removeCmd =',removeCmd,'ret=',ret,'msg=',msg)
     if not ret:
         msg = "File %s successfully removed\n" % (filePath)
-        # Add entry in history file
-        addHistoryEntry(FILE_DELETE, "File %s removed" % (filePath))
         localFilesCnt = localFilesInfo(osvmDownloadDir)
 
     wx.CallAfter(pDialog.installError, ret, msg)
@@ -2055,9 +2017,6 @@ class InstallThread(threading.Thread):
             wx.CallAfter(self._pDialog.endStep, op, 0)
             time.sleep(1) # some time for the GUI to refresh
 
-            # Add entry in history file
-            addHistoryEntry(FILE_DOWNLOAD, self.localFile)
-
             op[OP_INTH] = None # Done with this op
             self._workQueue.task_done()
 
@@ -2370,7 +2329,7 @@ class MediaViewer(wx.Dialog):
     def videoViewer(self):
         global osvmDownloadDir
 
-        print('Launching new videoViewer')
+        print('Launching videoViewer')
         self.videoFileListOrPath = self.mediaFileListOrPath
         self.videoDirName = osvmDownloadDir
 
@@ -4853,7 +4812,7 @@ class InstallDialog(wx.Dialog):
         self.btnCancel.Disable()
         self.timer.Stop()
         oMsg = self.statusBar.GetValue()
-        self.statusBar.SetValue(oMsg + '\n' + msg + '\n' + 'End of installation. %d error(s)' % self.errorCnt)
+        self.statusBar.SetValue(oMsg + '\n' + msg + '\n' + 'End Of Transfer. %d error(s)' % self.errorCnt)
         # Notify parent to stop any animation
         wx.CallAfter(self.parent.finish)
 
@@ -5539,31 +5498,42 @@ class OSVM(wx.Frame):
          # convert it to a wx.Bitmap, and put it on the wx.StaticBitmap
         widget.SetBitmap(wx.Bitmap(Img))
 
+    # Overlay the thumbnail image with a fixed 'Play' image. Return the new image pathname
+    def _overlayThumbnail(self, image, type):
+        global __imgDir__
+
+        imgSuffix = {
+            wx.BITMAP_TYPE_JPEG: 'JPG',
+            wx.BITMAP_TYPE_PNG: 'PNG',
+            }
+        d=os.path.dirname(image)
+        f=os.path.basename(image)
+        suffix = image.rsplit('.')[-1:][0]
+        nf='%s-Play.%s.%s' % (f.rsplit('.',1)[0], suffix, imgSuffix[type])
+        newThumbnailPathname = os.path.join(d,nf)
+
+        if os.path.exists(newThumbnailPathname):
+#            print('_overlayThumbnail(): Using existing file %s' % newThumbnailPathname)
+            return newThumbnailPathname
+
+        print('_overlayThumbnail(): Overlaying %s' % image)
+        overlay = Image.open(image)
+        background = Image.open(os.path.join(__imgDir__, "play2-160x120.png"))
+        background = background.convert("RGB")
+        overlay = overlay.convert("RGB")
+
+        newThumbnail = Image.blend(background, overlay, 0.7) #0.8)
+        newThumbnail.save(newThumbnailPathname)
+        return newThumbnailPathname
+
     def _displayThumbnail(self, widget, image, type):
         global __thumbDir_
         global __imgDir__
         global thumbnailScaleFactor
 
-        imgTypes = {
-            wx.BITMAP_TYPE_JPEG: 'JPG',
-            wx.BITMAP_TYPE_PNG: 'PNG',
-            }
-
         suffix = image.rsplit('.')[-1:][0]
         if suffix == 'MOV':
-            print('_displayThumbnail(): Overlaying %s' % image)
-            overlay = Image.open(image)
-            background = Image.open(os.path.join(__imgDir__, "play2-160x120.png"))
-            background = background.convert("RGB")
-            overlay = overlay.convert("RGB")
-
-            newThumbnail = Image.blend(background, overlay, 0.7) #0.8)
-
-            d=os.path.dirname(image)
-            f=os.path.basename(image)
-            nf='%s-play.MOV.%s' % (f.rsplit('.',1)[0], imgTypes[type])
-            newThumbnailPathname = os.path.join(d,nf)
-            newThumbnail.save(newThumbnailPathname)
+            newThumbnailPathname = self._overlayThumbnail(image, type)
             Img = wx.Image(newThumbnailPathname, type)
         else:
             Img = wx.Image(image, type)
@@ -6285,9 +6255,10 @@ class OSVM(wx.Frame):
         msg = 'Launching internal viewer...'
         self.updateStatusBar(msg)
 
-        print('Launching New MediaViewer')
+        print('Launching MediaViewer')
         dlg = MediaViewer(filePath)
         ret = dlg.ShowModal()
+        dlg.Destroy()
         print('Exit of New MediaViewer. ret:%d' % ret)
 
         # Reset scrolling
@@ -6317,6 +6288,11 @@ class OSVM(wx.Frame):
         dlg = WifiDialog(self)
         ret = dlg.ShowModal()
         dlg.Destroy()
+        # Simulate a 'Rescan' event
+        self._btnRescan = getattr(self, "btnRescan")
+        evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self._btnRescan.GetId())
+        evt.SetEventObject(self.btnRescan)
+        wx.PostEvent(self.btnRescan, evt)
         event.Skip()
 
     def OnBtnHelp(self, event):
@@ -7269,14 +7245,12 @@ def main():
     global __tmpDir__
     global __hostarch__
     global __initFilePath__
-    global __historyFilePath__
     global __logFilePath__
     global __helpPath__
     global __pythonBits__
     global __pythonVersion__
     global _myVersion_
     global _initFile_
-    global _historyFile_
     global _osvmDir_
     global _logFile_
     global DEFAULT_FILE_COLORS
@@ -7314,7 +7288,6 @@ def main():
     __modPath__         = module_path(main)
     __imgDir__          = os.path.join(os.path.dirname(__modPath__), 'images')
     __initFilePath__    = os.path.join(osvmdirpath, _initFile_)
-    __historyFilePath__ = os.path.join(osvmdirpath, _historyFile_)
     __logFilePath__     = None
     __helpPath__        = os.path.join(os.path.dirname(__modPath__), 'help.htm')
 
@@ -7374,7 +7347,7 @@ def main():
     print('Help Path:', __helpPath__)
     print('Init File:', __initFilePath__)
     if args.logfile:
-        print('History File: %s' %  (__historyFilePath__))
+        print('Log File: %s' %  (__logFilePath__))
     print('Python Executable: %dbits' % (__pythonBits__))
                                     
     # adds more named colours to wx.TheColourDatabase
@@ -7408,7 +7381,6 @@ RSSI:           %s""" % (iname, interface.ssid(), interface.bssid(),interface.tr
             print('No Network Interface')
 
     frame = OSVMConfig(None, -1, "%s" % (_myLongName_))
-#    frame.MakeModal(modal=True)
     frame.Show(True)
 
 #    app.SetTopWindow(frame)
