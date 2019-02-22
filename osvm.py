@@ -6259,11 +6259,11 @@ class OSVM(wx.Frame):
         dlg = MediaViewer(filePath)
         ret = dlg.ShowModal()
         dlg.Destroy()
-        print('Exit of New MediaViewer. ret:%d' % ret)
+        print('Exit ofw MediaViewer. ret:%d' % ret)
 
         # Reset scrolling
         self.scrollWin1.ScrollChildIntoView(button)
-        event.Skip()
+#        event.Skip()
 
     def OnBtnSwitchMode(self, event):
         global viewMode
