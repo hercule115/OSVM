@@ -76,6 +76,7 @@ import wx.lib.scrolledpanel as scrolled
 import wx.adv
 import socket
 import datetime
+import simpleQRScannerModule
 
 disabledModules= list()
 try:
@@ -229,7 +230,7 @@ serverAddr = '0.0.0.0'
 iface = None
 allNetWorks = list() # List of all available networks
 knownNetworks = list()
-fileSortReverse = DEFAULT_SORT_ORDER
+fileSortRecentFirst = DEFAULT_SORT_ORDER
 
 # List of root directories on the camera
 rootDirList = []
@@ -473,7 +474,7 @@ def printGlobals():
     global fileColors
     global ssDelay
     global knownNetworks
-    global fileSortReverse
+    global fileSortRecentFirst
 
     print('askBeforeCommit: %s' % askBeforeCommit)
     print('askBeforeExit: %s' % askBeforeExit)
@@ -488,7 +489,7 @@ def printGlobals():
     print('fileColors:', fileColors)
     print('ssDelay:', ssDelay)
     print('knownNetworks:', knownNetworks)
-    print('fileSortReverse:', fileSortReverse)
+    print('fileSortRecentFirst:', fileSortRecentFirst)
 
 def getTmpFile():
     f = tempfile.NamedTemporaryFile(delete=False)
@@ -596,9 +597,7 @@ def scanForNetworks():
                 ssid,bssid,passwd = kn.split(',')
                 if n_ssid == ssid and n_bssid == bssid:
                     n_known = True
-                else:
-                    n_known = False
-                break
+                    break
         allNetworks.append((n_ssid,n_bssid,'',n_rssi,n_channel,n_securityMode,n_known,n))
     return None
 
@@ -666,7 +665,7 @@ def localFilesInfo(dirName):
     global localFilesSorted
     global availRemoteFiles
     global viewMode
-    global fileSortReverse
+    global fileSortRecentFirst
 
     print('localFilesInfo():',dirName)
     localFileInfos = {}
@@ -706,7 +705,7 @@ def localFilesInfo(dirName):
         fileDate = statinfo.st_mtime # in seconds
         localFileInfos[fileName] = [fileName,localFileSize,fileDate,filePath]
         i += 1
-    localFilesSorted = sorted(list(localFileInfos.items()), key=lambda x: int(x[1][F_DATE]), reverse=fileSortReverse) #True)
+    localFilesSorted = sorted(list(localFileInfos.items()), key=lambda x: int(x[1][F_DATE]), reverse=fileSortRecentFirst) #True)
     return i
 
 def downloadThumbnail(e):
@@ -763,7 +762,7 @@ def getRootDirInfo(rootDir, uri): # XXX
     global htmlRootFile
     global htmlDirFile
     global availRemoteFilesSorted
-    global fileSortReverse
+    global fileSortRecentFirst
 
     if cameraConnected:
         print("getRootDirInfo(): Downloading from network: %s" % (uri))
@@ -823,7 +822,7 @@ def getRootDirInfo(rootDir, uri): # XXX
     print("getRootDirInfo(): %d files found" % i)
 
     # Sort the dict by date: Latest file first
-    availRemoteFilesSorted = sorted(list(availRemoteFiles.items()), key=lambda x: int(x[1][F_DATEINSECS]), reverse=fileSortReverse) #True)
+    availRemoteFilesSorted = sorted(list(availRemoteFiles.items()), key=lambda x: int(x[1][F_DATEINSECS]), reverse=fileSortRecentFirst) #True)
     for e in availRemoteFilesSorted:
         print("Detected remote file: %s size %d created %s %s %d" % (e[1][F_NAME],e[1][F_SIZE],getHumanDate(e[1][F_DATE]),getHumanTime(e[1][F_TIME]),int(e[1][F_DATEINSECS])))
     return i
@@ -1442,7 +1441,10 @@ class WifiDialog(wx.Dialog):
 
         for i in range(1,rows):
             self.onerowfields = list()
-            btn = wx.RadioButton(self.panel2, label=self.netProps[i][0], style=(wx.RB_GROUP if not i else 0)) # SSID
+            btn = wx.RadioButton(self.panel2, 
+                                 label=self.netProps[i][0],
+                                 name=self.netProps[i][0], 
+                                 style=(wx.RB_GROUP if not i else 0)) # SSID
 #            btn = wx.RadioButton(self.panel2, style=(wx.RB_GROUP if not i else 0)) # SSID
 #            btn.SetLabelMarkup("<b>%s</b>" % self.netProps[i][0])
             btn.Bind(wx.EVT_RADIOBUTTON, self.OnRadioButton)
@@ -1470,6 +1472,11 @@ class WifiDialog(wx.Dialog):
                 self.gsNet.Add(w, proportion=0, flag=wx.EXPAND)
 
         # widgets at the Bottom 
+        # Scan QR Code button
+        self.btnScanQR = wx.Button(id=wx.ID_ANY, label='Scan QR Code', parent=self.panel1, style=0)
+        self.btnScanQR.SetToolTip('Scan QR Code from Camera')
+        self.btnScanQR.Bind(wx.EVT_BUTTON, self.OnBtnScanQR)
+
         # Cancel button
         self.btnCancel = wx.Button(id=wx.ID_CANCEL, parent=self.panel1, style=0)
         self.btnCancel.SetToolTip('Discard changes')
@@ -1498,6 +1505,8 @@ class WifiDialog(wx.Dialog):
         parent.Add(4, 4, 1, border=0, flag=wx.EXPAND)
 
     def _init_bottomBoxSizer_Items(self, parent):
+        parent.Add(self.btnScanQR, 0, border=0, flag=wx.EXPAND)
+        parent.Add(16, 4, border=0, flag=wx.EXPAND)
         parent.Add(self.btnCancel, 0, border=0, flag=wx.EXPAND)
         parent.Add(4, 4, border=0, flag=wx.EXPAND)
         parent.Add(self.btnOK, 0, border=0, flag=wx.EXPAND)
@@ -1518,7 +1527,7 @@ class WifiDialog(wx.Dialog):
         button = event.GetEventObject()
         for k,v in self.btnDir.items():
             if v == button:
-                print('WifiDialog(): Using Network:',k)
+                print('WifiDialog(): Selecting Network:',k)
                 self.netkey = k
         event.Skip()
 
@@ -1579,7 +1588,7 @@ class WifiDialog(wx.Dialog):
         self.timer.Stop()
 
         if iface.ssid() == self.net[NET_SSID] and iface.bssid() == self.net[NET_BSSID]:
-            print('WifiDialog(): Using same network')
+            print('WifiDialog(): Using already selected network')
             self.EndModal(wx.ID_OK)
             event.Skip()
             return
@@ -1624,6 +1633,36 @@ class WifiDialog(wx.Dialog):
         ret = dlg.ShowModal()
         dlg.Destroy()
         self.EndModal(wx.ID_OK)
+        event.Skip()
+
+    def OnBtnScanQR(self, event):
+        print('Launching QR Scanner')
+        dlg = simpleQRScannerModule.ShowCapture(self, -1)
+        ret = dlg.ShowModal()
+        dlg.Destroy()
+        print('End of capture session')
+#        simpleQRScannerModule.OISData = ['OIS1', 'TG-4-P-BHJ310474', '69074749']
+        simpleQRScannerModule.OISData = ['OIS1', 'HomeSweetHome_EXT', '2128819390']
+        print(simpleQRScannerModule.OISData)
+        if simpleQRScannerModule.OISData[0] == 'OIS1':
+            scannedSSID = simpleQRScannerModule.OISData[1]
+            print('Looking for scanned SSID %s in detected networks' % scannedSSID)
+
+            for onerowfields in self.fields:
+                ssid = onerowfields[0].GetLabel()
+                if ssid == scannedSSID:
+                    break
+            print(onerowfields)
+
+            for net in allNetworks:
+                if net[NET_SSID] == scannedSSID:
+                    break
+            print(net)
+
+        # Simulate a 'radiobutton press to select the scanned network
+        evt = wx.PyCommandEvent(wx.EVT_RADIOBUTTON.typeId, onerowfields[0].GetId())
+        evt.SetEventObject(onerowfields[0])
+        wx.PostEvent(onerowfields[0], evt)
         event.Skip()
 
     def OnBtnCancel(self, event):
@@ -2162,9 +2201,11 @@ class MediaViewer(wx.Dialog):
         wx.Dialog.__init__(self, None, wx.ID_ANY, title="Media Viewer")
 
         self.mediaFileListOrPath = mediaFileListOrPath
+        self.singleFile = False
 
         if type(self.mediaFileListOrPath).__name__ == 'str':
             fileName = os.path.basename(self.mediaFileListOrPath)
+            self.singleFile = True
         else:
             fileName = self.mediaFileListOrPath[0][F_NAME]
         suffix = fileName.split('.')[1]
@@ -2235,6 +2276,7 @@ class MediaViewer(wx.Dialog):
 
         self.mainSizer.Add(self.imageCtrl, 0, wx.ALL|wx.CENTER, 5)
 
+
         self.btnPrev = wx.Button(label='Prev', name='btnPrev', parent=self, style=0)
         self.btnPrev.SetToolTip('Load previous Image')
         self.btnPrev.Bind(wx.EVT_BUTTON, self.imageOnBtnPrev)
@@ -2247,9 +2289,14 @@ class MediaViewer(wx.Dialog):
         self.btnNext.SetToolTip('Load Next Image')
         self.btnNext.Bind(wx.EVT_BUTTON, self.imageOnBtnNext)
 
+        if self.singleFile:
+            for b in [self.btnPrev,self.btnPlay,self.btnNext]:
+                b.Disable()
+
         self.btnQuit = wx.Button(id=wx.ID_EXIT, label='Quit', name='btnQuit', parent=self, style=0)
         self.btnQuit.SetToolTip('Quit Viewer')
         self.btnQuit.Bind(wx.EVT_BUTTON, self.imageOnBtnQuit)
+
         self.btnSizer.Add(self.btnPrev, 0, border=10, flag=wx.EXPAND| wx.ALL)
         self.btnSizer.Add(self.btnPlay, 0, border=10, flag=wx.EXPAND| wx.ALL)
         self.btnSizer.Add(self.btnNext, 0, border=10, flag=wx.EXPAND| wx.ALL)
@@ -2290,6 +2337,15 @@ class MediaViewer(wx.Dialog):
     def imageOnBtnNext(self, event):
         self.imgIdx = (self.imgIdx + 1) % len(self.listToUse)
         self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx][F_NAME])
+
+        # Skip over non JPG files
+        suffix = self.imgFilePath.rsplit('.')[-1:][0]
+        while suffix != 'JPG' and suffix != 'jpg':
+            print('Skipping over',self.imgFilePath)
+            self.imgIdx = (self.imgIdx + 1) % len(self.listToUse)
+            self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx][F_NAME])
+            suffix = self.imgFilePath.rsplit('.')[-1:][0]
+
         self._imageLoad(self.imgFilePath)
         
     def imageOnBtnPrev(self, event):
@@ -2656,7 +2712,7 @@ class Preferences():
         global lastCastDeviceName
         global lastCastDeviceUuid
         global knownNetworks
-        global fileSortReverse
+        global fileSortRecentFirst
 
         try:
             self.config.read( __initFilePath__)
@@ -2675,7 +2731,7 @@ class Preferences():
             thumbnailGridColumns  = int(sectionPreferences[THUMB_GRID_COLUMNS])
             thumbnailScaleFactor  = float(sectionPreferences[THUMB_SCALE_FACTOR])
             osvmDownloadDir       = sectionPreferences[OSVM_DOWNLOAD_DIR]
-            fileSortReverse       = str2bool(sectionPreferences[SORT_ORDER])
+            fileSortRecentFirst       = str2bool(sectionPreferences[SORT_ORDER])
 
             sectionSyncModePreferences = self.config['Sync Mode Preferences']
             remBaseDir		  = sectionSyncModePreferences[REM_BASE_DIR]
@@ -2716,7 +2772,7 @@ class Preferences():
             thumbnailGridColumns  = int(sectionPreferences[THUMB_GRID_COLUMNS])
             thumbnailScaleFactor  = float(sectionPreferences[THUMB_SCALE_FACTOR])
             osvmDownloadDir       = sectionPreferences[OSVM_DOWNLOAD_DIR]
-            fileSortReverse       = str2bool(sectionPreferences[SORT_ORDER])
+            fileSortRecentFirst       = str2bool(sectionPreferences[SORT_ORDER])
 
             sectionSyncModePreferences = self.config['Sync Mode Preferences']
             remBaseDir		  = sectionSyncModePreferences[REM_BASE_DIR]
@@ -2758,7 +2814,7 @@ class Preferences():
         global overwriteLocalFiles
         global castDevice
         global knownNetworks
-        global fileSortReverse
+        global fileSortRecentFirst
 
         print("Saving preference file:", __initFilePath__)
 
@@ -2773,7 +2829,7 @@ class Preferences():
         self.config['Preferences'][THUMB_GRID_COLUMNS]     = str(thumbnailGridColumns)
         self.config['Preferences'][THUMB_SCALE_FACTOR]     = str(thumbnailScaleFactor)
         self.config['Preferences'][OSVM_DOWNLOAD_DIR]      = osvmDownloadDir
-        self.config['Preferences'][SORT_ORDER]             = str(fileSortReverse)
+        self.config['Preferences'][SORT_ORDER]             = str(fileSortRecentFirst)
 
         self.config['Sync Mode Preferences'][REM_BASE_DIR]            = remBaseDir
         self.config['Sync Mode Preferences'][OSVM_FILES_DOWNLOAD_URL] = osvmFilesDownloadUrl
@@ -2834,7 +2890,7 @@ class FileOperationMenu(wx.Menu):
 
         #print('FileOperationMenu():',fileName)
 
-        # Creates a Menu containing possible operations on this package:
+        # Creates a Menu containing possible operations on this file:
         self.popupMenu = wx.Menu()
         self.popupMenuTitles = []
 
@@ -3731,7 +3787,7 @@ class PreferencesDialog(wx.Dialog):
         global osvmFilesDownloadUrl
         global fileColors
         global remBaseDir
-        global fileSortReverse
+        global fileSortRecentFirst
 
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self,
                                size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
@@ -3765,12 +3821,12 @@ class PreferencesDialog(wx.Dialog):
         self.maxDownloadChoice.SetStringSelection(str(maxDownload))
         self.maxDownloadChoice.Bind(wx.EVT_CHOICE, self.OnMaxDownloadChoice, id=wx.ID_ANY)
 
-        self.sortTypes = ['Recent First', 'Older First']
+        self.sortTypes = ['Recent First', 'Oldest First']
         self.fileSortTxt = wx.StaticText(label='Sorting Order:', parent=self.panel1, id=wx.ID_ANY)
         self.fileSortChoice = wx.Choice(choices=[v for v in self.sortTypes], 
                                         id=wx.ID_ANY, parent=self.panel1, style=0)
         self.fileSortChoice.SetToolTip('Select sort order')
-        self.fileSortChoice.SetStringSelection(self.sortTypes[0] if fileSortReverse else self.sortTypes[1])
+        self.fileSortChoice.SetStringSelection(self.sortTypes[0] if fileSortRecentFirst else self.sortTypes[1])
         self.fileSortChoice.Bind(wx.EVT_CHOICE, self.OnFileSortChoice, id=wx.ID_ANY)
 
         self.colorPickerBtn = wx.Button(id=wx.ID_ANY, label='Color Chooser',
@@ -3903,7 +3959,7 @@ class PreferencesDialog(wx.Dialog):
         global fileColors
         global remBaseDir
         global ssDelay
-        global fileSortReverse
+        global fileSortRecentFirst
 
         askBeforeCommit       = self.cb2.GetValue()
         savePreferencesOnExit = self.cb3.GetValue()
@@ -3912,7 +3968,7 @@ class PreferencesDialog(wx.Dialog):
         maxDownload           = int(self.maxDownloadChoice.GetSelection())
         remBaseDir            = self.remBaseDirTextCtrl.GetValue()
         ssDelay               = int(self.ssDelayChoice.GetSelection()) + MIN_SS_DELAY
-        fileSortReverse       = not (int(self.fileSortChoice.GetSelection()))
+        fileSortRecentFirst       = not (int(self.fileSortChoice.GetSelection()))
 
         # Update from temporary variables
         osvmDownloadDir      = self.tmpOsvmDownloadDir
@@ -5107,7 +5163,7 @@ class OSVM(wx.Frame):
         self.MakeModal(True)
         self.Show()
 
-        # now to stop execution start a event loop 
+        # now to stop execution start an event loop 
         self.eventLoop = wx.GUIEventLoop()
         self.eventLoop.Run()
  
@@ -5381,6 +5437,7 @@ class OSVM(wx.Frame):
     def _setMode(self, mode, reason):
         global cameraConnected
 
+        print('_setMode(): mode %s' % mode)
         #print traceback.print_stack()
 
         # Restore focus to panel
@@ -5759,7 +5816,7 @@ class OSVM(wx.Frame):
         global pycc
         global networkSelector
         global vlcVideoViewer
-        global fileSortReverse
+        global fileSortRecentFirst
 
         # Package buttons list
         self.thumbButtons = []
@@ -5857,12 +5914,12 @@ class OSVM(wx.Frame):
                                             style=wx.ST_ELLIPSIZE_MIDDLE)
         self.castDeviceName.SetLabelMarkup("<span foreground='red'><small>%s</small></span>" % '            ')
 
-        self.sortTypes = ['Recent First', 'Older First']
+        self.sortTypes = ['Recent First', 'Oldest First']
         self.fileSortTxt = wx.StaticText(label='Sorting Order', parent=self.panel1, id=wx.ID_ANY)
         self.fileSortChoice = wx.Choice(choices=[v for v in self.sortTypes], 
                                         id=wx.ID_ANY, parent=self.panel1, style=0)
         self.fileSortChoice.SetToolTip('Select sort order')
-        self.fileSortChoice.SetStringSelection(self.sortTypes[0] if fileSortReverse else self.sortTypes[1])
+        self.fileSortChoice.SetStringSelection(self.sortTypes[0] if fileSortRecentFirst else self.sortTypes[1])
         self.fileSortChoice.Bind(wx.EVT_CHOICE, self.OnFileSortChoice, id=wx.ID_ANY)
 
         self.btnCast = wx.Button(label="Cast",name='btnCast', size=wx.Size(32,32), parent=self.panel1, style=wx.NO_BORDER)
@@ -6131,7 +6188,8 @@ class OSVM(wx.Frame):
 
 #        self.scrollWin1.SetFocus()
         self.scrollWin1.ScrollChildIntoView(button)
-        event.Skip()
+        self.scrollWin1.Refresh()
+#        event.Skip()
 
     # Left Click on a File button, zoom in the thumbnail
     def OnThumbButton(self, event):
@@ -6259,11 +6317,10 @@ class OSVM(wx.Frame):
         dlg = MediaViewer(filePath)
         ret = dlg.ShowModal()
         dlg.Destroy()
-        print('Exit ofw MediaViewer. ret:%d' % ret)
+        print('Exit of MediaViewer. ret:%d' % ret)
 
         # Reset scrolling
         self.scrollWin1.ScrollChildIntoView(button)
-#        event.Skip()
 
     def OnBtnSwitchMode(self, event):
         global viewMode
@@ -6281,7 +6338,7 @@ class OSVM(wx.Frame):
         evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self._btnRescan.GetId())
         evt.SetEventObject(self.btnRescan)
         wx.PostEvent(self.btnRescan, evt)
-        event.Skip()
+ #       event.Skip()
 
     def OnBtnSwitchNetwork(self, event):
         # Switch the network
@@ -6670,14 +6727,19 @@ class OSVM(wx.Frame):
         event.Skip()
 
     def OnFileSortChoice(self, event):
-        global fileSortReverse
+        global fileSortRecentFirst
 
         idx = self.fileSortChoice.GetSelection()
-        if (fileSortReverse and not idx) or (not fileSortReverse and idx):
+        if (fileSortRecentFirst and not idx) or (not fileSortRecentFirst and idx):
             print('OnFileSortChoice(): Nothing to do')
         else:
-            fileSortReverse = (idx == 0)
-            self.OnBtnRescan(1)
+            fileSortRecentFirst = (idx == 0)
+#            self.OnBtnRescan(1)
+        # Simulate a 'Rescan' event
+        self._btnRescan = getattr(self, "btnRescan")
+        evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self._btnRescan.GetId())
+        evt.SetEventObject(self.btnRescan)
+        wx.PostEvent(self.btnRescan, evt)
         event.Skip()
 
     def OnBtnCast(self, event):
@@ -6768,16 +6830,15 @@ class OSVM(wx.Frame):
     def OnBtnRescan(self, event):
         global localFileInfos
         global slideShowLastIdx
-        global fileSortReverse
+        global fileSortRecentFirst
 
         found = False
-        # Is there any pending operation?
-        for i in range(len(self.opList)):
-            if self.opList[i][OP_STATUS]:
-                found = True
-                break
-        # Warn user if needed
-        if found:
+        # Is there any pending operation? Warn user if needed
+        try:
+            op = [x for x in self.opList if x[OP_STATUS]][0] # Search for busy slot
+        except IndexError:
+            pass
+        else:
             msg = 'All pending request(s) will be lost'
             dlg = wx.MessageDialog(None, msg , 'Warning',
                                    wx.OK | wx.ICON_EXCLAMATION)
@@ -6790,7 +6851,7 @@ class OSVM(wx.Frame):
         # Read in new parameters
         self._updateGlobalsFromGUI()
         # Set file sort choice
-        self.fileSortChoice.SetStringSelection(self.sortTypes[0] if fileSortReverse else self.sortTypes[1])
+        self.fileSortChoice.SetStringSelection(self.sortTypes[0] if fileSortRecentFirst else self.sortTypes[1])
         # Update information
         localFilesCnt,availRemoteFilesCnt = updateFileDicts()
         slideShowLastIdx = localFilesCnt
