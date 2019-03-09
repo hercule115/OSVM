@@ -3,12 +3,11 @@ import sys
 sys.path.insert(1, "/usr/local/lib/python3.6/site-packages") # for cv2
 
 import wx
-#import os
-
 import pyzbar.pyzbar as pyzbar
 import numpy as np
 import cv2
 import time
+import os
 
 # Olympus use a rather simple encoding scheme (kind of Caesar cypher)
 # Using the following encoding. 
@@ -42,7 +41,7 @@ def decode(im):
         print('Data : ', obj.data,'\n')     
     return decodedObjects
 
-def pyzbarDecode(frame):
+def pyzbarDecode(frame, capturepath):
     global OISData
 
     OISData = ['BOGUS'] # Reset data
@@ -83,9 +82,9 @@ def pyzbarDecode(frame):
 
     # Save the resulting frame if success
     key = cv2.waitKey(1)
-#    if OISData[0] == 'OIS1':
-#        print('Saving QR image to Capture.png')
-#        cv2.imwrite('Capture.png', frame)
+    if OISData[0] == 'OIS1':
+        print('Saving QR image to Capture.png')
+        cv2.imwrite(os.path.join(capturepath, 'Capture.png'), frame)
     return frame
 
 def decypherData(cipherText):
@@ -107,8 +106,9 @@ def decypherData(cipherText):
     return plainText
 
 class ShowCapture(wx.Dialog):
-    def __init__(self, parent, id, title="Scan your Olympus QR Code"):
+    def __init__(self, parent, id, capturepath, title="Scan your Olympus QR Code"):
         wx.Dialog.__init__(self, parent, id, title)
+        self.capturepath = capturepath
 
         self.imgSizer = (640, 480)
         self.panel1 = wx.Panel(self)
@@ -175,7 +175,7 @@ class ShowCapture(wx.Dialog):
         ret, self.frame = self.capture.read()
         if ret:
             self.frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
-            self.frame = pyzbarDecode(self.frame)
+            self.frame = pyzbarDecode(self.frame, self.capturepath)
             self.bmp.CopyFromBuffer(self.frame)
             self.staticBit.SetBitmap(self.bmp)
             self.Refresh()
@@ -204,4 +204,4 @@ class ShowCapture(wx.Dialog):
         cv2.destroyAllWindows()
         self.EndModal(wx.ID_OK)
 
-print('Welcome to simpleQRScannerModule')
+print('simpleQRScanner Module Initialized')

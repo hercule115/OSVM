@@ -76,7 +76,8 @@ import wx.lib.scrolledpanel as scrolled
 import wx.adv
 import socket
 import datetime
-import simpleQRScannerModule
+
+import simpleQRScanner
 
 disabledModules= list()
 try:
@@ -1570,7 +1571,7 @@ class WifiDialog(wx.Dialog):
         global knownNetworks
         global iface
 
-        for i in range(1, len(self.fields)): 
+        for i in range(1, len(self.fields)): # Skip header
             onerowfields = self.fields[i]
             btn = onerowfields[0]
             if btn.GetValue() and btn.GetLabel() == self.netkey[NET_SSID]:
@@ -1636,28 +1637,32 @@ class WifiDialog(wx.Dialog):
         event.Skip()
 
     def OnBtnScanQR(self, event):
+        global __tmpDir__
+
         print('Launching QR Scanner')
-        dlg = simpleQRScannerModule.ShowCapture(self, -1)
+        dlg = simpleQRScanner.ShowCapture(self, -1, __tmpDir__)
         ret = dlg.ShowModal()
         dlg.Destroy()
-        print('End of capture session')
-#        simpleQRScannerModule.OISData = ['OIS1', 'TG-4-P-BHJ310474', '69074749']
-        simpleQRScannerModule.OISData = ['OIS1', 'HomeSweetHome_EXT', '2128819390']
-        print(simpleQRScannerModule.OISData)
-        if simpleQRScannerModule.OISData[0] == 'OIS1':
-            scannedSSID = simpleQRScannerModule.OISData[1]
+        print('End of Capture Session')
+#        simpleQRScanner.OISData = ['OIS1', 'TG-4-P-BHJ310474', '69074749']
+        simpleQRScanner.OISData = ['OIS1', 'HomeSweetHome_EXT', '2128819390']
+        print(simpleQRScanner.OISData)
+        if simpleQRScanner.OISData[0] == 'OIS1':
+            scannedSSID = simpleQRScanner.OISData[1]
+            scannedPasswd = simpleQRScanner.OISData[2]
             print('Looking for scanned SSID %s in detected networks' % scannedSSID)
-
             for onerowfields in self.fields:
                 ssid = onerowfields[0].GetLabel()
                 if ssid == scannedSSID:
                     break
-            print(onerowfields)
-
+#            print(onerowfields)
             for net in allNetworks:
                 if net[NET_SSID] == scannedSSID:
                     break
-            print(net)
+#            print(net)
+
+        # Add scanned network to knownNetworks
+        addKnownNetwork(scannedSSID,net[NET_BSSID],scannedPasswd)
 
         # Simulate a 'radiobutton press to select the scanned network
         evt = wx.PyCommandEvent(wx.EVT_RADIOBUTTON.typeId, onerowfields[0].GetId())
