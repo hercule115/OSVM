@@ -1645,7 +1645,7 @@ class WifiDialog(wx.Dialog):
         dlg.Destroy()
         print('End of Capture Session')
 #        simpleQRScanner.OISData = ['OIS1', 'TG-4-P-BHJ310474', '69074749']
-        simpleQRScanner.OISData = ['OIS1', 'HomeSweetHome_EXT', '2128819390']
+#        simpleQRScanner.OISData = ['OIS1', 'HomeSweetHome_EXT', '2128819390']
         print(simpleQRScanner.OISData)
         if simpleQRScanner.OISData[0] == 'OIS1':
             scannedSSID = simpleQRScanner.OISData[1]
@@ -1655,20 +1655,18 @@ class WifiDialog(wx.Dialog):
                 ssid = onerowfields[0].GetLabel()
                 if ssid == scannedSSID:
                     break
-#            print(onerowfields)
+            #print(onerowfields)
             for net in allNetworks:
                 if net[NET_SSID] == scannedSSID:
                     break
-#            print(net)
-
-        # Add scanned network to knownNetworks
-        addKnownNetwork(scannedSSID,net[NET_BSSID],scannedPasswd)
-
-        # Simulate a 'radiobutton press to select the scanned network
-        evt = wx.PyCommandEvent(wx.EVT_RADIOBUTTON.typeId, onerowfields[0].GetId())
-        evt.SetEventObject(onerowfields[0])
-        wx.PostEvent(onerowfields[0], evt)
-        event.Skip()
+            #print(net)
+	    # Add scanned network to knownNetworks
+            addKnownNetwork(scannedSSID,net[NET_BSSID],scannedPasswd)
+            # Simulate a radiobutton press to select the scanned network
+            evt = wx.PyCommandEvent(wx.EVT_RADIOBUTTON.typeId, onerowfields[0].GetId())
+            evt.SetEventObject(onerowfields[0])
+            wx.PostEvent(onerowfields[0], evt)
+            event.Skip()
 
     def OnBtnCancel(self, event):
         self.EndModal(wx.ID_CANCEL)
