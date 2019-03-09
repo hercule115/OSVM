@@ -1189,6 +1189,7 @@ def serverIpAddr():
         msg = 'serverIpAddr(): Error %s' % ("({0}): {1}".format(e.errno, e.strerror))
         print(msg)
         ipAddr = '0;0;0;0'
+    print('serverIpAddr():',ipAddr)
     return ipAddr
 
 ############# CLASSES #########################################################
@@ -4378,8 +4379,12 @@ class OSVMConfig(wx.Frame):
         global viewMode
         global localFilesCnt
         global availRemoteFilesCnt
+        global httpServer
+        global serverAddr
 
         viewMode = False
+        serverAddr = serverIpAddr()
+        httpServer = startHTTPServer()
         if self.MainConfigThread.is_alive():
             self.MainConfigThread.join() # Block until thread has finished
 
@@ -6348,11 +6353,12 @@ class OSVM(wx.Frame):
         dlg = WifiDialog(self)
         ret = dlg.ShowModal()
         dlg.Destroy()
-        # Simulate a 'Rescan' event
-        self._btnRescan = getattr(self, "btnRescan")
-        evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self._btnRescan.GetId())
-        evt.SetEventObject(self.btnRescan)
-        wx.PostEvent(self.btnRescan, evt)
+        if ret != wx.ID_CANCEL:
+            # Simulate a 'Rescan' event
+            self._btnRescan = getattr(self, "btnRescan")
+            evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self._btnRescan.GetId())
+            evt.SetEventObject(self.btnRescan)
+            wx.PostEvent(self.btnRescan, evt)
         event.Skip()
 
     def OnBtnHelp(self, event):
