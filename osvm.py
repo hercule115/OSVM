@@ -76,6 +76,7 @@ import wx.lib.scrolledpanel as scrolled
 import wx.adv
 import socket
 import datetime
+import glob
 
 import simpleQRScanner
 
@@ -365,6 +366,9 @@ LEDS_COLOURS = [['#929292', '#A8A8A8', '#9C9C9C', '#B7B7B7'], # grey
 FILETYPES = ['', 'JPG', 'MOV', 'ALL']
 FILETYPES_NOVLC = ['', 'JPG']
 
+# File types to clean
+CLEAN_FILETYPES = { 'JPG':0, 'MOV':0 }
+
 # Wifi networks parameters (scanForNetworks())
 [NET_SSID,
  NET_BSSID,
@@ -560,17 +564,21 @@ def diskUsage(path):
     return (total, used, free)
 
 #
-# Get folder size (in bytes) on the disk
-#
-def folderSize(folder):
-    total_size = os.path.getsize(folder)
+# Get folder size (in bytes) on the disk for files matching suffixes
+# Update CLEAN_FILETYPES dictionary with # of files 
+# ex: folderSize('/a/b/c', ('.JPG', '.jpg', '.jpeg'))
+def folderSize(folder, suffixes):
+    global CLEAN_FILETYPES
+
+    totalSize = 0
     for item in os.listdir(folder):
         itempath = os.path.join(folder, item)
-        if os.path.isfile(itempath):
-            total_size += os.path.getsize(itempath)
+        if item.endswith(suffixes) and os.path.isfile(itempath):
+            totalSize += os.path.getsize(itempath)
+            CLEAN_FILETYPES[suffixes] += 1 # bump file counter
         elif os.path.isdir(itempath):
-            total_size += folderSize(itempath)
-    return total_size
+            totalSize += folderSize(itempath, suffixes)
+    return totalSize
 
 #
 # Scan for networks, update the allNetworks list
@@ -4172,6 +4180,8 @@ class OSVMConfigThread(threading.Thread):
 class OSVMConfig(wx.Frame):
     global osvmDownloadDir
     global __thumbDir__
+    global httpServer
+    global serverAddr
 
     def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
@@ -4198,6 +4208,9 @@ class OSVMConfig(wx.Frame):
         self.MainConfigThread = OSVMConfigThread(self, "OSVMConfigThread")
         self.MainConfigThread.setDaemon(True)
         self.MainConfigThread.start()
+
+        serverAddr = serverIpAddr()
+        httpServer = startHTTPServer()
 
     def _displayOSVMBitmap(self, event=None):
         global __imgDir__
@@ -4243,12 +4256,10 @@ class OSVMConfig(wx.Frame):
 
         self.staticBitmap1 = wx.StaticBitmap(bitmap=wx.NullBitmap,
                                              id=wx.ID_ANY, 
-                                             name='staticBitmap1',
                                              parent=self.panel1, style=0)
 
         self.titleStaticText1 = wx.StaticText(id=wx.ID_ANY,
                                               label='Initializing Configuration. Please wait...', 
-                                              name='titleStaticText1',
                                               parent=self.panel1,
                                               style=0)
         self.titleStaticText1.SetFont(wx.Font(14, wx.SWISS, wx.NORMAL,
@@ -4256,7 +4267,6 @@ class OSVMConfig(wx.Frame):
 
         self.titleStaticText2 = wx.StaticText(id=wx.ID_ANY,
                                               label='                    ', 
-                                              name='titleStaticText2',
                                               parent=self.panel1,
                                               style=wx.RAISED_BORDER)
         self.titleStaticText2.SetFont(wx.Font(9, wx.SWISS, wx.NORMAL,
@@ -4272,7 +4282,6 @@ class OSVMConfig(wx.Frame):
 
         self.pltfInfo = wx.StaticText(label=label,
                                       id=wx.ID_ANY,
-                                      name='pltfInfo',
                                       parent=self.panel1)
         self.pltfInfo.SetFont(wx.Font(7, wx.SWISS, wx.NORMAL, wx.NORMAL, False, 'Ubuntu'))
         
@@ -4288,7 +4297,6 @@ class OSVMConfig(wx.Frame):
 
         self.btnEnterViewMode = wx.Button(id=wx.ID_ANY, 
                                           label='Enter View Mode', 
-                                          name='btnEnterViewMode',
                                           parent=self.panel1, style=0)
         self.btnEnterViewMode.SetToolTip('Enter Viewing Mode to browse local pictures and videos')
         self.btnEnterViewMode.Bind(wx.EVT_BUTTON, self.OnBtnEnterViewMode)
@@ -4297,7 +4305,6 @@ class OSVMConfig(wx.Frame):
 
         self.btnEnterSyncMode = wx.Button(id=wx.ID_ANY, 
                                           label='Enter Sync Mode',
-                                          name ='btnEnterSyncMode',
                                           parent=self.panel1, style=0)
         self.btnEnterSyncMode.SetToolTip('Enter Sync Mode to sync media files between your camera and this computer')
         self.btnEnterSyncMode.Bind(wx.EVT_BUTTON, self.OnBtnEnterSyncMode)
@@ -4356,13 +4363,9 @@ class OSVMConfig(wx.Frame):
         
     def OnBtnEnterViewMode(self, event):
         global viewMode
-        global localFilesCnt
-        global httpServer
-        global serverAddr
+#        global localFilesCnt
 
         viewMode = True
-        serverAddr = serverIpAddr()
-        httpServer = startHTTPServer()
 
         if self.MainConfigThread.is_alive():
             self.MainConfigThread.join() # Block until thread has finished
@@ -4371,20 +4374,20 @@ class OSVMConfig(wx.Frame):
         frame = OSVM(self, -1, "%s" % (_myLongName_))
         self.setBusyCursor(False)
         self.panel1.Enable(False)
-        frame.ShowModal()
+#        frame.ShowModal()
+        frame.Show()
         self.panel1.Enable(True)
-        self.Destroy()
+        for b in [self.btnEnterViewMode, self.btnEnterSyncMode]:
+            b.Disable()
+#        self.Destroy()
 
     def OnBtnEnterSyncMode(self, event):
         global viewMode
-        global localFilesCnt
+#        global localFilesCnt
         global availRemoteFilesCnt
-        global httpServer
-        global serverAddr
 
         viewMode = False
-        serverAddr = serverIpAddr()
-        httpServer = startHTTPServer()
+
         if self.MainConfigThread.is_alive():
             self.MainConfigThread.join() # Block until thread has finished
 
@@ -4407,10 +4410,13 @@ class OSVMConfig(wx.Frame):
         frame = OSVM(self, -1, "%s" % (_myLongName_))
         self.setBusyCursor(False)
         self.panel1.Enable(False)
-        frame.ShowModal()
+#        frame.ShowModal()
+        frame.Show()
         self.panel1.Enable(True)
+        for b in [self.btnEnterViewMode, self.btnEnterSyncMode]:
+            b.Disable()
         self.timer.Stop()
-        self.Destroy()
+#        self.Destroy()
 
     def OnBtnExit(self, event):
         self.Destroy()
@@ -4449,12 +4455,6 @@ class OSVMConfig(wx.Frame):
             wx.BeginBusyCursor(cursor=wx.HOURGLASS_CURSOR)
         else:
             wx.EndBusyCursor()
-
-#    def MakeModal(self, modal=True):
-#        if modal and not hasattr(self, '_disabler'):
-#            self._disabler = wx.WindowDisabler(self)
-#        if not modal and hasattr(self, '_disabler'):
-#            del self._disabler
 
 ####
 class InstallDialog(wx.Dialog):
@@ -4920,18 +4920,16 @@ class CleanDownloadDirDialog(wx.Dialog):
     Creates and displays a dialog that allows the user to
     selectively clean the download directory
     """
-    def __init__(self, parent,download):
+    global CLEAN_FILETYPES
+
+    def __init__(self, parent, download):
         self.parent = parent
         self.downloadDir = download
-        self.fileList = []
 
         print('CleanDownloadDirDialog:',self.downloadDir)
 
         myStyle = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.TAB_TRAVERSAL
-        wx.Dialog.__init__(self, None, wx.ID_ANY, 'Clean Download Directory', style=myStyle)
-
-        # Build a dict containing all the local package files
-        self.fileList = listLocalFiles(self.downloadDir, hidden=False)
+        wx.Dialog.__init__(self, None, wx.ID_ANY, 'Select Files To Clean', style=myStyle)
 
         # Initialize the Dialog
         self._initialize()
@@ -4951,40 +4949,56 @@ class CleanDownloadDirDialog(wx.Dialog):
         self.topBoxSizer = wx.BoxSizer(orient=wx.VERTICAL)
 
         # GridSizer to contains the various controls
-        self.gs = wx.GridSizer(cols=2, vgap=5, hgap=5)
+        self.gbs = wx.GridBagSizer(hgap=10,vgap=5)
 
-        # Create individual controls
-        self.deleteAllFiles = wx.CheckBox(self.panel1, id=wx.ID_ANY, 
-                                          label='Delete all files')
-        self.deleteAllFiles.SetValue(False)
-        self.deleteAllFiles.Bind(wx.EVT_CHECKBOX, self.OnDeleteAllFiles, id=wx.ID_ANY)
+        # List containing various info for each file types to clean
+        self.itemList = list()
+        i = 0
+        for k in CLEAN_FILETYPES.keys():
+            w0 = wx.CheckBox(self.panel1, label=k)
+            w0.SetValue(False)
+            w0.Bind(wx.EVT_CHECKBOX, self.OnFileType)
 
-        # Add controls in the grid sizer
-        self.gs.Add(self.deleteAllFiles, 0, border=0, flag=wx.EXPAND)
+            CLEAN_FILETYPES[k] = 0 # Clear file counter
+            s = folderSize(self.downloadDir, k)
+            if s < ONEMEGA:
+                size = '%d KB' % (s/ONEKILO)
+            else:
+                size = '%d MB' % (s/ONEMEGA)
 
-        # Status bar to indicate how much will be freed
-        self.statusBar1 = wx.StatusBar(id=wx.ID_ANY, parent=self.panel1, style=0)
-        self.statusBar1.SetToolTip('How much space to free if you Apply')
-        self.statusBar1.SetFont(wx.Font(11, wx.SWISS, wx.ITALIC, wx.NORMAL, False))
-        self.statusBar1.SetFieldsCount(4)
-        self.statusBar1.SetStatusText('Total space used', 0)
-        self.statusBar1.SetStatusText('Space to be freed', 2)
-        # Compute length of 1st and 3rd fields of the status bar
-        dc = wx.WindowDC(self.statusBar1)
-        dc.SetFont(self.statusBar1.GetFont())
-        width0,dummy = dc.GetTextExtent('Total space used')
-        width2,dummy = dc.GetTextExtent('Space to be freed')
-        self.statusBar1.SetStatusWidths([width0 + 20, -1, width2 + 20, -1])
+            w1 = wx.StaticText(self.panel1, label=str(CLEAN_FILETYPES[k]))
+
+            w2 = wx.StaticText(self.panel1)
+            lbl = "<span foreground='grey'>%s</span>" % size
+            w2.SetLabelMarkup(lbl)
+
+            self.gbs.Add(w0, pos=(i,0), border=0, flag=wx.EXPAND)
+            self.gbs.Add(w1, pos=(i,1), border=0, flag=wx.EXPAND)
+            self.gbs.Add(w2, pos=(i,2), border=0, flag=wx.ALIGN_RIGHT)
+            
+            self.itemList.append((w0,w1,w2,s,size))
+            i += 1
+
+        # Row for total
+        w0 = wx.StaticText(self.panel1)
+        lbl = "<span foreground='blue'>Total space to free</span>"
+        w0.SetLabelMarkup(lbl)
+        self.gbs.Add(w0, pos=(3,0), border=0, flag=wx.EXPAND)
+
+        w1 = wx.StaticText(self.panel1)
+        lbl = "<big><span foreground='blue'>%s</span></big>" % '       MB'
+        w1.SetLabelMarkup(lbl)
+        self.gbs.Add(w1, pos=(3,2), border=0, flag=wx.ALIGN_RIGHT)
+        
+        self.itemList.append((w0,w1,'',''))
 
         # Buttons at bottom
-        self.btnCancel = wx.Button(id=wx.ID_ANY, label='Cancel',
-                                   parent=self.panel1, style=0)
+        self.btnCancel = wx.Button(id=wx.ID_CANCEL, parent=self.panel1, style=0)
         self.btnCancel.SetToolTip('Cancel')
         self.btnCancel.SetDefault()
         self.btnCancel.Bind(wx.EVT_BUTTON, self.OnBtnCancel)
 
-        self.btnApply = wx.Button(id=wx.ID_APPLY, label='Apply',
-                                  parent=self.panel1, style=0)
+        self.btnApply = wx.Button(id=wx.ID_APPLY, parent=self.panel1, style=0)
         self.btnApply.SetToolTip('Apply changes')
         self.btnApply.Bind(wx.EVT_BUTTON, self.OnBtnApply)
 
@@ -4995,69 +5009,55 @@ class CleanDownloadDirDialog(wx.Dialog):
         self.bottombs.Add(self.btnApply, 0, border=0, flag=0)
         
         # Add all sizers in the top box sizer
-        self.topBoxSizer.Add(self.gs, 0, border=10, flag=wx.ALL | wx.EXPAND)
-        self.topBoxSizer.Add(4, 4, 1, border=0, flag=wx.EXPAND)
-        self.topBoxSizer.Add(self.statusBar1, 0, border=10, flag=wx.ALL | wx.EXPAND)
+        self.topBoxSizer.Add(self.gbs, 0, border=10, flag=wx.ALL | wx.EXPAND)
         self.topBoxSizer.Add(4, 4, 1, border=0, flag=wx.EXPAND)
         self.topBoxSizer.Add(self.bottombs, 0, border=10, flag=wx.ALL | wx.ALIGN_RIGHT)
 
-        # Show the total size of the download directory
-        totalSize = folderSize(self.downloadDir)
-        if totalSize < ONEMEGA:
-            msg = '%d KB' % (totalSize/ONEKILO)
-        else:
-            msg = '%d MB' % (totalSize/ONEMEGA)
-        self.statusBar1.SetStatusText(msg, 1)
+    def OnFileType(self, event):
+        w0 = event.GetEventObject() # Checkbox widget
+        item = [x for x in self.itemList if x[0] == w0]
+        w1   = item[0][1]    # StaticText widget
+        w2   = item[0][2]    # StaticText widget
+        s    = item[0][3]  # Size as int
+        size = item[0][4]  # Size as str
 
-        # Calculate the amount of space to be freed using current parameters
-        totalSize = self._getSizeToFree()
-        if totalSize < ONEMEGA:
-            msg = '%d KB' % (totalSize/ONEKILO)
+        if w0.GetValue():
+            lbl = "<span foreground='blue'>%s</span>" % size
         else:
-            msg = '%d MB' % (totalSize/ONEMEGA)
-        self.statusBar1.SetStatusText(msg, 3)
-        print('CleanDownloadDirDialog(): space to free=%s' % (msg))
+            lbl = "<span foreground='grey'>%s</span>" % size
+        w2.SetLabelMarkup(lbl)
 
-    # Calculate the amount of space to be freed using current parameters
-    def _getSizeToFree(self):
-        totalSize = 0    # in bytes
-        daf = self.deleteAllFiles.GetValue()
-        if daf:
-            totalSize = folderSize(self.downloadDir)
-        else:
-            print('Put code to select files to delete, some criteria,...')
-            totalSize = 0
-        return totalSize
+        # Update Total row
+        total = 0
+        for i in range(len(CLEAN_FILETYPES)):
+            w0 = self.itemList[i][0] # wx.Checkbox
+            s  = self.itemList[i][3]  # Size as int
+            if w0.GetValue():
+                total += s
 
-    def OnDeleteAllFiles(self, event):
-        daf = self.deleteAllFiles.GetValue()
-        totalSize = self._getSizeToFree()
-        if totalSize < ONEMEGA:
-            msg = '%d KB' % (totalSize/ONEKILO)
+        w1 = self.itemList[-1][1] # StaticText widget for total
+        if total < ONEMEGA:
+            total = '%d KB' % (total/ONEKILO)
         else:
-            msg = '%d MB' % (totalSize/ONEMEGA)
-        self.statusBar1.SetStatusText(msg, 3)
-        print("OnDeleteAllFiles(): space to free=",msg)
-        event.Skip()
+            total = '%d MB' % (total/ONEMEGA)
+        lbl = "<span foreground='blue'>%s</span>" % total
+        w1.SetLabelMarkup(lbl)
 
     def OnBtnCancel(self, event):
         self.EndModal(wx.ID_CANCEL)
         event.Skip()
 
     def OnBtnApply(self, event):
-        totalSize = 0
-        daf = self.deleteAllFiles.GetValue()
-        if daf:
-            # Must delete ALL files in the download directory
-            totalSize = folderSize(self.downloadDir)    # in bytes
-            clearDirectory(self.downloadDir)
-        else:
-            print ('Put code to selectively delete files here...')
-        if totalSize < ONEMEGA:
-            print("OnBtnApply(): %dKB freed." % (totalSize/ONEKILO))
-        else:
-            print("OnBtnApply(): %dMB freed." % (totalSize/ONEMEGA))
-
+#        for i in range(len(CLEAN_FILETYPES)):
+        i = 0
+        for k in CLEAN_FILETYPES.keys():
+            w0 = self.itemList[i][0] # wx.Checkbox
+            if w0.GetValue():
+#                print('Cleaning %s files' % CLEAN_FILETYPES[i])
+                print('Cleaning %s files' % k)
+                for f in [y for x in os.walk(self.downloadDir) for y in glob.glob(os.path.join(x[0], '*.%s' % k))]:
+                    print('Removing:',f)
+            i += 1
         self.EndModal(wx.ID_APPLY)
         event.Skip()
 
@@ -5157,20 +5157,17 @@ class OSVM(wx.Frame):
         self.ssThr.setDaemon(True)
         self.ssThr.start()
 
-#        self.parent.Enable(False)
-
         self._initialize()
 
-    def MakeModal(self, modal=True):
+    def _MakeModal(self, modal=True):
         if modal and not hasattr(self, '_disabler'):
             self._disabler = wx.WindowDisabler(self)
         if not modal and hasattr(self, '_disabler'):
             del self._disabler
 
     def ShowModal(self):
-        self.MakeModal(True)
+        self._MakeModal(True)
         self.Show()
-
         # now to stop execution start an event loop 
         self.eventLoop = wx.GUIEventLoop()
         self.eventLoop.Run()
@@ -5735,22 +5732,26 @@ class OSVM(wx.Frame):
         parent.Append(self.menuHelp, '&Help')
 
     def _init_menuFile_Items(self, parent):
-        menuItem = wx.MenuItem(parent, wx.ID_PREFERENCES, '&Preferences\tCtrl+P')
+        menuItem = wx.MenuItem(parent, 100, '&Preferences\tCtrl+P')#wx.ID_PREFERENCES
         parent.Append(menuItem)
         self.Bind(wx.EVT_MENU, self.OnBtnPreferences, menuItem)
+        parent.Enable(menuItem.Id,True)
 
-        menuItem = wx.MenuItem(parent, wx.ID_CLEAR, '&Clean Download Directory...')
+        menuItem = wx.MenuItem(parent, 101, '&Clean Download Directory...')#wx.ID_CLEAR
         parent.Append(menuItem)
         self.Bind(wx.EVT_MENU, self.OnBtnCleanDownloadDir, menuItem)
+        parent.Enable(menuItem.Id,True)
 
-        menuItem = wx.MenuItem(parent, wx.ID_EXIT, '&Quit\tCtrl+Q')
+        menuItem = wx.MenuItem(parent, 102, '&Quit\tCtrl+Q')#wx.ID_EXIT
         parent.Append(menuItem)
         self.Bind(wx.EVT_MENU, self.OnBtnQuit, menuItem)
+        parent.Enable(menuItem.Id,True)
 
     def _init_menuHelp_Items(self, parent):
-        menuItem = wx.MenuItem(parent, wx.ID_ABOUT, '&About')
+        menuItem = wx.MenuItem(parent, 103, '&About')#wx.ID_ABOUT
         parent.Append(menuItem)
         self.Bind(wx.EVT_MENU, self.OnBtnAbout, menuItem)
+        parent.Enable(menuItem.Id,True)
 
     def _init_utils(self):
         self.menuBar = wx.MenuBar()
@@ -5762,6 +5763,11 @@ class OSVM(wx.Frame):
         self._init_menuBar_Menus(self.menuBar)
 
         self.SetMenuBar(self.menuBar)
+
+        self.menuBar.Enable(100, True)
+        self.menuBar.Enable(101, True)
+        self.menuBar.Enable(102, True)
+        self.menuBar.Enable(103, True)
 
     def _init_sizers(self):
         global thumbnailGridColumns
@@ -6346,7 +6352,6 @@ class OSVM(wx.Frame):
         evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self._btnRescan.GetId())
         evt.SetEventObject(self.btnRescan)
         wx.PostEvent(self.btnRescan, evt)
- #       event.Skip()
 
     def OnBtnSwitchNetwork(self, event):
         # Switch the network
@@ -6394,19 +6399,20 @@ class OSVM(wx.Frame):
             if ret == wx.ID_YES:
                 if savePreferencesOnExit:
                     self.prefs._savePreferences()
-                if viewMode:
+                if httpServer:
                     httpServer.kill()
                 self.Destroy()    # Bye Bye
         else:
             if savePreferencesOnExit:
                 self.prefs._savePreferences()
 
-        self.MakeModal(False) # Re-enables parent window
-        self.eventLoop.Exit()
-        self.Destroy()    # Bye Bye
+#        self._MakeModal(False) # Re-enables parent window
+#        if self.eventLoop:
+#            self.eventLoop.Exit()
+#        self.Destroy()    # Bye Bye
+        self.parent.Destroy()
 
     def OnClose(self, event):
-        print ('OnClose() event')
         event.Skip()
         self.Destroy()
 
