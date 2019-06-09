@@ -366,7 +366,7 @@ LEDS_COLOURS = [['#929292', '#A8A8A8', '#9C9C9C', '#B7B7B7'], # grey
 FILETYPES = ['', 'JPG', 'MOV', 'ALL']
 FILETYPES_NOVLC = ['', 'JPG']
 
-# File types to clean
+# File types to clean. For each type, a counter is provided (see folderSize())
 CLEAN_FILETYPES = { 'JPG':0, 'MOV':0 }
 
 # Wifi networks parameters (scanForNetworks())
@@ -662,6 +662,7 @@ def listLocalFiles(dir, hidden=False, relative=True):
 
     return nodes
 
+
 # 
 # Browse the Download directory.
 # Output is a dictionary localFileInfos{} containing:
@@ -741,7 +742,7 @@ def downloadThumbnail(e):
             return 0
 
     if cameraConnected:
-        print("downloadThumbnail(): Downloading %s from network" % (thumbFile))
+        print("downloadThumbnail(): Downloading %s from camera" % (thumbFile))
         try:
             response = urllib.request.urlopen(uri)
         except IOError as e:
@@ -753,7 +754,7 @@ def downloadThumbnail(e):
         tmp = response.read()
 
         try:
-            #print ("Creating: %s" % (thumbnailPath))
+            print("downloadThumbnail(): Creating %s" % (thumbnailPath))
             out = open(thumbnailPath, 'wb')
             out.write(tmp)
             out.close()
@@ -1207,8 +1208,6 @@ class PasswordDialog(wx.Dialog):
     """
     Creates and displays a dialog to enter a password
     """
-    global iface
-
     def __init__(self,net):
         self.net = net
 
@@ -1357,6 +1356,8 @@ class PasswordDialog(wx.Dialog):
         event.Skip()
 
     def OnBtnConnect(self, event):
+        global iface
+
         if self.cb2.GetValue():
             passwd = self.passwdShowTC.GetValue()
         else:
@@ -2177,8 +2178,9 @@ class SlideShowThread(threading.Thread):
         global slideShowNextIdx
         global slideShowLastIdx
         global serverAddr
+        global SERVER_HTTP_PORT
 
-        print('%s: Running' % self._name)
+        print('%s: Running. Server: %s' % (self._name, serverAddr))
 
         while True:
             self._threadLock.acquire() # will block until 'Start slideshow' button is pressed 
@@ -4178,11 +4180,6 @@ class OSVMConfigThread(threading.Thread):
 
 ####
 class OSVMConfig(wx.Frame):
-    global osvmDownloadDir
-    global __thumbDir__
-    global httpServer
-    global serverAddr
-
     def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         self.parent = parent
@@ -4191,6 +4188,9 @@ class OSVMConfig(wx.Frame):
         self._initialize()
 
     def _initialize(self):
+        global serverAddr
+        global httpServer
+
         self.prefs = Preferences(self.parent)
         self.prefs._loadPreferences()
 
@@ -4213,14 +4213,14 @@ class OSVMConfig(wx.Frame):
         httpServer = startHTTPServer()
 
     def _displayOSVMBitmap(self, event=None):
-        global __imgDir__
+#        global __imgDir__
 
         # load the image
         imgPath = os.path.join(__imgDir__, 'OSVM3.png')
-        Img = wx.Image(imgPath, wx.BITMAP_TYPE_PNG)
+        img = wx.Image(imgPath, wx.BITMAP_TYPE_PNG)
 
         # convert it to a wx.Bitmap, and put it on the wx.StaticBitmap
-        self.staticBitmap1.SetBitmap(wx.Bitmap(Img))
+        self.staticBitmap1.SetBitmap(wx.Bitmap(img))
 
     #### GUI
     def _init_topBoxSizer1_Items(self, parent):
@@ -4363,7 +4363,6 @@ class OSVMConfig(wx.Frame):
         
     def OnBtnEnterViewMode(self, event):
         global viewMode
-#        global localFilesCnt
 
         viewMode = True
 
@@ -4383,7 +4382,7 @@ class OSVMConfig(wx.Frame):
 
     def OnBtnEnterSyncMode(self, event):
         global viewMode
-#        global localFilesCnt
+        global cameraConnected
         global availRemoteFilesCnt
 
         viewMode = False
@@ -4962,35 +4961,44 @@ class CleanDownloadDirDialog(wx.Dialog):
             CLEAN_FILETYPES[k] = 0 # Clear file counter
             s = folderSize(self.downloadDir, k)
             if s < ONEMEGA:
-                size = '%d KB' % (s/ONEKILO)
+                size = '%d KB  ' % (s/ONEKILO)
             else:
-                size = '%d MB' % (s/ONEMEGA)
+                size = '%d MB  ' % (s/ONEMEGA)
 
-            w1 = wx.StaticText(self.panel1, label=str(CLEAN_FILETYPES[k]))
+            w1 = wx.StaticText(self.panel1) # counter
+            w1.SetFont(wx.Font(12, wx.SWISS, wx.ITALIC, wx.NORMAL, False))
+            lbl = "<span foreground='grey'>%s</span>" % str(CLEAN_FILETYPES[k])
+            w1.SetLabelMarkup(lbl)
 
-            w2 = wx.StaticText(self.panel1)
+            w2 = wx.StaticText(self.panel1) # size
+            w2.SetFont(wx.Font(12, wx.SWISS, wx.ITALIC, wx.NORMAL, False))
             lbl = "<span foreground='grey'>%s</span>" % size
             w2.SetLabelMarkup(lbl)
 
             self.gbs.Add(w0, pos=(i,0), border=0, flag=wx.EXPAND)
-            self.gbs.Add(w1, pos=(i,1), border=0, flag=wx.EXPAND)
+            self.gbs.Add(w1, pos=(i,1), border=0, flag=wx.ALIGN_RIGHT)
             self.gbs.Add(w2, pos=(i,2), border=0, flag=wx.ALIGN_RIGHT)
             
-            self.itemList.append((w0,w1,w2,s,size))
+            self.itemList.append((w0,w1,w2,s,size,CLEAN_FILETYPES[k]))
             i += 1
 
         # Row for total
         w0 = wx.StaticText(self.panel1)
         lbl = "<span foreground='blue'>Total space to free</span>"
         w0.SetLabelMarkup(lbl)
-        self.gbs.Add(w0, pos=(3,0), border=0, flag=wx.EXPAND)
+        self.gbs.Add(w0, pos=(3,0), border=0, flag=wx.ALL)
 
-        w1 = wx.StaticText(self.panel1)
-        lbl = "<big><span foreground='blue'>%s</span></big>" % '       MB'
+        w1 = wx.StaticText(self.panel1) # total counter
+        lbl = "<span foreground='grey'>%s</span>" % ''
         w1.SetLabelMarkup(lbl)
-        self.gbs.Add(w1, pos=(3,2), border=0, flag=wx.ALIGN_RIGHT)
+        self.gbs.Add(w1, pos=(3,1), border=0, flag=wx.ALIGN_CENTER)
+
+        w2 = wx.StaticText(self.panel1) # total size
+        lbl = "<span foreground='blue'>%s</span>" % '         '
+        w2.SetLabelMarkup(lbl)
+        self.gbs.Add(w2, pos=(3,2), border=0, flag=wx.ALIGN_RIGHT)
         
-        self.itemList.append((w0,w1,'',''))
+        self.itemList.append((w0,w1,w2))
 
         # Buttons at bottom
         self.btnCancel = wx.Button(id=wx.ID_CANCEL, parent=self.panel1, style=0)
@@ -5020,40 +5028,54 @@ class CleanDownloadDirDialog(wx.Dialog):
         w2   = item[0][2]    # StaticText widget
         s    = item[0][3]  # Size as int
         size = item[0][4]  # Size as str
-
+        nb   = item[0][5]  # Nb files as int
         if w0.GetValue():
-            lbl = "<span foreground='blue'>%s</span>" % size
+            lbl1 = "<span foreground='blue'>%s</span>" % str(nb)
+            lbl2 = "<span foreground='blue'>%s</span>" % size
         else:
-            lbl = "<span foreground='grey'>%s</span>" % size
-        w2.SetLabelMarkup(lbl)
+            lbl1 = "<span foreground='grey'>%s</span>" % str(nb)
+            lbl2 = "<span foreground='grey'>%s</span>" % size
+        w1.SetFont(wx.Font(12, wx.SWISS, wx.ITALIC, wx.NORMAL, False))
+        w2.SetFont(wx.Font(12, wx.SWISS, wx.ITALIC, wx.NORMAL, False))
+        w1.SetLabelMarkup(lbl1)
+        w2.SetLabelMarkup(lbl2)
 
         # Update Total row
-        total = 0
-        for i in range(len(CLEAN_FILETYPES)):
+        sizeTotal = nbTotal = i = 0
+        for k in CLEAN_FILETYPES.keys():
             w0 = self.itemList[i][0] # wx.Checkbox
             s  = self.itemList[i][3]  # Size as int
+            n  = self.itemList[i][5]  # Nbfiles as int
             if w0.GetValue():
-                total += s
+                sizeTotal += s
+                nbTotal += n
+            i += 1
 
-        w1 = self.itemList[-1][1] # StaticText widget for total
-        if total < ONEMEGA:
-            total = '%d KB' % (total/ONEKILO)
-        else:
-            total = '%d MB' % (total/ONEMEGA)
-        lbl = "<span foreground='blue'>%s</span>" % total
+        if nbTotal == 0: nbTotal = '       '
+        w1 = self.itemList[-1][1] # StaticText widget for total counter
+        w1.SetFont(wx.Font(13, wx.SWISS, wx.NORMAL, wx.NORMAL, False))
+        lbl = "<span foreground='blue'>%s</span>" % nbTotal
         w1.SetLabelMarkup(lbl)
+
+        w2 = self.itemList[-1][2] # StaticText widget for total size
+        if sizeTotal == 0:
+            sizeTotal = '      '
+        elif sizeTotal < ONEMEGA:
+            sizeTotal = '%d KB ' % (sizeTotal/ONEKILO)
+        else:
+            sizeTotal = '%d MB ' % (sizeTotal/ONEMEGA)
+        w2.SetFont(wx.Font(13, wx.SWISS, wx.NORMAL, wx.NORMAL, False))
+        lbl = "<span foreground='blue'>%s</span>" % sizeTotal
+        w2.SetLabelMarkup(lbl)
 
     def OnBtnCancel(self, event):
         self.EndModal(wx.ID_CANCEL)
         event.Skip()
 
     def OnBtnApply(self, event):
-#        for i in range(len(CLEAN_FILETYPES)):
         i = 0
         for k in CLEAN_FILETYPES.keys():
-            w0 = self.itemList[i][0] # wx.Checkbox
-            if w0.GetValue():
-#                print('Cleaning %s files' % CLEAN_FILETYPES[i])
+            if self.itemList[i][0].GetValue():  # wx.Checkbox
                 print('Cleaning %s files' % k)
                 for f in [y for x in os.walk(self.downloadDir) for y in glob.glob(os.path.join(x[0], '*.%s' % k))]:
                     print('Removing:',f)
@@ -6783,6 +6805,7 @@ class OSVM(wx.Frame):
         event.Skip()
 
     def OnBtnPlay(self, event):
+        global viewMode
         global castDevice
         global localFilesSorted
         global slideShowNextIdx
@@ -6816,6 +6839,15 @@ class OSVM(wx.Frame):
                     dlg = MediaViewer(localFilesSorted)
                 ret = dlg.ShowModal()
                 dlg.Destroy()
+                # Clear opList
+                if viewMode:
+                    cnt = self._unSelectFiles('JPG')
+                    cnt += self._unSelectFiles('MOV')
+                else:
+                    cnt += self._unSyncFiles('JPG')
+                    cnt += self._unSyncFiles('MOV')
+                print('%d selected files have been cleared' % (cnt))
+                self.Refresh()
                 button.Enable()
             else:
                 msg = 'Starting Slideshow on %s' % (castDevice.name)
