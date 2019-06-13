@@ -2172,6 +2172,14 @@ class SlideShowThread(threading.Thread):
 
         print('%s: Started' % self._name)
 
+    def stopit(self):
+        print('%s: Stopping' % self._name)
+        self._stopper.set()
+        print('%s: isStopped() : %s' % (self._name, self.isStopped()))
+
+    def isStopped(self):
+        return self._stopper.isSet()
+
     def run(self):
         global castMediaCtrl
         global ssDelay
@@ -2184,6 +2192,7 @@ class SlideShowThread(threading.Thread):
 
         while True:
             self._threadLock.acquire() # will block until 'Start slideshow' button is pressed 
+#            self._stopper.clear() # Thread is running
             f = self._parent.mediaFileList[slideShowNextIdx % slideShowLastIdx]
             fileURL = 'http://%s:%s/%s' % (serverAddr, SERVER_HTTP_PORT, f[F_NAME])
             print('%s: idx %d/%d Loading URL: %s' % (self._name, slideShowNextIdx,slideShowLastIdx, fileURL))
@@ -5699,14 +5708,20 @@ class OSVM(wx.Frame):
         sts7.AddStretchSpacer(prop=1)
         parent.Add(sts7, pos=(0, 8), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
 
-        parent.Add(30,0, pos=(0, 9)) # Some space after Play button
+        sts8 = wx.BoxSizer(orient=wx.VERTICAL)
+        sts8.AddStretchSpacer(prop=1)
+        sts8.Add(self.btnStop, 0, border=0, flag=wx.EXPAND)
+        sts8.AddStretchSpacer(prop=1)
+        parent.Add(sts8, pos=(0, 9), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
 
-        parent.Add(self.btnCancel, pos=(0, 10), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
-        parent.Add(self.btnCommit, pos=(0, 11), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+        parent.Add(30,0, pos=(0, 10)) # Some space after Stop button
 
-        parent.Add(50,0, pos=(0, 12))
+        parent.Add(self.btnCancel, pos=(0, 11), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+        parent.Add(self.btnCommit, pos=(0, 12), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
 
-        parent.Add(self.btnRescan, pos=(0, 13), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+        parent.Add(30,0, pos=(0, 13))
+
+        parent.Add(self.btnRescan, pos=(0, 14), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
 
     def _init_thumbBoxSizer_Items(self, parent):
         # Thumbnail window
@@ -5974,6 +5989,11 @@ class OSVM(wx.Frame):
         self._displayBitmap(self.btnPlay, 'play.png', wx.BITMAP_TYPE_PNG)
         self.btnPlay.SetToolTip('Start the Slideshow')
         self.btnPlay.Bind(wx.EVT_BUTTON, self.OnBtnPlay)
+
+        self.btnStop = wx.Button(size=wx.Size(32,32), name='btnStop', parent=self.panel1, style=wx.NO_BORDER)
+        self._displayBitmap(self.btnStop, 'stop.png', wx.BITMAP_TYPE_PNG)
+        self.btnStop.SetToolTip('Stop the Slideshow')
+        self.btnStop.Bind(wx.EVT_BUTTON, self.OnBtnStop)
 
         for dpc in [self.dpc1,self.dpc2]:
             dpc.Disable()
@@ -6833,6 +6853,7 @@ class OSVM(wx.Frame):
                 self.updateStatusBar(msg)
 
                 button.Disable()
+                # If no image is selected, browse thru all the images
                 if self.mediaFileList:
                     dlg = MediaViewer(self.mediaFileList)
                 else:
@@ -6855,15 +6876,14 @@ class OSVM(wx.Frame):
 
                 if not self.mediaFileList:
                     self.mediaFileList = localFilesSorted
-                slideShowNextIdx = 0 # Start from begining of list
                 slideShowLastIdx = len(self.mediaFileList)
                 self.ssThrLock.release()
-                self._displayBitmap(button, 'stop.png', wx.BITMAP_TYPE_PNG)
+                self._displayBitmap(button, 'pause.png', wx.BITMAP_TYPE_PNG)
                 button.SetName('btnPause')
-                button.SetToolTip('Stop the Slideshow')
+                button.SetToolTip('Pause the Slideshow')
         else:
-            # Must stop the Slideshow
-            msg = 'Stopping the Slideshow'
+            # Must pause the Slideshow
+            msg = 'Pausing the Slideshow'
             self.updateStatusBar(msg)
             self.ssThrLock.acquire()	# Block the thread
             print('Slideshow is paused')
@@ -6872,6 +6892,22 @@ class OSVM(wx.Frame):
             self._displayBitmap(button, 'play.png', wx.BITMAP_TYPE_PNG)
             button.SetName('btnPlay')
             button.SetToolTip('Start the Slideshow')
+        event.Skip()
+
+    def OnBtnStop(self, event):
+        global slideShowNextIdx
+
+        msg = 'Stopping the Slideshow'
+        self.updateStatusBar(msg)
+        if self.ssThrLock.acquire(blocking=False) == False:	# Block the thread if active
+            print('Lock is already set, should have blocked, so... Slideshow is paused')
+        print('Slideshow is stopped')
+        msg = ''
+        self.updateStatusBar(msg)
+        self._displayBitmap(self.btnPlay, 'play.png', wx.BITMAP_TYPE_PNG)
+        self.btnPlay.SetName('btnPlay')
+        self.btnPlay.SetToolTip('Start the Slideshow')
+        slideShowNextIdx = 0 # Reset image index
         event.Skip()
 
     def OnBtnRescan(self, event):
