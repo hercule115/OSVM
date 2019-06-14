@@ -2,7 +2,7 @@
 
 _myName_     = 'OSVM'
 _myLongName_ = 'Olympus Sync & View Manager'
-_myVersion_  = '1.0'
+_myVersion_  = '1.1'
 
 import wx.lib.platebtn as platebtn
 
@@ -363,7 +363,7 @@ LEDS_COLOURS = [['#929292', '#A8A8A8', '#9C9C9C', '#B7B7B7'], # grey
 [LED_OFF, LED_BLINK, LED_ON] = [i for i in range(3)]
 
 # File Types to view/sync
-FILETYPES = ['', 'JPG', 'MOV', 'ALL']
+FILETYPES = ['None', 'JPG', 'MOV', 'ALL']
 FILETYPES_NOVLC = ['', 'JPG']
 
 # File types to clean. For each type, a counter is provided (see folderSize())
@@ -1179,8 +1179,6 @@ def initPyChromeCast():
     dlg = ChromeCastDialog()
     ret = dlg.ShowModal()
     dlg.Destroy()
-    if ret == wx.ID_CANCEL:
-        return None
     if not castDevice:
         print('No ChromeCast devices detected!')
         return None
@@ -3508,7 +3506,7 @@ class ChromeCastDialog(wx.Dialog):
         for i in range(len(self.ccProps[0])):
 #            print(i,self.ccProps[0][i])
             field = wx.StaticText(self.panel1)
-            field.SetLabelMarkup("<span foreground='red'>%s</span>" % self.ccProps[0][i])
+            field.SetLabelMarkup("<span foreground='blue'>%s</span>" % self.ccProps[0][i])
             self.fields.append(field)
 
         for i in range(1,rows):
@@ -6780,7 +6778,7 @@ class OSVM(wx.Frame):
             self.updateStatusBar(msg)
             self.panel1.Refresh()
 
-        #dumpOperationList("Pendng Request List", self.opList)
+        #dumpOperationList("Pending Request List", self.opList)
         event.Skip()
 
     def OnFileSortChoice(self, event):
@@ -6791,7 +6789,6 @@ class OSVM(wx.Frame):
             print('OnFileSortChoice(): Nothing to do')
         else:
             fileSortRecentFirst = (idx == 0)
-#            self.OnBtnRescan(1)
         # Simulate a 'Rescan' event
         self._btnRescan = getattr(self, "btnRescan")
         evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self._btnRescan.GetId())
@@ -7445,8 +7442,8 @@ def main():
     __pythonBits__ = (8 * struct.calcsize("P"))
 
     # Get SVN Revision through svn:keywords
-    rev = "$Revision: 1 $" # DONT TOUCH THIS LINE!!!
-    _myVersion_ = "%s.%s" % (_myVersion_, rev[rev.find(' ')+1:rev.rfind(' ')])
+#    rev = "$Revision: 1 $" # DONT TOUCH THIS LINE!!!
+#    _myVersion_ = "%s.%s" % (_myVersion_, rev[rev.find(' ')+1:rev.rfind(' ')])
 
     if args.version:
         print('%s: Version: %s' % (_myName_, _myVersion_))
