@@ -453,19 +453,18 @@ def module_path(local_function):
    return os.path.abspath(inspect.getsourcefile(local_function))
 
 def cleanup():
-    print ('Cleanup(): Removing temporary files')
-    try:
-        os.remove(htmlRootFile)
-        pass
-    except:
-        print('cleanup(): Failed to remove %s' % (htmlRootFile))
-        pass
+    print ('cleanup(): Removing temporary files')
+    if os.path.exists(htmlRootFile):
+        try:
+            os.remove(htmlRootFile)
+        except:
+            print('cleanup(): Failed to remove %s' % (htmlRootFile))
 
-    try:
-        os.remove(htmlDirFile)
-        pass
-    except:
-        print('cleanup(): Failed to remove %s' % (htmlDirFile))
+    if os.path.exists(htmlDirFile):
+        try:
+            os.remove(htmlDirFile)
+        except:
+            print('cleanup(): Failed to remove %s' % (htmlDirFile))
 
 def printGlobals():
     global cameraConnected
