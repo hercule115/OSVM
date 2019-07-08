@@ -2,7 +2,7 @@
 
 _myName_     = 'OSVM'
 _myLongName_ = 'Olympus Sync & View Manager'
-_myVersion_  = '1.1'
+_myVersion_  = '2.0'
 
 import wx.lib.platebtn as platebtn
 
@@ -113,6 +113,8 @@ else:
 
 from PIL import Image
 
+import wx.lib.agw.flatnotebook as fnb
+
 CWSecurityModes = {
     0: '',
     1: 'WEP',
@@ -209,6 +211,7 @@ askBeforeCommit = True
 askBeforeExit = True
 savePreferencesOnExit = True
 thumbnailGridColumns = DEFAULT_THUMB_GRID_NUM_COLS
+thumbnailGridRows = 3
 thumbnailScaleFactor = DEFAULT_THUMB_SCALE_FACTOR
 osvmDownloadDir = DEFAULT_OSVM_DOWNLOAD_DIR
 osvmFilesDownloadUrl = ''
@@ -442,8 +445,20 @@ def secondsToTime(t):
     d = time.strftime('%H:%M:%S', time.localtime(t))
     return d
 
-def secondsToDate(t):
+def secondsTomdY(t):
     d = time.strftime('%m/%d/%Y', time.localtime(t))
+    return d
+
+def secondsTodmY(t):
+    d = time.strftime('%d/%m/%Y', time.localtime(t))
+    return d
+
+def secondsTomdy(t):
+    d = time.strftime('%m/%d/%y', time.localtime(t))
+    return d
+
+def secondsTodmy(t):
+    d = time.strftime('%d/%m/%y', time.localtime(t))
     return d
 
 def module_path(local_function):
@@ -4219,7 +4234,7 @@ class OSVMConfig(wx.Frame):
         httpServer = startHTTPServer()
 
     def _displayOSVMBitmap(self, event=None):
-#        global __imgDir__
+        global __imgDir__
 
         # load the image
         imgPath = os.path.join(__imgDir__, 'OSVM3.png')
@@ -4351,22 +4366,8 @@ class OSVMConfig(wx.Frame):
         else:
             msg = '{:>{width}}'.format(text[0:self.timerCnt],width=(len(text)))
         self.titleStaticText1.SetLabel(msg)
-        #print self.timerCnt,msg
+        #print(self.timerCnt,msg)
 
-#    def OnBtnDebug(self, event):
-        #print ('Using local files for debug purposes. TBD')
-        #if self.MainConfigThread.isAlive():
-        #    self.MainConfigThread.stop()
-
-        # Fill availRemoteFiles{} manually with local information
-        # TBD...
-        #self.populateAvailRemoteFiles()
-        #frame = OSVM(None, -1, "%s" % (_myLongName_))
-        #frame.Show(True)
-        #self.timer.Stop()
-        #self.Close()
-        #event.Skip()
-        
     def OnBtnEnterViewMode(self, event):
         global viewMode
 
@@ -5163,6 +5164,138 @@ class ThumbnailDialog(wx.Dialog):
         event.Skip()
 
 ####
+class TabPanel(wx.Panel):
+    """
+    Class to use in the thumbnail panel as tabs
+    """
+    global availRemoteFiles
+    global availRemoteFilesSorted
+    global localFileInfos
+    global __thumbDir__
+    global localFilesSorted
+    global castMediaCtrl
+    global viewMode
+    global vlcVideoViewer
+    global thumbnailGridRows
+    global thumbnailGridColumns
+
+    def __init__(self, parent, thumbList, firstIdx):
+        self.parent = parent
+        self.thumbList = thumbList
+        self.firstIdx = firstIdx
+
+        wx.Panel.__init__(self, parent=parent, id=wx.ID_ANY)
+        
+        sizer = wx.GridSizer(rows=thumbnailGridRows, cols=thumbnailGridColumns, vgap=5, hgap=5)
+
+        lastIdx = self.firstIdx + (thumbnailGridRows * thumbnailGridColumns)
+        print('TabPanel [%d : %d]' % (self.firstIdx, lastIdx))
+
+        for f in self.thumbList[self.firstIdx:lastIdx]:
+            remFileName = f[1][F_NAME]
+            remFileSize = f[1][F_SIZE]
+            remFileDate = f[1][F_DATE]
+
+            # Add 1 button for each available image at the remote
+            button = wx.Button(parent=self, 
+                               id=wx.ID_ANY,
+                               name=remFileName,
+                               style=0)
+            if viewMode:
+                if vlcVideoViewer:
+                    button.Bind(wx.EVT_BUTTON, self.LaunchViewer)
+#                button.Bind(wx.EVT_RIGHT_DOWN, self.OnThumbButtonRightDown)
+#            else:
+#                if remFileName in list(localFileInfos.keys()) and vlcVideoViewer:
+#                    button.Bind(wx.EVT_BUTTON, self.LaunchViewer)
+#                else:
+#                    button.Bind(wx.EVT_BUTTON, self.OnThumbButton)
+#            button.Bind(wx.EVT_RIGHT_DOWN, self.OnThumbButtonRightDown)
+
+            if float(remFileSize) < ONEMEGA:
+                remFileSizeString = '%.1f KB' % (remFileSize / ONEKILO)
+            else:
+                remFileSizeString = '%.1f MB' % (remFileSize / ONEMEGA)
+
+            # Display thumbnail (with scaling)
+            thumbnailPath = os.path.join(__thumbDir__, remFileName)
+            self._displayThumbnail(button, thumbnailPath, wx.BITMAP_TYPE_JPEG)
+
+            # Set tooltip
+            if viewMode:
+                toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,secondsTomdY(remFileDate))
+            else:
+                toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,getHumanDate(remFileDate))
+            button.SetToolTip(toolTipString)
+
+            # Colorize button if file is available locally
+            color = fileColor(remFileName)
+            button.SetBackgroundColour(color[0])
+            button.SetForegroundColour(color[1])
+
+            # each entry in thumbButtons[] is of form: [button, filename, fgcol, bgcol]
+            bgcol = button.GetBackgroundColour()
+            fgcol = button.GetForegroundColour()
+#            newEntry = [button, remFileName, fgcol, bgcol]
+#            self.thumbButtons.append(newEntry)
+
+            sizer.Add(button, proportion=1, border=0, flag=wx.EXPAND)
+
+        self.SetSizer(sizer)
+
+    def _displayThumbnail(self, widget, image, type):
+        global __thumbDir_
+        global __imgDir__
+        global thumbnailScaleFactor
+
+        suffix = image.rsplit('.')[-1:][0]
+        if suffix == 'MOV':
+            newThumbnailPathname = self._overlayThumbnail(image, type)
+            Img = wx.Image(newThumbnailPathname, type)
+        else:
+            Img = wx.Image(image, type)
+
+        # get original size of the image
+        try:
+            (w,h) = Img.GetSize().Get()
+        except:
+#            print('Invalid thumbnail file %s' % (image))
+            imgPath = os.path.join(__thumbDir__, __imgDir__, 'sad-smiley.png')
+            Img = wx.Image(imgPath, wx.BITMAP_TYPE_PNG)
+            (w,h) = Img.GetSize().Get()
+        
+        # convert it to a wx.Bitmap, and put it on the wx.StaticBitmap
+        widget.SetBitmap(wx.Bitmap(Img.Scale(w*thumbnailScaleFactor, h*thumbnailScaleFactor)))
+
+    # Overlay the thumbnail image with a fixed 'Play' image. Return the new image pathname
+    def _overlayThumbnail(self, image, type):
+        global __imgDir__
+
+        imgSuffix = {
+            wx.BITMAP_TYPE_JPEG: 'JPG',
+            wx.BITMAP_TYPE_PNG: 'PNG',
+            }
+        d=os.path.dirname(image)
+        f=os.path.basename(image)
+        suffix = image.rsplit('.')[-1:][0]
+        nf='%s-Play.%s.%s' % (f.rsplit('.',1)[0], suffix, imgSuffix[type])
+        newThumbnailPathname = os.path.join(d,nf)
+
+        if os.path.exists(newThumbnailPathname):
+#            print('_overlayThumbnail(): Using existing file %s' % newThumbnailPathname)
+            return newThumbnailPathname
+
+        print('_overlayThumbnail(): Overlaying %s' % image)
+        overlay = Image.open(image)
+        background = Image.open(os.path.join(__imgDir__, "play2-160x120.png"))
+        background = background.convert("RGB")
+        overlay = overlay.convert("RGB")
+
+        newThumbnail = Image.blend(background, overlay, 0.7) #0.8)
+        newThumbnail.save(newThumbnailPathname)
+        return newThumbnailPathname
+
+####
 class OSVM(wx.Frame):
     global fileColors
     global slideShowNextIdx
@@ -5175,6 +5308,7 @@ class OSVM(wx.Frame):
     def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         self.parent = parent
+        print(parent)
 
         self.installDlg = None
 
@@ -5229,7 +5363,7 @@ class OSVM(wx.Frame):
         #printGlobals()
         pass
 
-    def _createThumbnailPanel(self):
+    def _ocreateThumbnailPanel(self):
         global availRemoteFiles
         global availRemoteFilesSorted
         global localFileInfos
@@ -5287,7 +5421,7 @@ class OSVM(wx.Frame):
 
             # Set tooltip
             if viewMode:
-                toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,secondsToDate(remFileDate))
+                toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,secondsTomdY(remFileDate))
             else:
                 toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,getHumanDate(remFileDate))
             button.SetToolTip(toolTipString)
@@ -5307,10 +5441,176 @@ class OSVM(wx.Frame):
         self.numPkgButtons = btn
         setBusyCursor(False)
 
+    def _createThumbnailTab(self, parent, listOfThumbnail, idx):
+        global thumbnailGridColumns
+        global thumbnailGridRows
+        global viewMode
+        global vlcVideoViewer
+
+        tab = wx.Panel(id=wx.ID_ANY, name='tab%d'%idx, parent=parent)
+        sizer = wx.GridSizer(rows=thumbnailGridRows, cols=thumbnailGridColumns, vgap=5, hgap=5)
+
+        lastIdx = min(idx + (thumbnailGridRows * thumbnailGridColumns), len(listOfThumbnail))
+        print('%s [%d : %d]' % (tab.GetName(), idx, lastIdx))
+
+        for f in listOfThumbnail[idx:lastIdx]:
+            remFileName = f[1][F_NAME]
+            remFileSize = f[1][F_SIZE]
+            remFileDate = f[1][F_DATE]
+
+            # Add 1 button for each available image
+            button = wx.Button(parent=tab, 
+                               id=wx.ID_ANY,
+                               name=remFileName,
+                               style=0)
+            if viewMode:
+                if vlcVideoViewer:
+                    button.Bind(wx.EVT_BUTTON, self.LaunchViewer)
+                button.Bind(wx.EVT_RIGHT_DOWN, self.OnThumbButtonRightDown)
+            else:
+                if remFileName in list(localFileInfos.keys()) and vlcVideoViewer:
+                    button.Bind(wx.EVT_BUTTON, self.LaunchViewer)
+                else:
+                    button.Bind(wx.EVT_BUTTON, self.OnThumbButton)
+            button.Bind(wx.EVT_RIGHT_DOWN, self.OnThumbButtonRightDown)
+
+            if float(remFileSize) < ONEMEGA:
+                remFileSizeString = '%.1f KB' % (remFileSize / ONEKILO)
+            else:
+                remFileSizeString = '%.1f MB' % (remFileSize / ONEMEGA)
+
+            # Display thumbnail (with scaling)
+            thumbnailPath = os.path.join(__thumbDir__, remFileName)
+            self._displayThumbnail(button, thumbnailPath, wx.BITMAP_TYPE_JPEG)
+
+            # Set tooltip
+            if viewMode:
+                toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,secondsTodmY(remFileDate))
+            else:
+                toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,getHumanDate(remFileDate))
+            button.SetToolTip(toolTipString)
+
+            # Colorize button if file is available locally
+            color = fileColor(remFileName)
+            button.SetBackgroundColour(color[0])
+            button.SetForegroundColour(color[1])
+
+            sizer.Add(button, proportion=1, border=0, flag=wx.EXPAND)
+
+            # each entry in thumbButtons[] is of form: [button, filename, fgcol, bgcol]
+            bgcol = button.GetBackgroundColour()
+            fgcol = button.GetForegroundColour()
+
+            newEntry = [button, remFileName, fgcol, bgcol]
+            self.thumbButtons.append(newEntry)
+            self.numPkgButtons += 1
+
+        if viewMode:
+            firstRemFileDate = '%s' % (secondsTodmy(listOfThumbnail[idx][1][F_DATE]))
+            lastRemFileDate  = '%s' % (secondsTodmy(listOfThumbnail[lastIdx-1][1][F_DATE]))
+        else:
+            firstRemFileDate = '%s' % (getHumanDate(listOfThumbnail[idx][1][F_DATE]))
+            lastRemFileDate  = '%s' % (getHumanDate(listOfThumbnail[lastIdx-1][1][F_DATE]))
+
+        tab.SetSizer(sizer)
+        return tab,firstRemFileDate,lastRemFileDate
+
+    def _createThumbnailPanel(self):
+        global availRemoteFilesSorted
+        global localFilesSorted
+        global viewMode
+        global thumbnailGridRows
+        global thumbnailGridColumns
+
+        setBusyCursor(True)
+
+        agwStyle=fnb.FNB_VC8|fnb.FNB_COLOURFUL_TABS | fnb.FNB_NO_X_BUTTON
+#        agwStyle=fnb.FNB_VC8 | fnb.FNB_COLOURFUL_TABS | fnb.FNB_NO_X_BUTTON |fnb.FNB_DROPDOWN_TABS_LIST
+        self.noteBook = fnb.FlatNotebook(parent=self.panel1, id=wx.ID_ANY,agwStyle=agwStyle) 
+
+#EVT_FLATNOTEBOOK_PAGE_CHANGED
+#EVT_FLATNOTEBOOK_PAGE_CHANGING
+#EVT_FLATNOTEBOOK_PAGE_CLOSING
+#EVT_FLATNOTEBOOK_PAGE_CLOSED
+#EVT_FLATNOTEBOOK_PAGE_CONTEXT_MENU
+#EVT_FLATNOTEBOOK_PAGE_DROPPED
+#EVT_FLATNOTEBOOK_PAGE_DROPPED_FOREIGN
+
+        self.numPkgButtons = 0
+
+        if viewMode:
+            fileListToUse = localFilesSorted
+        else:
+            fileListToUse = availRemoteFilesSorted
+
+        numTabs = len(fileListToUse) / (thumbnailGridRows * thumbnailGridColumns)
+        print('fileListToUse length=%d numTabs=%f' % (len(fileListToUse), numTabs))
+
+#        self.tabs = list()
+
+        firstIdx = 0
+
+        for t in range(int(math.ceil(numTabs))): # round up
+            tab, firstRemFileDate,lastRemFileDate = self._createThumbnailTab(self.noteBook, fileListToUse, firstIdx)
+#            lastIdx = firstIdx + (thumbnailGridRows * thumbnailGridColumns) - 1
+            self.noteBook.AddPage(tab, '%s  -  %s' % (lastRemFileDate,firstRemFileDate))
+
+#            self.tabs.append(tab)
+            firstIdx += thumbnailGridRows * thumbnailGridColumns
+
+        self._pageCount = self.noteBook.GetPageCount()
+
+        # update box title
+        olbl = self.staticBox3.GetLabel()
+        nlbl = '%s Page: %d/%d' % (olbl, self.noteBook.GetSelection()+1,self._pageCount)
+        self.staticBox3.SetLabel(nlbl)
+
+        self.noteBook.Bind(fnb.EVT_FLATNOTEBOOK_PAGE_CHANGED,self._OnFlatNoteBookPageChanged)
+#        self.noteBook.Bind(fnb.EVT_FLATNOTEBOOK_PAGE_CHANGING,self.ev2)
+
+#        self.noteBook.Tile(wx.HORIZONTAL)
+#        print('xxx',self.noteBook.GetPadding())
+#        self.noteBook.SetPadding(12)
+#        print('xxx',self.noteBook.GetPadding())
+
+        setBusyCursor(False)
+
+
     #
     # This function will rescan the installation according to user preferences
     #
     def _updateThumbnailPanel(self):
+        global availRemoteFilesSorted
+        global localFilesSorted
+        global viewMode
+        global thumbnailGridRows
+        global thumbnailGridColumns
+
+        setBusyCursor(True)
+
+        self.noteBook.DeleteAllPages()
+
+        # Clear existing button list
+        self.thumbButtons = list()
+        self.numPkgButtons = 0
+
+        if viewMode:
+            fileListToUse = localFilesSorted
+        else:
+            fileListToUse = availRemoteFilesSorted
+
+        numTabs = len(fileListToUse) / (thumbnailGridRows * thumbnailGridColumns)
+        firstIdx = 0
+
+        for t in range(int(math.ceil(numTabs))): # round up
+            tab, firstRemFileDate,lastRemFileDate = self._createThumbnailTab(self.noteBook, fileListToUse, firstIdx)
+#            lastIdx = firstIdx + (thumbnailGridRows * thumbnailGridColumns) - 1
+            self.noteBook.AddPage(tab, '%s  -  %s' % (lastRemFileDate,firstRemFileDate))
+            firstIdx += thumbnailGridRows * thumbnailGridColumns
+
+        setBusyCursor(False)
+
+    def _oupdateThumbnailPanel(self):
         global availRemoteFiles
         global availRemoteFilesSorted
         global localFilesSorted
@@ -5389,7 +5689,7 @@ class OSVM(wx.Frame):
 
             # Set tooltip
             if viewMode:
-                toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,secondsToDate(remFileDate))
+                toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,secondsTomdY(remFileDate))
             else:
                 toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,getHumanDate(remFileDate))
             button.SetToolTip(toolTipString)
@@ -5407,8 +5707,8 @@ class OSVM(wx.Frame):
         #print self.thumbButtons
 
         if viewMode:
-            remNewestDate = secondsToDate(fileListToUse[0][1][F_DATE])
-            remOldestDate = secondsToDate(fileListToUse[-1][1][F_DATE])
+            remNewestDate = secondsTomdY(fileListToUse[0][1][F_DATE])
+            remOldestDate = secondsTomdY(fileListToUse[-1][1][F_DATE])
             print('remOldestDate:',remOldestDate,fileListToUse[0][1][F_DATE])
             print('remNewestDate:',remNewestDate,fileListToUse[-1][1][F_DATE])
         else:
@@ -5504,7 +5804,7 @@ class OSVM(wx.Frame):
                 self.btnCommit.Enable()
 
             # Enable all pkg buttons
-            self.scrollWin1.Enable()
+            self.noteBook.Enable()
         else:
             self.updateStatusBar(reason, fgcolor=wx.WHITE, bgcolor=wx.RED)
 
@@ -5513,7 +5813,7 @@ class OSVM(wx.Frame):
                 self.menuBar.Enable(id, False)
 
             # Disable all buttons
-            self.scrollWin1.Disable()
+            self.noteBook.Disable()
             self.btnRescan.Enable()
             self.btnRescan.SetDefault()
 
@@ -5722,7 +6022,7 @@ class OSVM(wx.Frame):
 
     def _init_thumbBoxSizer_Items(self, parent):
         # Thumbnail window
-        parent.Add(self.scrollWin1, 1, border=0, flag=wx.EXPAND)
+        parent.Add(self.noteBook, 1, border=0, flag=wx.EXPAND)
         parent.Add(0, 8, border=0, flag=0)
         # Button colors meaning
         parent.Add(self.thumbGridSizer2, 0, border=0, flag=wx.EXPAND)
@@ -5731,9 +6031,9 @@ class OSVM(wx.Frame):
         for button in self.thumbButtons:
             parent.Add(button[0], proportion=1, border=0, flag=wx.EXPAND)
 
-        self.scrollWin1.SetSizer(parent)
-        self.scrollWin1.SetAutoLayout(1)
-        self.scrollWin1.SetupScrolling()
+        self.noteBook.SetSizer(parent)
+        self.noteBook.SetAutoLayout(1)
+#        self.scrollWin1.SetupScrolling()
 
     def _init_thumbGridSizer2_Items(self, parent):
         for entry in self.colorGrid:
@@ -5819,8 +6119,8 @@ class OSVM(wx.Frame):
         # Package Box sizer in staticBoxSizer
         self.thumbBoxSizer = wx.StaticBoxSizer(box=self.staticBox3, orient=wx.VERTICAL)
 
-        gsNumCols = thumbnailGridColumns
-        self.thumbGridSizer1 = wx.GridSizer(cols=gsNumCols, vgap=5, hgap=5)
+#        gsNumCols = thumbnailGridColumns
+#        self.thumbGridSizer1 = wx.GridSizer(cols=gsNumCols, vgap=5, hgap=5)
 
         # Grid Sizer to contain LEDs for color labels
         self.thumbGridSizer2 = wx.FlexGridSizer(cols=10, hgap=8, rows=1, vgap=0)
@@ -5838,7 +6138,7 @@ class OSVM(wx.Frame):
         self._init_btnGridBagSizer_Items(self.btnGridBagSizer)
 
         self._init_thumbBoxSizer_Items(self.thumbBoxSizer)
-        self._init_thumbGridSizer1_Items(self.thumbGridSizer1)
+#        self._init_thumbGridSizer1_Items(self.thumbGridSizer1)
         self._init_thumbGridSizer2_Items(self.thumbGridSizer2)
 
         self._init_bottomBoxSizer_Items(self.bottomBoxSizer)
@@ -5867,7 +6167,7 @@ class OSVM(wx.Frame):
         global fileSortRecentFirst
 
         # Package buttons list
-        self.thumbButtons = []
+        self.thumbButtons = list() #[]
 
         # List of scheduled operations on files. Format:
         # op[OP_STATUS|0]      = status (busy=1/off=0)
@@ -5925,8 +6225,8 @@ class OSVM(wx.Frame):
                 print('remOldestDate:',remOldestDate)
                 print('remNewestDate:',remNewestDate)
             else:
-                remNewestDate = secondsToDate(localFilesSorted[0][1][F_DATE])
-                remOldestDate = secondsToDate(localFilesSorted[-1][1][F_DATE])
+                remNewestDate = secondsTomdY(localFilesSorted[0][1][F_DATE])
+                remOldestDate = secondsTomdY(localFilesSorted[-1][1][F_DATE])
                 print('remOldestDate:',remOldestDate,localFilesSorted[0][1][F_DATE])
                 print('remNewestDate:',remNewestDate,localFilesSorted[-1][1][F_DATE])
         else:
@@ -6001,7 +6301,7 @@ class OSVM(wx.Frame):
         self.btnRescan.Bind(wx.EVT_BUTTON, self.OnBtnRescan)
 
         # Create the package list window
-        self._createThumbnailPanel()
+#        self._createThumbnailPanel()
 
         # Create the LEDS and Static Texts to show colors meaning
         for i in range(len(FILE_COLORS_STATUS)):
@@ -6038,6 +6338,8 @@ class OSVM(wx.Frame):
         self.staticBox4 = wx.StaticBox(id=wx.ID_ANY,
                                        label=lbl, name='staticBox4',
                                        parent=self.panel1, pos=wx.Point(10, 64), style=0)
+
+        self._createThumbnailPanel()
 
         self.statusBar1 = wx.StatusBar(id=wx.ID_ANY,
                                        name='statusBar1', parent=self.panel1, style=0)
@@ -6239,10 +6541,7 @@ class OSVM(wx.Frame):
                 self.btnCancel.Enable()
                 break
 
-#        self.scrollWin1.SetFocus()
-        self.scrollWin1.ScrollChildIntoView(button)
-        self.scrollWin1.Refresh()
-#        event.Skip()
+#        self.scrollWin1.Refresh()
 
     # Left Click on a File button, zoom in the thumbnail
     def OnThumbButton(self, event):
@@ -6264,6 +6563,14 @@ class OSVM(wx.Frame):
         dlg = ThumbnailDialog(self, thumbnail=thumbFilePath)
         ret = dlg.ShowModal()
         dlg.Destroy()
+        event.Skip()
+
+    def _OnFlatNoteBookPageChanged(self, event):
+        #print('ev1(): %d/%d' % (self.noteBook.GetSelection(),self._pageCount))
+        olbl = self.staticBox3.GetLabel()
+        prefix = olbl[:olbl.index('Page:')]
+        nlbl = '%sPage: %d/%d' % (prefix, self.noteBook.GetSelection()+1,self._pageCount)
+        self.staticBox3.SetLabel(nlbl)
         event.Skip()
 
     def OpenExternalViewer(self, event):
@@ -6341,7 +6648,7 @@ class OSVM(wx.Frame):
             else:
                 castMediaCtrl.block_until_active()
 
-            self.scrollWin1.ScrollChildIntoView(button)
+#            self.scrollWin1.ScrollChildIntoView(button)
             event.Skip()
             return
 
@@ -6358,7 +6665,7 @@ class OSVM(wx.Frame):
                 ["/usr/bin/open", "-W", "-n", "-a", externalViewer[suffix], filePath]
                 )
             event.Skip()
-            self.scrollWin1.ScrollChildIntoView(button)
+#            self.scrollWin1.ScrollChildIntoView(button)
             return
 
         # Use internal viewer
@@ -6373,7 +6680,7 @@ class OSVM(wx.Frame):
         print('Exit of MediaViewer. ret:%d' % ret)
 
         # Reset scrolling
-        self.scrollWin1.ScrollChildIntoView(button)
+#        self.scrollWin1.ScrollChildIntoView(button)
 
     def OnBtnSwitchMode(self, event):
         global viewMode
