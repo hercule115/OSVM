@@ -4003,7 +4003,7 @@ class PreferencesDialog(wx.Dialog):
         maxDownload           = int(self.maxDownloadChoice.GetSelection())
         remBaseDir            = self.remBaseDirTextCtrl.GetValue()
         ssDelay               = int(self.ssDelayChoice.GetSelection()) + MIN_SS_DELAY
-        fileSortRecentFirst       = not (int(self.fileSortChoice.GetSelection()))
+        fileSortRecentFirst   = not (int(self.fileSortChoice.GetSelection()))
 
         # Update from temporary variables
         osvmDownloadDir      = self.tmpOsvmDownloadDir
@@ -5521,20 +5521,13 @@ class OSVM(wx.Frame):
         global viewMode
         global thumbnailGridRows
         global thumbnailGridColumns
+        global fileSortRecentFirst
 
         setBusyCursor(True)
 
         agwStyle=fnb.FNB_VC8|fnb.FNB_COLOURFUL_TABS | fnb.FNB_NO_X_BUTTON
 #        agwStyle=fnb.FNB_VC8 | fnb.FNB_COLOURFUL_TABS | fnb.FNB_NO_X_BUTTON |fnb.FNB_DROPDOWN_TABS_LIST
         self.noteBook = fnb.FlatNotebook(parent=self.panel1, id=wx.ID_ANY,agwStyle=agwStyle) 
-
-#EVT_FLATNOTEBOOK_PAGE_CHANGED
-#EVT_FLATNOTEBOOK_PAGE_CHANGING
-#EVT_FLATNOTEBOOK_PAGE_CLOSING
-#EVT_FLATNOTEBOOK_PAGE_CLOSED
-#EVT_FLATNOTEBOOK_PAGE_CONTEXT_MENU
-#EVT_FLATNOTEBOOK_PAGE_DROPPED
-#EVT_FLATNOTEBOOK_PAGE_DROPPED_FOREIGN
 
         self.numPkgButtons = 0
 
@@ -5552,8 +5545,10 @@ class OSVM(wx.Frame):
 
         for t in range(int(math.ceil(numTabs))): # round up
             tab, firstRemFileDate,lastRemFileDate = self._createThumbnailTab(self.noteBook, fileListToUse, firstIdx)
-#            lastIdx = firstIdx + (thumbnailGridRows * thumbnailGridColumns) - 1
-            self.noteBook.AddPage(tab, '%s  -  %s' % (lastRemFileDate,firstRemFileDate))
+            if fileSortRecentFirst:
+                self.noteBook.AddPage(tab, '%s  -  %s' % (lastRemFileDate,firstRemFileDate))
+            else:
+                self.noteBook.AddPage(tab, '%s  -  %s' % (firstRemFileDate,lastRemFileDate))
 
 #            self.tabs.append(tab)
             firstIdx += thumbnailGridRows * thumbnailGridColumns
@@ -5585,6 +5580,7 @@ class OSVM(wx.Frame):
         global viewMode
         global thumbnailGridRows
         global thumbnailGridColumns
+        global fileSortRecentFirst
 
         setBusyCursor(True)
 
@@ -5604,9 +5600,17 @@ class OSVM(wx.Frame):
 
         for t in range(int(math.ceil(numTabs))): # round up
             tab, firstRemFileDate,lastRemFileDate = self._createThumbnailTab(self.noteBook, fileListToUse, firstIdx)
-#            lastIdx = firstIdx + (thumbnailGridRows * thumbnailGridColumns) - 1
-            self.noteBook.AddPage(tab, '%s  -  %s' % (lastRemFileDate,firstRemFileDate))
+            if fileSortRecentFirst:
+                self.noteBook.AddPage(tab, '%s  -  %s' % (lastRemFileDate,firstRemFileDate))
+            else:
+                self.noteBook.AddPage(tab, '%s  -  %s' % (firstRemFileDate,lastRemFileDate))
+
             firstIdx += thumbnailGridRows * thumbnailGridColumns
+
+        # update box title
+        olbl = self.staticBox3.GetLabel()
+        nlbl = '%s Page: %d/%d' % (olbl, self.noteBook.GetSelection()+1,self._pageCount)
+        self.staticBox3.SetLabel(nlbl)
 
         setBusyCursor(False)
 
@@ -7241,8 +7245,6 @@ class OSVM(wx.Frame):
         # Update information
         localFilesCnt,availRemoteFilesCnt = updateFileDicts()
         slideShowLastIdx = localFilesCnt
-        # Update list of files on the GUI
-        self._updateThumbnailPanel()
         # Update LEDs colors
         self._updateLEDs()
         # Cancel all pending operations
@@ -7269,6 +7271,9 @@ class OSVM(wx.Frame):
             self.staticBox3.SetLabel(' Available Remote Files (on camera) ')
             self.staticBox4.SetLabel(' Select Files to Sync... ')
             self.statusBar1.SetStatusText('Sync Mode', 1)
+
+        # Update list of files on the GUI
+        self._updateThumbnailPanel()
 
         self._setMode(MODE_ENABLED, msg)
 #        event.Skip()
