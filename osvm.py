@@ -2,7 +2,7 @@
 
 _myName_     = 'OSVM'
 _myLongName_ = 'Olympus Sync & View Manager'
-_myVersion_  = '2.0'
+_myVersion_  = '2.1'
 
 import wx.lib.platebtn as platebtn
 
@@ -2093,7 +2093,6 @@ class MainInstallThread(threading.Thread):
     def __init__(self, parent, name, thrLock):
         threading.Thread.__init__(self)
         self._parent = parent
-        print('_parent:',self._parent)
         self._name = name
         self._thrLock = thrLock
 
@@ -2200,7 +2199,7 @@ class SlideShowThread(threading.Thread):
         global serverAddr
         global SERVER_HTTP_PORT
 
-        print('%s: Running. Server: %s' % (self._name, serverAddr))
+        print('%s: Running. Server: %s:%s' % (self._name, serverAddr, SERVER_HTTP_PORT))
 
         while True:
             self._threadLock.acquire() # will block until 'Start slideshow' button is pressed 
@@ -2903,6 +2902,7 @@ class FileOperationMenu(wx.Menu):
     global castMediaCtrl
     global castDevice
     global vlcVideoViewer
+    global viewMode
 
     def __init__(self, parent, button, oplist):
         """
@@ -2936,7 +2936,7 @@ class FileOperationMenu(wx.Menu):
             id = 0  
 
 	# Start Slideshow from here
-        if fileType == 'JPG' or (fileType == 'MOV' and vlcVideoViewer):
+        if viewMode and fileType == 'JPG' or (fileType == 'MOV' and vlcVideoViewer):
             menuEntry = [fileName, FILE_SLIDESHOW, None]
             self.popupMenuTitles.append((id, menuEntry))
             id += 1
@@ -3034,7 +3034,7 @@ class FileOperationMenu(wx.Menu):
 
         menuEntry = self.popupMenuTitles[event.GetId()][1]
         fileName = str(menuEntry[0])
-        print("_MenuSlideShowCb(): Searching %s in localFilesSorted" % fileName)
+        print("_MenuSlideShowCb(): Searching %s in localFilesSorted (%d files)" % (fileName, len(localFilesSorted)))
         idx = [x[0] for x in localFilesSorted].index(fileName)
         fileType = fileName.split('.')[1]	# File suffix
         filesSelected = self.parent.selectFilesByPosition(fileType, idx)
@@ -5163,137 +5163,86 @@ class ThumbnailDialog(wx.Dialog):
         self.EndModal(wx.ID_OK)
         event.Skip()
 
+
 ####
-class TabPanel(wx.Panel):
-    """
-    Class to use in the thumbnail panel as tabs
-    """
-    global availRemoteFiles
-    global availRemoteFilesSorted
-    global localFileInfos
-    global __thumbDir__
-    global localFilesSorted
-    global castMediaCtrl
-    global viewMode
-    global vlcVideoViewer
-    global thumbnailGridRows
-    global thumbnailGridColumns
+# From A. Gavana FlatNoteBook Demo
+class LogoPanel(wx.Panel):
+    def __init__(self, parent, id=-1, pos=wx.DefaultPosition, size=wx.DefaultSize,
+                 style=wx.CLIP_CHILDREN):
 
-    def __init__(self, parent, thumbList, firstIdx):
-        self.parent = parent
-        self.thumbList = thumbList
-        self.firstIdx = firstIdx
+        global _myName_, _myVersion_
 
-        wx.Panel.__init__(self, parent=parent, id=wx.ID_ANY)
+        wx.Panel.__init__(self, parent, id, pos, size, style)
+
+        self.SetBackgroundColour(wx.WHITE)
+        imgpath = os.path.join(__thumbDir__, __imgDir__, 'sad-smiley.png')
+        self.bmp = wx.Bitmap(wx.Image(imgpath, wx.BITMAP_TYPE_PNG))
+
+        self.bigfont = wx.Font(18, wx.SWISS, wx.NORMAL, wx.BOLD, False)
+        self.normalfont = wx.Font(14, wx.SWISS, wx.NORMAL, wx.BOLD, True)
+        self.smallfont = wx.Font(10, wx.SWISS, wx.NORMAL, wx.BOLD, False)
+
+        self.SetBackgroundStyle(wx.BG_STYLE_CUSTOM)
         
-        sizer = wx.GridSizer(rows=thumbnailGridRows, cols=thumbnailGridColumns, vgap=5, hgap=5)
+        self.Bind(wx.EVT_PAINT, self.OnPaint)
+        self.Bind(wx.EVT_SIZE, self.OnSize)
 
-        lastIdx = self.firstIdx + (thumbnailGridRows * thumbnailGridColumns)
-        print('TabPanel [%d : %d]' % (self.firstIdx, lastIdx))
+        self.topTitle = 'No File Detected'
+        self.midTitle = 'D. Poirot'
+        self.bottomTitle = '%s %s' % (_myName_, _myVersion_)
 
-        for f in self.thumbList[self.firstIdx:lastIdx]:
-            remFileName = f[1][F_NAME]
-            remFileSize = f[1][F_SIZE]
-            remFileDate = f[1][F_DATE]
+    def setLogoPanelTopTitle(self, title):
+        self.topTitle = title
 
-            # Add 1 button for each available image at the remote
-            button = wx.Button(parent=self, 
-                               id=wx.ID_ANY,
-                               name=remFileName,
-                               style=0)
-            if viewMode:
-                if vlcVideoViewer:
-                    button.Bind(wx.EVT_BUTTON, self.LaunchViewer)
-#                button.Bind(wx.EVT_RIGHT_DOWN, self.OnThumbButtonRightDown)
-#            else:
-#                if remFileName in list(localFileInfos.keys()) and vlcVideoViewer:
-#                    button.Bind(wx.EVT_BUTTON, self.LaunchViewer)
-#                else:
-#                    button.Bind(wx.EVT_BUTTON, self.OnThumbButton)
-#            button.Bind(wx.EVT_RIGHT_DOWN, self.OnThumbButtonRightDown)
+    def setLogoPanelMidTitle(self, title):
+        self.midTitle = title
 
-            if float(remFileSize) < ONEMEGA:
-                remFileSizeString = '%.1f KB' % (remFileSize / ONEKILO)
-            else:
-                remFileSizeString = '%.1f MB' % (remFileSize / ONEMEGA)
+    def setLogoPanelBottomTitle(self, title):
+        self.bottomTitle = title
 
-            # Display thumbnail (with scaling)
-            thumbnailPath = os.path.join(__thumbDir__, remFileName)
-            self._displayThumbnail(button, thumbnailPath, wx.BITMAP_TYPE_JPEG)
-
-            # Set tooltip
-            if viewMode:
-                toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,secondsTomdY(remFileDate))
-            else:
-                toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,getHumanDate(remFileDate))
-            button.SetToolTip(toolTipString)
-
-            # Colorize button if file is available locally
-            color = fileColor(remFileName)
-            button.SetBackgroundColour(color[0])
-            button.SetForegroundColour(color[1])
-
-            # each entry in thumbButtons[] is of form: [button, filename, fgcol, bgcol]
-            bgcol = button.GetBackgroundColour()
-            fgcol = button.GetForegroundColour()
-#            newEntry = [button, remFileName, fgcol, bgcol]
-#            self.thumbButtons.append(newEntry)
-
-            sizer.Add(button, proportion=1, border=0, flag=wx.EXPAND)
-
-        self.SetSizer(sizer)
-
-    def _displayThumbnail(self, widget, image, type):
-        global __thumbDir_
-        global __imgDir__
-        global thumbnailScaleFactor
-
-        suffix = image.rsplit('.')[-1:][0]
-        if suffix == 'MOV':
-            newThumbnailPathname = self._overlayThumbnail(image, type)
-            Img = wx.Image(newThumbnailPathname, type)
-        else:
-            Img = wx.Image(image, type)
-
-        # get original size of the image
-        try:
-            (w,h) = Img.GetSize().Get()
-        except:
-#            print('Invalid thumbnail file %s' % (image))
-            imgPath = os.path.join(__thumbDir__, __imgDir__, 'sad-smiley.png')
-            Img = wx.Image(imgPath, wx.BITMAP_TYPE_PNG)
-            (w,h) = Img.GetSize().Get()
+    def OnSize(self, event):
+        event.Skip()
+        self.Refresh()
         
-        # convert it to a wx.Bitmap, and put it on the wx.StaticBitmap
-        widget.SetBitmap(wx.Bitmap(Img.Scale(w*thumbnailScaleFactor, h*thumbnailScaleFactor)))
+    def OnPaint(self, event):
+        dc = wx.AutoBufferedPaintDC(self)
+        self.DoDrawing(dc)    
 
-    # Overlay the thumbnail image with a fixed 'Play' image. Return the new image pathname
-    def _overlayThumbnail(self, image, type):
-        global __imgDir__
+    def DoDrawing(self, dc):
+        dc.SetBackground(wx.WHITE_BRUSH)
+        dc.Clear()
+        
+        w, h = self.GetClientSize()
+        bmpW, bmpH = self.bmp.GetWidth(), self.bmp.GetHeight()
+        xpos, ypos = int((w - bmpW)/2), int((h - bmpH)/2)
+        
+        dc.DrawBitmap(self.bmp, xpos, ypos, True)
 
-        imgSuffix = {
-            wx.BITMAP_TYPE_JPEG: 'JPG',
-            wx.BITMAP_TYPE_PNG: 'PNG',
-            }
-        d=os.path.dirname(image)
-        f=os.path.basename(image)
-        suffix = image.rsplit('.')[-1:][0]
-        nf='%s-Play.%s.%s' % (f.rsplit('.',1)[0], suffix, imgSuffix[type])
-        newThumbnailPathname = os.path.join(d,nf)
+        dc.SetFont(self.bigfont)
+        dc.SetTextForeground(wx.BLUE)
+        dc.SetBrush(wx.TRANSPARENT_BRUSH)
+        dc.SetPen(wx.Pen(wx.BLUE, 2))
+        
+        tw, th = dc.GetTextExtent(self.topTitle)
+        xpos = int((w - tw)/2)
+        ypos = int(h/3)
 
-        if os.path.exists(newThumbnailPathname):
-#            print('_overlayThumbnail(): Using existing file %s' % newThumbnailPathname)
-            return newThumbnailPathname
+        dc.DrawRoundedRectangle(xpos-5, ypos-3, tw+10, th+6, 3)
+        dc.DrawText(self.topTitle, xpos, ypos)
+        
+        dc.SetFont(self.normalfont)
+        dc.SetTextForeground(wx.RED)
+        tw, th = dc.GetTextExtent(self.midTitle)
+        xpos = int((w - tw)/2)
+        ypos = int(2*h/3)
+        dc.DrawText(self.midTitle, xpos, ypos)
 
-        print('_overlayThumbnail(): Overlaying %s' % image)
-        overlay = Image.open(image)
-        background = Image.open(os.path.join(__imgDir__, "play2-160x120.png"))
-        background = background.convert("RGB")
-        overlay = overlay.convert("RGB")
-
-        newThumbnail = Image.blend(background, overlay, 0.7) #0.8)
-        newThumbnail.save(newThumbnailPathname)
-        return newThumbnailPathname
+        dc.SetFont(self.smallfont)
+        tw, th = dc.GetTextExtent(self.bottomTitle)
+        xpos = int((w - tw)/2)
+        ypos = int(2*h/3 + 4*th/2)
+        dc.DrawText(self.bottomTitle, xpos, ypos)
+        
 
 ####
 class OSVM(wx.Frame):
@@ -5308,7 +5257,6 @@ class OSVM(wx.Frame):
     def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         self.parent = parent
-        print(parent)
 
         self.installDlg = None
 
@@ -5362,6 +5310,15 @@ class OSVM(wx.Frame):
     def _updateGUIFromGlobals(self):
         #printGlobals()
         pass
+
+    def _updateStaticBox3Label(self, reason=''):
+        olbl = self.staticBox3.GetLabel()
+#        print(reason, olbl)
+        prefix = olbl[:olbl.index('Page:')]
+        self._pageCount = self.noteBook.GetPageCount()
+        nlbl = '%sPage: %d/%d' % (prefix, self.noteBook.GetSelection()+1,self._pageCount)
+        self.staticBox3.SetLabel(nlbl)
+#        print(reason, nlbl)
 
     def _ocreateThumbnailPanel(self):
         global availRemoteFiles
@@ -5451,8 +5408,8 @@ class OSVM(wx.Frame):
         sizer = wx.GridSizer(rows=thumbnailGridRows, cols=thumbnailGridColumns, vgap=5, hgap=5)
 
         lastIdx = min(idx + (thumbnailGridRows * thumbnailGridColumns), len(listOfThumbnail))
-        print('%s [%d : %d]' % (tab.GetName(), idx, lastIdx))
-
+        print('%s [%d : %d]\r' % (tab.GetName(), idx, lastIdx), end='', flush=True)
+#        print('%02d:%02d\r' % (m,s), end='', flush=True)
         for f in listOfThumbnail[idx:lastIdx]:
             remFileName = f[1][F_NAME]
             remFileSize = f[1][F_SIZE]
@@ -5529,6 +5486,13 @@ class OSVM(wx.Frame):
 #        agwStyle=fnb.FNB_VC8 | fnb.FNB_COLOURFUL_TABS | fnb.FNB_NO_X_BUTTON |fnb.FNB_DROPDOWN_TABS_LIST
         self.noteBook = fnb.FlatNotebook(parent=self.panel1, id=wx.ID_ANY,agwStyle=agwStyle) 
 
+        # Create a custom panel to use when the notebook is empty, e.g. no file is detected
+        self.customPanel = LogoPanel(self.noteBook, -1)
+        self.noteBook.SetCustomPage(self.customPanel)
+
+        self._pageCount = self.noteBook.GetPageCount()
+        print('_createThumbnailPanel(): # pages:', self._pageCount)
+
         self.numPkgButtons = 0
 
         if viewMode:
@@ -5537,7 +5501,7 @@ class OSVM(wx.Frame):
             fileListToUse = availRemoteFilesSorted
 
         numTabs = len(fileListToUse) / (thumbnailGridRows * thumbnailGridColumns)
-        print('fileListToUse length=%d numTabs=%f' % (len(fileListToUse), numTabs))
+#        print('fileListToUse length=%d numTabs=%f' % (len(fileListToUse), numTabs))
 
 #        self.tabs = list()
 
@@ -5554,22 +5518,16 @@ class OSVM(wx.Frame):
             firstIdx += thumbnailGridRows * thumbnailGridColumns
 
         self._pageCount = self.noteBook.GetPageCount()
+        print('_createThumbnailPanel(): %d pages created' % self._pageCount)
 
         # update box title
-        olbl = self.staticBox3.GetLabel()
-        nlbl = '%s Page: %d/%d' % (olbl, self.noteBook.GetSelection()+1,self._pageCount)
-        self.staticBox3.SetLabel(nlbl)
+        self._updateStaticBox3Label('_createThumbnailPanel')
 
         self.noteBook.Bind(fnb.EVT_FLATNOTEBOOK_PAGE_CHANGED,self._OnFlatNoteBookPageChanged)
+        self.noteBook.Bind(fnb.EVT_FLATNOTEBOOK_PAGE_CLOSED,self._OnFlatNoteBookPageClosed)
 #        self.noteBook.Bind(fnb.EVT_FLATNOTEBOOK_PAGE_CHANGING,self.ev2)
 
-#        self.noteBook.Tile(wx.HORIZONTAL)
-#        print('xxx',self.noteBook.GetPadding())
-#        self.noteBook.SetPadding(12)
-#        print('xxx',self.noteBook.GetPadding())
-
         setBusyCursor(False)
-
 
     #
     # This function will rescan the installation according to user preferences
@@ -5584,7 +5542,16 @@ class OSVM(wx.Frame):
 
         setBusyCursor(True)
 
-        self.noteBook.DeleteAllPages()
+        # Update customPanel titles *before* deleting the pages
+        if viewMode:
+            self.customPanel.setLogoPanelTopTitle('No Local File Detected')
+        else:
+            self.customPanel.setLogoPanelTopTitle('No Remote File Detected')
+            self.customPanel.setLogoPanelMidTitle('Connect to the Camera and Refresh')
+
+        # Delete all pages, one by one, starting from the last
+        for p in range(self.noteBook.GetPageCount()-1, -1, -1):
+            self.noteBook.DeletePage(p)
 
         # Clear existing button list
         self.thumbButtons = list()
@@ -5607,10 +5574,14 @@ class OSVM(wx.Frame):
 
             firstIdx += thumbnailGridRows * thumbnailGridColumns
 
-        # update box title
-        olbl = self.staticBox3.GetLabel()
-        nlbl = '%s Page: %d/%d' % (olbl, self.noteBook.GetSelection()+1,self._pageCount)
-        self.staticBox3.SetLabel(nlbl)
+        self._pageCount = self.noteBook.GetPageCount()
+        print('_updateThumbnailPanel(): %d pages created' % self._pageCount)
+
+        # update box title with new page count
+        self._updateStaticBox3Label('_updateThumbnailPanel')
+
+        self.Layout()
+        self.Show(True)
 
         setBusyCursor(False)
 
@@ -6327,10 +6298,11 @@ class OSVM(wx.Frame):
             self.btnCancel.Disable()
             self.btnCommit.Disable()
 
+        # The staticBox3 label MUST end with the string 'Page:' (will be updated automagically)
         if viewMode:
-            lbl = ' Available Local Files '
+            lbl = ' Available Local Files Page:'
         else:
-            lbl = ' Available Remote Files (on camera)'
+            lbl = ' Available Remote Files (on camera) Page:'
 
         self.staticBox3 = wx.StaticBox(id=wx.ID_ANY, label=lbl, 
                                        name='staticBox3', parent=self.panel1, 
@@ -6570,11 +6542,10 @@ class OSVM(wx.Frame):
         event.Skip()
 
     def _OnFlatNoteBookPageChanged(self, event):
-        #print('ev1(): %d/%d' % (self.noteBook.GetSelection(),self._pageCount))
-        olbl = self.staticBox3.GetLabel()
-        prefix = olbl[:olbl.index('Page:')]
-        nlbl = '%sPage: %d/%d' % (prefix, self.noteBook.GetSelection()+1,self._pageCount)
-        self.staticBox3.SetLabel(nlbl)
+        self._updateStaticBox3Label('_OnFlatNoteBookPageChanged')
+        event.Skip()
+
+    def _OnFlatNoteBookPageClosed(self, event):
         event.Skip()
 
     def OpenExternalViewer(self, event):
@@ -6696,6 +6667,7 @@ class OSVM(wx.Frame):
             button.SetLabel('Switch to Sync Mode')
         else:
             button.SetLabel('Switch to View Mode')
+#            self.noteBook.SetSelection(0)
 
         # Simulate a 'Rescan' event
         self._btnRescan = getattr(self, "btnRescan")
@@ -7261,14 +7233,16 @@ class OSVM(wx.Frame):
             self._setOfflineMode()
             if not viewMode:
                 msg += ',No remote file(s) detected'
-        print (msg)
+        print(msg)
 
         if viewMode:
-            self.staticBox3.SetLabel(' Available Local Files ')
+            self.staticBox3.SetLabel(' Available Local Files Page:')
+            self._updateStaticBox3Label('OnBtnRescan')
             self.staticBox4.SetLabel(' View Local Files ')
             self.statusBar1.SetStatusText('View Mode', 1)
         else:
-            self.staticBox3.SetLabel(' Available Remote Files (on camera) ')
+            self.staticBox3.SetLabel(' Available Remote Files (on camera) Page:')
+            self._updateStaticBox3Label('OnBtnRescan')
             self.staticBox4.SetLabel(' Select Files to Sync... ')
             self.statusBar1.SetStatusText('Sync Mode', 1)
 
@@ -7465,8 +7439,9 @@ class OSVM(wx.Frame):
                 continue
 
             button = [x[0] for x in self.thumbButtons if x[1] == fileName]
+            print('7468',button)
             e = [button, fileName, FILE_SELECT, -1, -1]
-
+            print('7470',e)
             try:
                 op = [x for x in self.opList if not x[OP_STATUS]][0] # First free slot
             except:
