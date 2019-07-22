@@ -167,10 +167,12 @@ if __system__ == 'Windows':
 # Constants
 _osvmDir_          = '.osvm'		# In home directory
 _initFile_        = 'osvm.ini'		# In _osvmDir_
+_initFileBk_      = 'osvm.ini.bk'	# In _osvmDir_
 _logFile_         = 'osvm-log.txt'	# In _osvmDir_
 _iniFileVersion_  = '1'
 
 # Default values for 'Reset Preferences'
+DEFAULT_COMPACT_MODE = False
 DEFAULT_ASK_BEFORE_COMMIT = True
 DEFAULT_ASK_BEFORE_EXIT = True
 DEFAULT_SAVE_PREFERENCES_ON_EXIT = True
@@ -187,6 +189,7 @@ DEFAULT_SORT_ORDER = True # Mean More recent first
 # Preferences file option keys
 INI_VERSION = 'iniversion'
 HTML_ROOT_FILE = 'htmlrootfile'
+COMPACT_MODE = 'compactmode'
 ASK_BEFORE_COMMIT = 'askbeforecommit'
 ASK_BEFORE_EXIT = 'askbeforeexit'
 SAVE_PREFS_ON_EXIT = 'savepreferencesonexit'
@@ -223,6 +226,7 @@ ssDelay = DEFAULT_SLIDESHOW_DELAY
 viewMode = False
 autoViewMode = False
 autoSyncMode = False
+compactMode = False
 useExternalViewer = False
 httpServer = None
 castMediaCtrl = None
@@ -483,7 +487,7 @@ def cleanup():
 
 def printGlobals():
     global cameraConnected
-    global online, askBeforeCommit, askBeforeExit, overwriteLocalFiles
+    global compactMode, askBeforeCommit, askBeforeExit, overwriteLocalFiles
     global savePreferencesOnExit
     global localFilesCnt
     global availRemoteFilesCnt
@@ -495,6 +499,7 @@ def printGlobals():
     global knownNetworks
     global fileSortRecentFirst
 
+    print('compactMode: %s' % compactMode)
     print('askBeforeCommit: %s' % askBeforeCommit)
     print('askBeforeExit: %s' % askBeforeExit)
     print('overwriteLocalFiles: %s' % overwriteLocalFiles)
@@ -1262,7 +1267,7 @@ class PasswordDialog(wx.Dialog):
         self.passwdShowTC.Hide()
 
         self.cb1 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Save Password')
-        self.cb1.SetValue(True)#False)
+        self.cb1.SetValue(True)
 
         self.cb2 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Show Password')
         self.cb2.SetValue(False)
@@ -2642,10 +2647,9 @@ class Preferences():
         #self._loadPreferences()
 
     def _loadPreferences(self):
-        newInitFile = self._loadInitFile()
-        self._parseInitFile()
-        if newInitFile:
-            print ('_loadPreferences(self)')
+        newInitFile1 = self._loadInitFile()
+        newInitFile2 = self._parseInitFile()
+        if newInitFile1 or newInitFile2:
             dlg = PreferencesDialog(self)
             dlg.ShowModal()
             dlg.Destroy()
@@ -2681,7 +2685,6 @@ class Preferences():
         if self.config.sections() == []:
             # Create a new Init file, return TRUE
             self._createDefaultInitFile()
-            print(self.config.sections())
             cf = self.config.read([__initFilePath__])
             return True
         return False
@@ -2690,13 +2693,21 @@ class Preferences():
         global DEFAULT_FILE_COLORS
         global _iniFileVersion_
         global __initFilePath__
+        global _osvmDir_
+        global _initFileBk_
 
         print("_createDefaultInitFile(): Warning: Cannot read preference file, Creating default:", __initFilePath__)
 
+        if os.path.exists(__initFilePath__):
+            initFilePathBk = os.path.join(os.path.join(expanduser("~"), _osvmDir_, _initFileBk_))
+            print('Saving old/existing confile file to %s' % (initFilePathBk))
+            shutil.copy2(__initFilePath__, initFilePathBk)
+                                         
         # add the default settings to the file
         self.config['Version'] = {INI_VERSION: _iniFileVersion_}
 
         self.config['Preferences'] = {}
+        self.config['Preferences'][COMPACT_MODE]           = str(DEFAULT_COMPACT_MODE)
         self.config['Preferences'][ASK_BEFORE_COMMIT]      = str(DEFAULT_ASK_BEFORE_COMMIT)
         self.config['Preferences'][ASK_BEFORE_EXIT]        = str(DEFAULT_ASK_BEFORE_EXIT)
         self.config['Preferences'][SAVE_PREFS_ON_EXIT]     = str(DEFAULT_SAVE_PREFERENCES_ON_EXIT)
@@ -2732,6 +2743,7 @@ class Preferences():
         global osvmDownloadDir
         global osvmFilesDownloadUrl
         global cameraConnected
+        global compactMode
         global askBeforeCommit
         global askBeforeExit
         global overwriteLocalFiles
@@ -2747,6 +2759,7 @@ class Preferences():
         global lastCastDeviceUuid
         global knownNetworks
         global fileSortRecentFirst
+        global thumbnailGridRows
 
         try:
             self.config.read( __initFilePath__)
@@ -2758,6 +2771,10 @@ class Preferences():
 
             # Get preferences from Preferences
             sectionPreferences    = self.config['Preferences']
+            if not compactMode: # User has not used '-c' cmdline argument
+                compactMode           = str2bool(sectionPreferences[COMPACT_MODE])
+            else:
+                thumbnailGridRows = 5
             askBeforeCommit       = str2bool(sectionPreferences[ASK_BEFORE_COMMIT])
             askBeforeExit         = str2bool(sectionPreferences[ASK_BEFORE_EXIT])
             savePreferencesOnExit = str2bool(sectionPreferences[SAVE_PREFS_ON_EXIT])
@@ -2771,6 +2788,8 @@ class Preferences():
             remBaseDir		  = sectionSyncModePreferences[REM_BASE_DIR]
             osvmFilesDownloadUrl   = sectionSyncModePreferences[OSVM_FILES_DOWNLOAD_URL]
             maxDownload           = int(sectionSyncModePreferences[MAX_DOWNLOAD])
+            if maxDownload == 0:
+                maxDownload = MAX_OPERATIONS
 
             ssDelay            = self.config['View Mode Preferences'][SS_DELAY]
             lastCastDeviceName = self.config['View Mode Preferences'][LAST_CAST_DEVICE_NAME]
@@ -2788,18 +2807,19 @@ class Preferences():
                 newcol = wx.Colour()
                 newcol.SetRGB(int(colrgb))
                 fileColors[i][0] = newcol # update fileColors[]
-
+            return False # Parsing OK
         except:
             print ('_parseInitFile(): Error parsing INI file')
             # Create a new Init file from builtin defaults
             del self.config
             self.config = configparser.ConfigParser()
             self._createDefaultInitFile()
-            self.config.read( __initFilePath__)
+            self.config.read(__initFilePath__)
 
             iniFileVersion = self.config['Version'][INI_VERSION]
 
             sectionPreferences    = self.config['Preferences']
+            compactMode           = str2bool(sectionPreferences[COMPACT_MODE])
             askBeforeCommit       = str2bool(sectionPreferences[ASK_BEFORE_COMMIT])
             askBeforeExit         = str2bool(sectionPreferences[ASK_BEFORE_EXIT])
             savePreferencesOnExit = str2bool(sectionPreferences[SAVE_PREFS_ON_EXIT])
@@ -2812,6 +2832,8 @@ class Preferences():
             remBaseDir		  = sectionSyncModePreferences[REM_BASE_DIR]
             osvmFilesDownloadUrl   = sectionSyncModePreferences[OSVM_FILES_DOWNLOAD_URL]
             maxDownload           = int(sectionSyncModePreferences[MAX_DOWNLOAD])
+            if maxDownload == 0:
+                maxDownload = MAX_OPERATIONS
 
             ssDelay = self.config['View Mode Preferences'][SS_DELAY]
 
@@ -2823,17 +2845,13 @@ class Preferences():
                 newcol = wx.Colour()
                 newcol.SetRGB(int(colrgb))
                 fileColors[i][0] = newcol
-
-        if maxDownload == 0:
-            maxDownload = MAX_OPERATIONS
-
-        # Debug
-        printGlobals()
+            return True # Parsing KO, New file created
 
     def _saveInitFile(self):
         global osvmDownloadDir
         global osvmFilesDownloadUrl
         global cameraConnected
+        global compactMode
         global askBeforeCommit
         global askBeforeExit
         global savePreferencesOnExit
@@ -2856,6 +2874,7 @@ class Preferences():
         self.config['Version'] = {INI_VERSION: _iniFileVersion_}
 
         self.config['Preferences'] = {}
+        self.config['Preferences'][COMPACT_MODE]           = str(compactMode)
         self.config['Preferences'][ASK_BEFORE_COMMIT]      = str(askBeforeCommit)
         self.config['Preferences'][ASK_BEFORE_EXIT]        = str(askBeforeExit)
         self.config['Preferences'][SAVE_PREFS_ON_EXIT]     = str(savePreferencesOnExit)
@@ -2893,8 +2912,8 @@ class Preferences():
 #### Class FileOperationMenu
 class FileOperationMenu(wx.Menu):
     """
-    Creates and displays a Package menu that allows the user to
-    select an operation to perform on a given package
+    Creates and displays a file menu that allows the user to
+    select an operation to perform on a given file
     """
     global localFileInfos
     global localFilesSorted
@@ -2937,24 +2956,24 @@ class FileOperationMenu(wx.Menu):
 
 	# Start Slideshow from here
         if viewMode and fileType == 'JPG' or (fileType == 'MOV' and vlcVideoViewer):
-            menuEntry = [fileName, FILE_SLIDESHOW, None]
+            menuEntry = [fileName, FILE_SLIDESHOW, self.button]
             self.popupMenuTitles.append((id, menuEntry))
             id += 1
 
         # Next entry is: 'Properties'
-        menuEntry = [fileName, FILE_PROPERTIES, None]
+        menuEntry = [fileName, FILE_PROPERTIES, self.button]
         self.popupMenuTitles.append((id, menuEntry))
         id += 1
 
         # Insert a separator
-        menuEntry = [fileName, -1, None]
+        menuEntry = [fileName, -1, self.button]
         self.popupMenuTitles.append((id, menuEntry))
         id += 1
 
         # Check if this file is already here
         if not fileName in list(localFileInfos.keys()):
             # file is not yet installed
-            menuEntry = [fileName, FILE_DOWNLOAD, None, '']
+            menuEntry = [fileName, FILE_DOWNLOAD, self.button, '']
             self.popupMenuTitles.append((id, menuEntry)) 
             id += 1
         else:
@@ -2963,20 +2982,20 @@ class FileOperationMenu(wx.Menu):
             for op in self.opList:
                 if op[OP_STATUS] and op[OP_FILENAME] == fileName:
                     found = True
-                    menuEntry = [fileName, FILE_UNSELECT, None, filePath]
+                    menuEntry = [fileName, FILE_UNSELECT, self.button, filePath]
                     self.popupMenuTitles.append((id, menuEntry))
                     id += 1
                     break
             if not found:
                 if fileType == 'JPG' or (fileType == 'MOV' and vlcVideoViewer):
-                    menuEntry = [fileName, FILE_SELECT, None, filePath]
+                    menuEntry = [fileName, FILE_SELECT, self.button, filePath]
                     self.popupMenuTitles.append((id, menuEntry)) 
                     id += 1
             if overwriteLocalFiles:
-                menuEntry = [fileName, FILE_DOWNLOAD, None, filePath]
+                menuEntry = [fileName, FILE_DOWNLOAD, self.button, filePath]
                 self.popupMenuTitles.append((id, menuEntry)) 
                 id += 1
-            menuEntry = [fileName, FILE_DELETE, None, filePath]
+            menuEntry = [fileName, FILE_DELETE, self.button, filePath]
             self.popupMenuTitles.append((id, menuEntry)) 
             id += 1
 
@@ -3105,6 +3124,7 @@ class FileOperationMenu(wx.Menu):
     def _scheduleOperation(self, op, menuEntry):
         fileName  = menuEntry[0]
         operation = menuEntry[1]
+        button    = menuEntry[2]
         filePath  = menuEntry[3]
 
         if operation == FILE_DELETE:
@@ -3121,6 +3141,10 @@ class FileOperationMenu(wx.Menu):
         op[OP_FILETYPE] = fileName.split('.')[1]	# File suffix
         op[OP_TYPE]     = operation
         op[OP_FILEPATH] = filePath
+
+#        print('Setting colours')
+#        button.SetBackgroundColour(fileColors[FILE_OP_PENDING][0])
+#        button.SetForegroundColour(fileColors[FILE_OP_PENDING][1])
 
         print("Operation scheduled:",op)
 
@@ -3621,6 +3645,7 @@ class PreferencesDialog(wx.Dialog):
     Creates and displays a preferences dialog that allows the user to
     change some settings.
     """
+
     # tmp variables  will contain user input text in the preference dialog
     # they are discarded/copied back into global variables upon button press
     tmpOsvmDownloadDir = ''
@@ -3631,6 +3656,8 @@ class PreferencesDialog(wx.Dialog):
         Initialize the preferences dialog box
         """
         self.parent = parent
+        self.needRescan = False
+
         myStyle = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.TAB_TRAVERSAL
         wx.Dialog.__init__(self, None, wx.ID_ANY, '%s - Preferences' % _myLongName_, style=myStyle)
         self._initialize()
@@ -3656,7 +3683,7 @@ class PreferencesDialog(wx.Dialog):
         parent.Add(self.prefsGridSizer1, 0, border=5, flag= wx.EXPAND)
 
     def _init_prefsGridSizer1_Items(self, parent):
-#        parent.Add(self.cb1, 0, border=0, flag=wx.EXPAND)
+        parent.Add(self.cb1, 0, border=0, flag=wx.EXPAND)
         parent.Add(self.cb2, 0, border=0, flag=wx.EXPAND)
         parent.Add(self.cb3, 0, border=0, flag=wx.EXPAND)
         parent.Add(self.cb5, 0, border=0, flag=wx.EXPAND)
@@ -3750,8 +3777,7 @@ class PreferencesDialog(wx.Dialog):
     def _init_sizers(self):
         self.topBoxSizer = wx.BoxSizer(orient=wx.VERTICAL)
         # Preferences staticBoxSizer
-        self.globPrefsBoxSizer = wx.StaticBoxSizer(box=self.staticBox2,
-                                                   orient=wx.VERTICAL)
+        self.globPrefsBoxSizer = wx.StaticBoxSizer(box=self.staticBox2, orient=wx.VERTICAL)
         gsNumCols = 3
         gsNumRows = 3
         self.prefsGridSizer1 = wx.GridSizer(cols=gsNumCols, hgap=0, rows=gsNumRows, vgap=2)
@@ -3823,6 +3849,7 @@ class PreferencesDialog(wx.Dialog):
         global fileColors
         global remBaseDir
         global fileSortRecentFirst
+        global compactMode
 
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self,
                                size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
@@ -3831,8 +3858,8 @@ class PreferencesDialog(wx.Dialog):
         self.staticBox2 = wx.StaticBox(id=wx.ID_ANY, label=' Global Preferences ', 
                                        name='staticBox2', parent=self.panel1, style=0)
 
-#        self.cb1 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Online Mode')
-#        self.cb1.SetValue(online)
+        self.cb1 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Use Compact Mode')
+        self.cb1.SetValue(compactMode)
 
         self.cb2 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Ask Before Commit')
         self.cb2.SetValue(askBeforeCommit)
@@ -3871,14 +3898,14 @@ class PreferencesDialog(wx.Dialog):
 
         # viewMode preferences in staticBox4
         self.staticBox4 = wx.StaticBox(id=wx.ID_ANY,
-                                       label=' View Mode Preferences ', name='staticBox4',
+                                       label=' View Mode Preferences ',# name='staticBox4',
                                        parent=self.panel1, style=0)
 
         self.staticText8 = wx.StaticText(id=wx.ID_ANY, label='Slideshow Delay:', 
                                          name='ssDelay', parent=self.panel1, style=0)
 
         self.ssDelayChoice = wx.Choice(choices=[str(i) for i in range(MIN_SS_DELAY, MAX_SS_DELAY)], 
-                                           id=wx.ID_ANY, name='ssDelayCnt',
+                                           id=wx.ID_ANY,# name='ssDelayCnt',
                                            parent=self.panel1, style=0)
         self.ssDelayChoice.SetToolTip('Delay interval')
         self.ssDelayChoice.SetStringSelection(str(ssDelay))
@@ -3886,15 +3913,15 @@ class PreferencesDialog(wx.Dialog):
 
         # Configuration
         self.staticBox1 = wx.StaticBox(id=wx.ID_ANY,
-              label=' Local Configuration ', name='staticBox1',
+              label=' Local Configuration ', #name='staticBox1',
               parent=self.panel1, style=0)
 
         self.staticBox3 = wx.StaticBox(id=wx.ID_ANY,
-              label=' Remote Configuration ', name='staticBox3',
+              label=' Remote Configuration ', #name='staticBox3',
               parent=self.panel1, style=0)
 
         self.downLocTextCtrl = wx.TextCtrl(id=wx.ID_ANY,
-                                                 name='downLocTextCtrl', 
+#                                                 name='downLocTextCtrl', 
                                                  parent=self.panel1, 
                                                  style=wx.TE_PROCESS_ENTER, 
                                                  size=wx.Size(300, -1), 
@@ -3916,7 +3943,7 @@ class PreferencesDialog(wx.Dialog):
         self.staticText5 = wx.StaticText(id=wx.ID_ANY, label='Camera Base Directory:', parent=self.panel1, style=0)
 
         self.cameraUrlTextCtrl = wx.TextCtrl(id=wx.ID_ANY,
-                                             name='cameraUrlTextCtrl', 
+#                                             name='cameraUrlTextCtrl', 
                                              parent=self.panel1, 
                                              style=wx.TE_PROCESS_ENTER, 
                                              size=wx.Size(400, -1))
@@ -3937,18 +3964,18 @@ class PreferencesDialog(wx.Dialog):
         self.remBaseDirTextCtrl.Bind(wx.EVT_TEXT, self.OnRemBaseDirTextCtrl)
 
         #### Bottom buttons
-        self.btnCancel = wx.Button(id=wx.ID_CANCEL, label='Cancel',
-                                   name='btnCancel', parent=self.panel1, style=0)
+        self.btnCancel = wx.Button(id=wx.ID_CANCEL, label='Cancel',#name='btnCancel', 
+                                   parent=self.panel1, style=0)
         self.btnCancel.SetToolTip('Discard changes')
         self.btnCancel.Bind(wx.EVT_BUTTON, self.OnBtnCancel)
 
-        self.btnReset = wx.Button(id=wx.ID_DEFAULT, label='Default',
-                                  name='btnReset', parent=self.panel1, style=0)
+        self.btnReset = wx.Button(id=wx.ID_DEFAULT, label='Default', #name='btnReset', 
+                                  parent=self.panel1, style=0)
         self.btnReset.SetToolTip('Reset to factory defaults')
         self.btnReset.Bind(wx.EVT_BUTTON, self.OnBtnReset)
 
-        self.btnApply = wx.Button(id=wx.ID_APPLY, label='Apply',
-                                  name='btnApply', parent=self.panel1, style=0)
+        self.btnApply = wx.Button(id=wx.ID_APPLY, label='Apply',#name='btnApply', 
+                                  parent=self.panel1, style=0)
         self.btnApply.SetToolTip('Apply changes to current session')
         self.btnApply.SetDefault()
         self.btnApply.Bind(wx.EVT_BUTTON, self.OnBtnApply)
@@ -3966,8 +3993,12 @@ class PreferencesDialog(wx.Dialog):
 
         self._init_sizers()
 
+    def isRescanRequired(self):
+        return self.needRescan
+
     # Reset Preference Dialog to Default values
     def _GUIReset(self):
+        self.cb1.SetValue(DEFAULT_COMPACT_MODE)
         self.cb2.SetValue(DEFAULT_ASK_BEFORE_COMMIT)
         self.cb3.SetValue(DEFAULT_SAVE_PREFERENCES_ON_EXIT)
         self.cb5.SetValue(DEFAULT_ASK_BEFORE_EXIT)
@@ -3984,6 +4015,7 @@ class PreferencesDialog(wx.Dialog):
 
     def _updateGlobalsFromGUI(self):
         global cameraConnected
+        global compactMode
         global askBeforeCommit
         global askBeforeExit
         global savePreferencesOnExit
@@ -3996,6 +4028,7 @@ class PreferencesDialog(wx.Dialog):
         global ssDelay
         global fileSortRecentFirst
 
+        compactMode           = self.cb1.GetValue()
         askBeforeCommit       = self.cb2.GetValue()
         savePreferencesOnExit = self.cb3.GetValue()
         askBeforeExit         = self.cb5.GetValue()
@@ -4026,13 +4059,14 @@ class PreferencesDialog(wx.Dialog):
                                )
             if dlg.ShowModal() == wx.ID_OK:
                 w.SetValue(dlg.GetPath())
+                self.needRescan = True
             dlg.Destroy()
-
         return OnClick
 
     def OnColorPicker(self, event):
         dlg = ColorPickerDialog(self)
-        ret = dlg.ShowModal()
+        if dlg.ShowModal() == wx.ID_OK:
+            self.needRescan = True
         dlg.Destroy()
 
     def OnBtnReset(self, event):
@@ -4046,6 +4080,7 @@ class PreferencesDialog(wx.Dialog):
         # Restore initial colors
         fileColors = deepcopy(self._tmpPkgColors)
         self.EndModal(wx.ID_CANCEL)
+        self.needRescan = False
         event.Skip()
 
     def OnBtnApply(self, event):
@@ -4063,6 +4098,7 @@ class PreferencesDialog(wx.Dialog):
                 msg = "Cannot create %s: %s" % (osvmDownloadDir, "{0}".format(e.strerror))
                 dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
                 dlg.ShowModal()
+                self.needRescan = False
                 self.EndModal(wx.ID_CANCEL)
                 return
 
@@ -4075,8 +4111,10 @@ class PreferencesDialog(wx.Dialog):
                 msg = "Cannot create %s: %s" % (__thumbDir__, "{0}".format(e.strerror))
                 dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
                 dlg.ShowModal()
+                self.needRescan = False
                 self.EndModal(wx.ID_CANCEL)
                 return
+#        self.needRescan = True
         self.EndModal(wx.ID_APPLY)
         event.Skip()
 
@@ -4089,23 +4127,18 @@ class PreferencesDialog(wx.Dialog):
     def AskBeforeExit(self, event):
         event.Skip()
 
-    def OnlineMode(self, event):
-        event.Skip()
-
     def OnMaxDownloadChoice(self, event):
         global maxDownload
         maxDownload = int(self.maxDownloadChoice.GetSelection())
         event.Skip()
 
     def OnFileSortChoice(self, event):
+        self.needRescan = True
         event.Skip()
 
     def OnSsDelayChoice(self, event):
         global ssDelay
         ssDelay = int(self.ssDelayChoice.GetSelection()) + MIN_SS_DELAY
-        event.Skip()
-
-    def OnLocTextCtrlText(self, event):
         event.Skip()
 
     def OnDownLocTextCtrlText(self, event):
@@ -4116,6 +4149,7 @@ class PreferencesDialog(wx.Dialog):
         #print traceback.print_stack()
         url = str(self.cameraUrlTextCtrl.GetValue())
         if url.startswith('http://') or url.startswith('https://'):
+            self.needRescan = True
             self.btnApply.Enable()
         else:
             self.btnApply.Disable()
@@ -4125,6 +4159,7 @@ class PreferencesDialog(wx.Dialog):
     def OnRemBaseDirTextCtrl(self, event):
         remBaseDir = str(self.remBaseDirTextCtrl.GetValue())
         if remBaseDir.startswith('/'):
+            self.needRescan = True
             self.btnApply.Enable()
         else:
             self.btnApply.Disable()
@@ -5585,115 +5620,6 @@ class OSVM(wx.Frame):
 
         setBusyCursor(False)
 
-    def _oupdateThumbnailPanel(self):
-        global availRemoteFiles
-        global availRemoteFilesSorted
-        global localFilesSorted
-        global localFilesCnt
-        global localFileInfos
-        global fileColors
-        global viewMode
-        global vlcVideoViewer
-
-        if viewMode:
-            fileListToUse = localFilesSorted
-        else:
-            fileListToUse = availRemoteFilesSorted
-        #
-        # Check if we are missing some buttons and add them
-        #
-        if len(self.thumbButtons) <= len(fileListToUse):
-            missing = len(fileListToUse) - len(self.thumbButtons)
-            print('_updateThumbnailPanel(): cell count: old=%d new=%d missing=%d' % (len(self.thumbButtons), len(fileListToUse), missing))
-
-            i = 0
-            for i in range(missing):
-                idx = self.numPkgButtons + i
-                button = wx.Button(parent=self.scrollWin1, id=wx.ID_ANY, style=0)
-                self.thumbGridSizer1.Add(button, proportion=1, border=0, flag=wx.EXPAND)
-
-                # each entry in thumbButtons[] is: [widget, filename, fgcol, bgcol]
-                bgcol = button.GetBackgroundColour()
-                fgcol = button.GetForegroundColour()
-                newEntry = [button, idx, fgcol, bgcol]
-                self.thumbButtons.append(newEntry)
-        else:
-            toomany = len(self.thumbButtons) - len(fileListToUse)
-            print('_updateThumbnailPanel(): cell count: old=%d new=%d toomany=%d' % (len(self.thumbButtons), len(fileListToUse), toomany))
-
-            # Remove extra buttons from the end
-            for button in self.thumbButtons[len(self.thumbButtons)-toomany:]:
-                w = button[0]
-                w.Destroy()
-
-            self.thumbButtons = self.thumbButtons[:-toomany]
-
-        self.scrollWin1.SetAutoLayout(1)
-        self.scrollWin1.SetupScrolling()
-
-        if len(self.thumbButtons) == 0:
-            return
-
-        i = 0
-
-        # Update 1 button at a time for each available file
-        for f in fileListToUse:
-            remFileName = f[1][F_NAME]
-            remFileSize = f[1][F_SIZE]
-            remFileDate = f[1][F_DATE]
-            if remFileSize < ONEMEGA:
-                remFileSizeString = '%.1f KB' % (remFileSize / ONEKILO)
-            else:
-                remFileSizeString = '%.1f MB' % (remFileSize / ONEMEGA)
-
-            # each entry in thumbButtons[] is: [widget, filename, fgcol, bgcol]
-            button = self.thumbButtons[i][0]
-            self.thumbButtons[i][1] = remFileName
-            button.SetName(remFileName)
-
-            # Bind an event to the button
-            if remFileName in list(localFileInfos.keys()) and vlcVideoViewer:
-                button.Bind(wx.EVT_BUTTON, self.LaunchViewer)
-            else:
-                button.Bind(wx.EVT_BUTTON, self.OnThumbButton)
-            button.Bind(wx.EVT_RIGHT_DOWN, self.OnThumbButtonRightDown)
-
-            # Display thumbnail (with scaling)
-            thumbnailPath = os.path.join(__thumbDir__, remFileName)
-            self._displayThumbnail(button, thumbnailPath, wx.BITMAP_TYPE_JPEG)
-
-            # Set tooltip
-            if viewMode:
-                toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,secondsTomdY(remFileDate))
-            else:
-                toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,getHumanDate(remFileDate))
-            button.SetToolTip(toolTipString)
-
-            # Colorize button
-            color = fileColor(remFileName)
-            button.SetBackgroundColour(color[0])
-            button.SetForegroundColour(color[1])
-
-            # each entry in thumbButtons[] is: [widget, filename, fgcol, bgcol]
-            bgcol = button.GetBackgroundColour()
-            fgcol = button.GetForegroundColour()
-            self.thumbButtons[i] = [button, remFileName, fgcol, bgcol]
-            i += 1
-        #print self.thumbButtons
-
-        if viewMode:
-            remNewestDate = secondsTomdY(fileListToUse[0][1][F_DATE])
-            remOldestDate = secondsTomdY(fileListToUse[-1][1][F_DATE])
-            print('remOldestDate:',remOldestDate,fileListToUse[0][1][F_DATE])
-            print('remNewestDate:',remNewestDate,fileListToUse[-1][1][F_DATE])
-        else:
-            remNewestDate = getHumanDate(fileListToUse[0][1][F_DATE])
-            remOldestDate = getHumanDate(fileListToUse[-1][1][F_DATE])
-            print('remOldestDate:',remOldestDate,fileListToUse[0][1][F_DATE])
-            print('remNewestDate:',remNewestDate,fileListToUse[-1][1][F_DATE])
-
-        self._dpcSetValue(remOldestDate, self.dpc1, remNewestDate, self.dpc2)
-
     #
     # A valid request slot has been found. Schedule the operation
     #
@@ -5790,7 +5716,7 @@ class OSVM(wx.Frame):
             # Disable all buttons
             self.noteBook.Disable()
             self.btnRescan.Enable()
-            self.btnRescan.SetDefault()
+#            self.btnRescan.SetDefault()
 
             #self.winDisabler = wx.WindowDisabler()
 
@@ -5916,10 +5842,15 @@ class OSVM(wx.Frame):
         widget.SetBitmap(wx.Bitmap(Img.Scale(w*thumbnailScaleFactor, h*thumbnailScaleFactor)))
 
     def _init_topBoxSizer_Items(self, parent):
-        parent.Add(self.titleBoxSizer, 0, border=10, flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT) #| wx.ALL)
-        parent.Add(self.btnGridBagBoxSizer, 0, border=10, flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT)
-        parent.Add(self.thumbBoxSizer, 1, border=10, flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT)
-        parent.Add(self.bottomBoxSizer, 0, border=10, flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT)
+        global compactMode
+
+        if compactMode:
+            parent.Add(self.controlBoxSizer, 0, border=5, flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT)
+        else:
+            parent.Add(self.titleBoxSizer, 0, border=5, flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT)
+            parent.Add(self.btnGridBagBoxSizer, 0, border=5, flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT)
+        parent.Add(self.thumbBoxSizer, 1, border=5, flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT)
+        parent.Add(self.bottomBoxSizer, 0, border=5, flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT)
 
     def _init_titleBoxSizer_Items(self, parent):
         parent.AddStretchSpacer(prop=1)
@@ -5938,17 +5869,18 @@ class OSVM(wx.Frame):
         parent.Add(sts1, pos=(0, 0), flag=wx.ALL | wx.EXPAND, border=0)
 
         sts3 = wx.BoxSizer(orient=wx.VERTICAL)
-        sts3.AddStretchSpacer(prop=1)
+#        sts3.AddStretchSpacer(prop=1)
         sts3.Add(self.fromCb, 0, border=0, flag=wx.EXPAND)
-        sts3.Add(self.dpc1, 0, border=0, flag=wx.EXPAND)
         sts3.AddStretchSpacer(prop=1)
+        sts3.Add(self.dpc1, 0, border=0, flag=wx.EXPAND)
+#        sts3.AddStretchSpacer(prop=1)
         parent.Add(sts3, pos=(0, 1), flag=wx.ALL| wx.EXPAND, border=0)
 
         sts4 = wx.BoxSizer(orient=wx.VERTICAL)
-        sts4.AddStretchSpacer(prop=1)
+#        sts4.AddStretchSpacer(prop=1)
         sts4.Add(self.toCb, 0, border=0, flag=wx.EXPAND)
-        sts4.Add(self.dpc2, 0, border=0, flag=wx.EXPAND)
         sts4.AddStretchSpacer(prop=1)
+        sts4.Add(self.dpc2, 0, border=0, flag=wx.EXPAND)
         parent.Add(sts4, pos=(0, 2), flag=wx.ALL, border=0)
 
         sts2 = wx.BoxSizer(orient=wx.VERTICAL)
@@ -5957,12 +5889,12 @@ class OSVM(wx.Frame):
         sts2.Add(self.fileSortChoice, 0, border=0, flag=wx.EXPAND)
         parent.Add(sts2, pos=(0, 3), flag=wx.ALL | wx.EXPAND, border=0)
 
-        parent.Add(40,0, pos=(0, 4)) # Some space before Cast button
+        parent.Add(20,0, pos=(0, 4)) # Some space before Cast button
 
         sts5 = wx.BoxSizer(orient=wx.VERTICAL)
         sts5.AddStretchSpacer(prop=1)
         sts5.Add(self.btnCast, 0, border=0, flag=wx.EXPAND)
-        sts5.AddStretchSpacer(prop=1)
+#        sts5.AddStretchSpacer(prop=1)
         parent.Add(sts5, pos=(0, 5), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
         parent.Add(self.castDeviceName, pos=(1, 5), flag=wx.ALL| wx.ALIGN_CENTER, border=0)
 
@@ -5971,29 +5903,41 @@ class OSVM(wx.Frame):
         sts6 = wx.BoxSizer(orient=wx.VERTICAL)
         sts6.AddStretchSpacer(prop=1)
         sts6.Add(self.btnRew, 0, border=0, flag=wx.EXPAND)
-        sts6.AddStretchSpacer(prop=1)
+#        sts6.AddStretchSpacer(prop=1)
         parent.Add(sts6, pos=(0, 7), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
 
         sts7 = wx.BoxSizer(orient=wx.VERTICAL)
         sts7.AddStretchSpacer(prop=1)
         sts7.Add(self.btnPlay, 0, border=0, flag=wx.EXPAND)
-        sts7.AddStretchSpacer(prop=1)
+#        sts7.AddStretchSpacer(prop=1)
         parent.Add(sts7, pos=(0, 8), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
 
         sts8 = wx.BoxSizer(orient=wx.VERTICAL)
         sts8.AddStretchSpacer(prop=1)
         sts8.Add(self.btnStop, 0, border=0, flag=wx.EXPAND)
-        sts8.AddStretchSpacer(prop=1)
+#        sts8.AddStretchSpacer(prop=1)
         parent.Add(sts8, pos=(0, 9), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
 
-        parent.Add(30,0, pos=(0, 10)) # Some space after Stop button
+        parent.Add(10,0, pos=(0, 10)) # Some space after Stop button
 
         parent.Add(self.btnCancel, pos=(0, 11), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
         parent.Add(self.btnCommit, pos=(0, 12), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
 
-        parent.Add(30,0, pos=(0, 13))
+        parent.Add(10,0, pos=(0, 13))
 
         parent.Add(self.btnRescan, pos=(0, 14), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+
+    # Used in compactMode only
+    def _init_trafficBoxSizer_Items(self, parent):
+        parent.AddStretchSpacer(prop=1)
+        parent.Add(self.staticBitmap2, flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+        parent.AddStretchSpacer(prop=1)
+    
+    # Used in compactMode only
+    def _init_controlBoxSizer_Items(self, parent):
+        parent.Add(self.btnGridBagBoxSizer, 0, border=0, flag=wx.EXPAND | wx.TOP | wx.LEFT)
+        parent.AddStretchSpacer(prop=1)
+        parent.Add(self.trafficBoxSizer, 0, border=0, flag=wx.EXPAND | wx.TOP | wx.LEFT)
 
     def _init_thumbBoxSizer_Items(self, parent):
         # Thumbnail window
@@ -6001,14 +5945,6 @@ class OSVM(wx.Frame):
         parent.Add(0, 8, border=0, flag=0)
         # Button colors meaning
         parent.Add(self.thumbGridSizer2, 0, border=0, flag=wx.EXPAND)
-
-    def _init_thumbGridSizer1_Items(self, parent):
-        for button in self.thumbButtons:
-            parent.Add(button[0], proportion=1, border=0, flag=wx.EXPAND)
-
-        self.noteBook.SetSizer(parent)
-        self.noteBook.SetAutoLayout(1)
-#        self.scrollWin1.SetupScrolling()
 
     def _init_thumbGridSizer2_Items(self, parent):
         for entry in self.colorGrid:
@@ -6028,12 +5964,12 @@ class OSVM(wx.Frame):
 
     def _init_bottomBoxSizer3_Items(self, parent):
         parent.Add(self.btnSwitchMode, 0, border=0, flag=wx.ALL | wx.EXPAND)
-        parent.Add(4, 4, border=0, flag=0)
+        parent.Add(4, 0, border=0, flag=0)
         parent.Add(self.btnSwitchNetwork, 0, border=0, flag=wx.ALL | wx.EXPAND)
 
     def _init_bottomBoxSizer_Items(self, parent):
         parent.Add(self.statusBar1, 0, border=5, flag=wx.EXPAND | wx.ALL)
-        parent.Add(4, 4, border=0, flag=0)
+        parent.Add(0, 4, border=0, flag=0)
         parent.Add(self.bottomBoxSizer2, 0, border=5, flag=wx.ALL | wx.EXPAND)
 
     def _init_menuBar_Menus(self, parent):
@@ -6079,23 +6015,25 @@ class OSVM(wx.Frame):
         self.menuBar.Enable(103, True)
 
     def _init_sizers(self):
-        global thumbnailGridColumns
+        global compactMode
 
-        # TOP Level BoxSizer
+        # Top Level BoxSizer
         self.topBoxSizer = wx.BoxSizer(orient=wx.VERTICAL)
 
         # Title BoxSizer
-        self.titleBoxSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
+        if not compactMode:
+            self.titleBoxSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
 
         # File selection grid sizer in staticBoxSizer
         self.btnGridBagBoxSizer = wx.StaticBoxSizer(box=self.staticBox4, orient=wx.HORIZONTAL)
-        self.btnGridBagSizer = wx.GridBagSizer(hgap=20,vgap=0)
+        self.btnGridBagSizer = wx.GridBagSizer(hgap=15,vgap=0)
 
-        # Package Box sizer in staticBoxSizer
+        if compactMode:
+            self.controlBoxSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
+            self.trafficBoxSizer = wx.BoxSizer(orient=wx.VERTICAL)
+
+        # Thumbnails Box sizer in staticBoxSizer
         self.thumbBoxSizer = wx.StaticBoxSizer(box=self.staticBox3, orient=wx.VERTICAL)
-
-#        gsNumCols = thumbnailGridColumns
-#        self.thumbGridSizer1 = wx.GridSizer(cols=gsNumCols, vgap=5, hgap=5)
 
         # Grid Sizer to contain LEDs for color labels
         self.thumbGridSizer2 = wx.FlexGridSizer(cols=10, hgap=8, rows=1, vgap=0)
@@ -6108,12 +6046,18 @@ class OSVM(wx.Frame):
 
         # Initialize each boxSizer
         self._init_topBoxSizer_Items(self.topBoxSizer)
-        self._init_titleBoxSizer_Items(self.titleBoxSizer)
+
+        if not compactMode:
+            self._init_titleBoxSizer_Items(self.titleBoxSizer)
+
         self._init_btnGridBagBoxSizer_Items(self.btnGridBagBoxSizer)
         self._init_btnGridBagSizer_Items(self.btnGridBagSizer)
 
+        if compactMode:
+            self._init_trafficBoxSizer_Items(self.trafficBoxSizer)
+            self._init_controlBoxSizer_Items(self.controlBoxSizer)
+
         self._init_thumbBoxSizer_Items(self.thumbBoxSizer)
-#        self._init_thumbGridSizer1_Items(self.thumbGridSizer1)
         self._init_thumbGridSizer2_Items(self.thumbGridSizer2)
 
         self._init_bottomBoxSizer_Items(self.bottomBoxSizer)
@@ -6167,11 +6111,13 @@ class OSVM(wx.Frame):
 
         self._init_utils()
 
-        self.SetClientSize(wx.Size(1250, 680))
+        self.SetClientSize(wx.Size(1200, 680))
         self.Center()
 
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self,
                                size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
+#1907   self.panel1.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
+
         self.panel1.Bind(wx.EVT_KEY_DOWN, self._onKeyPress)
         self.panel1.SetFocusIgnoringChildren()
         self.panel1.Bind(wx.EVT_LEFT_UP, self._setFocus)
@@ -6232,7 +6178,6 @@ class OSVM(wx.Frame):
         self.castDeviceName = wx.StaticText(id=wx.ID_ANY,
                                             name='castDeviceName',
                                             parent=self.panel1,
-#                                            size=(90,16),
                                             size=(60,16),
                                             style=wx.ST_ELLIPSIZE_MIDDLE)
         self.castDeviceName.SetLabelMarkup("<span foreground='red'><small>%s</small></span>" % '            ')
@@ -6245,7 +6190,7 @@ class OSVM(wx.Frame):
         self.fileSortChoice.SetStringSelection(self.sortTypes[0] if fileSortRecentFirst else self.sortTypes[1])
         self.fileSortChoice.Bind(wx.EVT_CHOICE, self.OnFileSortChoice, id=wx.ID_ANY)
 
-        self.btnCast = wx.Button(label="Cast",name='btnCast', size=wx.Size(32,32), parent=self.panel1, style=wx.NO_BORDER)
+        self.btnCast = wx.Button(label="Cast", size=wx.Size(32,32), parent=self.panel1, style=wx.NO_BORDER)
         self._displayBitmap(self.btnCast, 'cast-32.jpg', wx.BITMAP_TYPE_JPEG)
         self.btnCast.SetToolTip('Cast images to a GoogleCast')
         self.btnCast.Bind(wx.EVT_BUTTON, self.OnBtnCast)
@@ -6274,9 +6219,6 @@ class OSVM(wx.Frame):
                                    name='btnRescan', parent=self.panel1, style=0)
         self.btnRescan.SetToolTip('Rescan configuration')
         self.btnRescan.Bind(wx.EVT_BUTTON, self.OnBtnRescan)
-
-        # Create the package list window
-#        self._createThumbnailPanel()
 
         # Create the LEDS and Static Texts to show colors meaning
         for i in range(len(FILE_COLORS_STATUS)):
@@ -6308,7 +6250,7 @@ class OSVM(wx.Frame):
                                        name='staticBox3', parent=self.panel1, 
                                        pos=wx.Point(10, 199), size=wx.Size(1192, 100), style=0)
         if viewMode:
-            lbl = ' View Files '
+            lbl = ' File Viewer Control '
         else:
             lbl = ' Select Files to Sync... '
         self.staticBox4 = wx.StaticBox(id=wx.ID_ANY,
@@ -6350,12 +6292,6 @@ class OSVM(wx.Frame):
                                       parent=self.panel1)
         self.pltfInfo.SetFont(wx.Font(7, wx.SWISS, wx.NORMAL, wx.NORMAL, False, 'Ubuntu'))
 
-#        self.modeStaticText1 = wx.StaticText(id=wx.ID_ANY,
-#                                             name='modeStaticText1',
-#                                             parent=self.panel1,
-#                                             style=0)
-#        self.modeStaticText1.SetFont(wx.Font(16, wx.SWISS, wx.NORMAL, wx.NORMAL, False))
-#        self.modeStaticText1.SetLabelMarkup("<span foreground='blue'><big>%s</big></span>" % 'View Mode' if viewMode else 'Sync Mode')
         self.btnSwitchMode = wx.Button(id=wx.ID_ANY, parent=self.panel1, style=0)
         self.btnSwitchMode.SetLabel('Switch to Sync Mode' if viewMode else 'Switch to View Mode')
         self.btnSwitchMode.Bind(wx.EVT_BUTTON, self.OnBtnSwitchMode)
@@ -6370,21 +6306,16 @@ class OSVM(wx.Frame):
         self.btnHelp.Bind(wx.EVT_BUTTON, self.OnBtnHelp)
 
         self.btnQuit = wx.Button(id=wx.ID_EXIT, label='Quit', parent=self.panel1, style=0)
-#        self.btnQuit.SetLabelMarkup("<b>%s</b>" % 'Quit')
         self.btnQuit.SetToolTip('Quit Application')
         self.btnQuit.Bind(wx.EVT_BUTTON, self.OnBtnQuit)
 
-        self.staticBitmap1 = wx.StaticBitmap(bitmap=wx.NullBitmap,
-                                             id=wx.ID_ANY, name='staticBitmap1',
-                                             parent=self.panel1, style=0)
+        if not compactMode:
+            self.staticBitmap1 = wx.StaticBitmap(bitmap=wx.NullBitmap, id=wx.ID_ANY, parent=self.panel1, style=0)
+            self._displayBitmap(self.staticBitmap1, "OSVM5.png", wx.BITMAP_TYPE_PNG)
 
         self.staticBitmap2 = wx.StaticBitmap(bitmap=wx.NullBitmap,
-                                             id=wx.ID_ANY, name='staticBitmap2',
-                                             parent=self.panel1, style=0)
+                                             id=wx.ID_ANY, parent=self.panel1, style=0)
         self.staticBitmap2.SetToolTip('Network Status:\nRED: No Network\nGREEN:Camera OK')
-
-        # Show title bitmap
-        self._displayBitmap(self.staticBitmap1, "OSVM5.png", wx.BITMAP_TYPE_PNG)
 
         # Update connection status indicator
         self._updateConnectionStatus()
@@ -6483,6 +6414,18 @@ class OSVM(wx.Frame):
             self.colorGrid[i*2].SetState(i)
 
     #### Events ####
+    def OnEraseBackground(self, evt):
+        """ Add a picture to the background """
+        dc = evt.GetDC()
+
+        if not dc:
+            dc = wx.ClientDC(self)
+            rect = self.GetUpdateRegion().GetBox()
+            dc.SetClippingRect(rect)
+        dc.Clear()
+        bmp = wx.Bitmap("images/maeva-1250x938.jpg")
+        dc.DrawBitmap(bmp, 0, 0)
+
     def OnSize(self, event):
         sbWidth,dummy = self.statusBar1.GetSize()
         print("OnSize(): Resize event",sbWidth)
@@ -6517,7 +6460,7 @@ class OSVM(wx.Frame):
                 self.btnCancel.Enable()
                 break
 
-#        self.scrollWin1.Refresh()
+        self.panel1.Refresh()
 
     # Left Click on a File button, zoom in the thumbnail
     def OnThumbButton(self, event):
@@ -6622,8 +6565,6 @@ class OSVM(wx.Frame):
                     time.sleep(1)
             else:
                 castMediaCtrl.block_until_active()
-
-#            self.scrollWin1.ScrollChildIntoView(button)
             event.Skip()
             return
 
@@ -6640,7 +6581,6 @@ class OSVM(wx.Frame):
                 ["/usr/bin/open", "-W", "-n", "-a", externalViewer[suffix], filePath]
                 )
             event.Skip()
-#            self.scrollWin1.ScrollChildIntoView(button)
             return
 
         # Use internal viewer
@@ -6654,9 +6594,6 @@ class OSVM(wx.Frame):
         dlg.Destroy()
         print('Exit of MediaViewer. ret:%d' % ret)
 
-        # Reset scrolling
-#        self.scrollWin1.ScrollChildIntoView(button)
-
     def OnBtnSwitchMode(self, event):
         global viewMode
 
@@ -6667,11 +6604,9 @@ class OSVM(wx.Frame):
             button.SetLabel('Switch to Sync Mode')
         else:
             button.SetLabel('Switch to View Mode')
-#            self.noteBook.SetSelection(0)
 
         # Simulate a 'Rescan' event
-        self._btnRescan = getattr(self, "btnRescan")
-        evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self._btnRescan.GetId())
+        evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.btnRescan.GetId())
         evt.SetEventObject(self.btnRescan)
         wx.PostEvent(self.btnRescan, evt)
 
@@ -6682,8 +6617,7 @@ class OSVM(wx.Frame):
         dlg.Destroy()
         if ret != wx.ID_CANCEL:
             # Simulate a 'Rescan' event
-            self._btnRescan = getattr(self, "btnRescan")
-            evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self._btnRescan.GetId())
+            evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.btnRescan.GetId())
             evt.SetEventObject(self.btnRescan)
             wx.PostEvent(self.btnRescan, evt)
         event.Skip()
@@ -6697,10 +6631,14 @@ class OSVM(wx.Frame):
     def OnBtnPreferences(self, event):
         dlg = PreferencesDialog(self.prefs)
         ret = dlg.ShowModal()
+        # Check if a Rescan is required
+        self.needRescan = dlg.isRescanRequired()
         dlg.Destroy()
-        # Update GUI with selected values in the Preferences dialog
-        if ret == wx.ID_APPLY:
-            self.btnRescan.SetDefault()
+        if ret == wx.ID_APPLY and self.needRescan:
+            # Simulate a 'Rescan' event
+            evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.btnRescan.GetId())
+            evt.SetEventObject(self.btnRescan)
+            wx.PostEvent(self.btnRescan, evt)
 
     def OnBtnCleanDownloadDir(self, event):
         global osvmDownloadDir
@@ -6762,31 +6700,6 @@ class OSVM(wx.Frame):
         #info.AddTranslator('Didier Poirot')
 
         wx.adv.AboutBox(info)
-
-    def OnLocTextCtrlText(self, event):
-        msg = 'Some parameters have changed. Please Rescan'
-        self._setMode(MODE_DISABLED, msg)
-        self.btnRescan.SetDefault()
-        self.btnRescan.SetFocus()
-        event.Skip()
-
-    def OnBtnSelectLoc(self, event):
-        """
-        Show the DirDialog and update the text control accordingly
-        """
-        dlg = wx.DirDialog(self, "Choose a directory:",
-                           style=wx.DD_DEFAULT_STYLE
-                           #| wx.DD_DIR_MUST_EXIST
-                           #| wx.DD_CHANGE_DIR
-                           )
-        if dlg.ShowModal() == wx.ID_OK:
-            self.simicsLocTextCtrl.SetValue(dlg.GetPath())
-            msg = 'Some parameters have changed. Please Rescan'
-            self._setMode(MODE_DISABLED, msg)
-            self.btnRescan.SetDefault()
-            # hack to force a repaint of the rescan button
-            self.simicsLocTextCtrl.SetFocus()
-        dlg.Destroy()
 
     def _selectFiles(self, fileType):
         if viewMode:
@@ -7072,8 +6985,9 @@ class OSVM(wx.Frame):
         else:
             fileSortRecentFirst = (idx == 0)
         # Simulate a 'Rescan' event
-        self._btnRescan = getattr(self, "btnRescan")
-        evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self._btnRescan.GetId())
+#        self._btnRescan = getattr(self, "btnRescan")
+#        evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self._btnRescan.GetId())
+        evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.btnRescan.GetId())
         evt.SetEventObject(self.btnRescan)
         wx.PostEvent(self.btnRescan, evt)
         event.Skip()
@@ -7144,7 +7058,7 @@ class OSVM(wx.Frame):
                     cnt = self._unSelectFiles('JPG')
                     cnt += self._unSelectFiles('MOV')
                 else:
-                    cnt += self._unSyncFiles('JPG')
+                    cnt = self._unSyncFiles('JPG')
                     cnt += self._unSyncFiles('MOV')
                 print('%d selected files have been cleared' % (cnt))
                 self.Refresh()
@@ -7193,6 +7107,8 @@ class OSVM(wx.Frame):
         global localFileInfos
         global slideShowLastIdx
         global fileSortRecentFirst
+        global localFilesCnt
+        global availRemoteFilesCnt
 
         found = False
         # Is there any pending operation? Warn user if needed
@@ -7238,7 +7154,7 @@ class OSVM(wx.Frame):
         if viewMode:
             self.staticBox3.SetLabel(' Available Local Files Page:')
             self._updateStaticBox3Label('OnBtnRescan')
-            self.staticBox4.SetLabel(' View Local Files ')
+            self.staticBox4.SetLabel(' File Viewer Control ')
             self.statusBar1.SetStatusText('View Mode', 1)
         else:
             self.staticBox3.SetLabel(' Available Remote Files (on camera) Page:')
@@ -7441,7 +7357,6 @@ class OSVM(wx.Frame):
             button = [x[0] for x in self.thumbButtons if x[1] == fileName]
             print('7468',button)
             e = [button, fileName, FILE_SELECT, -1, -1]
-            print('7470',e)
             try:
                 op = [x for x in self.opList if not x[OP_STATUS]][0] # First free slot
             except:
@@ -7644,6 +7559,9 @@ def parse_argv():
     parser.add_argument("-i", "--info",
                         action="store_true", dest="version", default=False,
                         help="print version and exit")
+    parser.add_argument("-c", "--compact",
+                        action="store_true", dest="compactmode", default=False,
+                        help="Use Compact Layout")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-v", "--view", action="store_true", dest="viewmode", default=False,
                        help="Enter View/Cast Mode")
@@ -7688,6 +7606,8 @@ def main():
     global autoSyncMode
     global iface
     global networkSelector
+    global compactMode
+    global thumbnailGridRows
 
     args = parse_argv()
 
@@ -7746,6 +7666,10 @@ def main():
     elif args.syncmode:
         print('Main(): Auto Entering Sync Mode')
         autoSyncMode = True
+
+    if args.compactmode:
+        print('Main(): Using Compact Mode')
+        compactMode = True
 
     if args.debug == False:     # no debug
         app = wx.App(0)
