@@ -1409,6 +1409,7 @@ class WifiDialog(wx.Dialog):
 
         self.parent = parent
         self.net = None # Selected network
+        self.netkey = None
     
         # Build allNetworks list
         error = scanForNetworks()
