@@ -2316,7 +2316,6 @@ class MediaViewer(wx.Dialog):
 
         self.mainSizer.Add(self.imageCtrl, 0, wx.ALL|wx.CENTER, 5)
 
-
         self.btnPrev = wx.Button(label='Prev', name='btnPrev', parent=self, style=0)
         self.btnPrev.SetToolTip('Load previous Image')
         self.btnPrev.Bind(wx.EVT_BUTTON, self.imageOnBtnPrev)
@@ -5349,90 +5348,10 @@ class OSVM(wx.Frame):
 
     def _updateStaticBox3Label(self, reason=''):
         olbl = self.staticBox3.GetLabel()
-#        print(reason, olbl)
         prefix = olbl[:olbl.index('Page:')]
         self._pageCount = self.noteBook.GetPageCount()
         nlbl = '%sPage: %d/%d' % (prefix, self.noteBook.GetSelection()+1,self._pageCount)
         self.staticBox3.SetLabel(nlbl)
-#        print(reason, nlbl)
-
-    def _ocreateThumbnailPanel(self):
-        global availRemoteFiles
-        global availRemoteFilesSorted
-        global localFileInfos
-        global __thumbDir__
-        global localFilesSorted
-        global castMediaCtrl
-        global viewMode
-        global vlcVideoViewer
-
-        setBusyCursor(True)
-
-        # scrolled panel
-        self.scrollWin1 = scrolled.ScrolledPanel(parent=self.panel1,
-                                                 id=wx.ID_ANY, 
-                                                 style = wx.TAB_TRAVERSAL|wx.SUNKEN_BORDER)
-        self.numPkgButtons = 0
-        btn = 0
-#        wx.Image.AddHandler(wx.PNGHandler)
-#        wx.Image.AddHandler(wx.JPEGHandler)
-        if viewMode:
-            fileListToUse = localFilesSorted
-        else:
-            fileListToUse = availRemoteFilesSorted
-
-        # Use the sorted dict to create the buttons
-        for f in fileListToUse:
-            remFileName = f[1][F_NAME]
-            remFileSize = f[1][F_SIZE]
-            remFileDate = f[1][F_DATE]
-
-            # Add 1 button for each available image at the remote
-            button = wx.Button(parent=self.scrollWin1, 
-                               id=wx.ID_ANY,
-                               name=remFileName,
-                               style=0)
-            if viewMode:
-                if vlcVideoViewer:
-                    button.Bind(wx.EVT_BUTTON, self.LaunchViewer)
-                button.Bind(wx.EVT_RIGHT_DOWN, self.OnThumbButtonRightDown)
-            else:
-                if remFileName in list(localFileInfos.keys()) and vlcVideoViewer:
-                    button.Bind(wx.EVT_BUTTON, self.LaunchViewer)
-                else:
-                    button.Bind(wx.EVT_BUTTON, self.OnThumbButton)
-                button.Bind(wx.EVT_RIGHT_DOWN, self.OnThumbButtonRightDown)
-
-            if float(remFileSize) < ONEMEGA:
-                remFileSizeString = '%.1f KB' % (remFileSize / ONEKILO)
-            else:
-                remFileSizeString = '%.1f MB' % (remFileSize / ONEMEGA)
-
-            # Display thumbnail (with scaling)
-            thumbnailPath = os.path.join(__thumbDir__, remFileName)
-            self._displayThumbnail(button, thumbnailPath, wx.BITMAP_TYPE_JPEG)
-
-            # Set tooltip
-            if viewMode:
-                toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,secondsTomdY(remFileDate))
-            else:
-                toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,getHumanDate(remFileDate))
-            button.SetToolTip(toolTipString)
-
-            # Colorize button if file is available locally
-            color = fileColor(remFileName)
-            button.SetBackgroundColour(color[0])
-            button.SetForegroundColour(color[1])
-
-            # each entry in thumbButtons[] is of form: [button, filename, fgcol, bgcol]
-            bgcol = button.GetBackgroundColour()
-            fgcol = button.GetForegroundColour()
-            newEntry = [button, remFileName, fgcol, bgcol]
-            self.thumbButtons.append(newEntry)
-
-            btn += 1
-        self.numPkgButtons = btn
-        setBusyCursor(False)
 
     def _createThumbnailTab(self, parent, listOfThumbnail, idx):
         global thumbnailGridColumns
@@ -7356,7 +7275,6 @@ class OSVM(wx.Frame):
                 continue
 
             button = [x[0] for x in self.thumbButtons if x[1] == fileName]
-            print('7468',button)
             e = [button, fileName, FILE_SELECT, -1, -1]
             try:
                 op = [x for x in self.opList if not x[OP_STATUS]][0] # First free slot
@@ -7540,7 +7458,6 @@ class OSVM(wx.Frame):
             self._displayBitmap(self.staticBitmap2, "traffic-light-green-65-nobg.png", wx.BITMAP_TYPE_PNG)
         else:
             self._displayBitmap(self.staticBitmap2, "traffic-light-red-65-nobg.png", wx.BITMAP_TYPE_PNG)
-
 
 def parse_argv():
     desc = 'Graphical UI to manage files (pictures, video) on a OLYMPUS camera over WIFI''Also a File viewer over GoogleCast'
