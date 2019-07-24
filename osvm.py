@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+#PB291001.JPG
 _myName_     = 'OSVM'
 _myLongName_ = 'Olympus Sync & View Manager'
 _myVersion_  = '2.1'
@@ -695,8 +695,9 @@ def localFilesInfo(dirName):
     global availRemoteFiles
     global viewMode
     global fileSortRecentFirst
+    global cameraConnected
 
-    print('localFilesInfo():',dirName)
+    print('localFilesInfo(): %s cameraConnected: %s' % (dirName, cameraConnected))
     localFileInfos = {}
     fileList = listLocalFiles(dirName, hidden=False)
     i = 0
@@ -713,6 +714,15 @@ def localFilesInfo(dirName):
         except:
             print('Error: os.stat()')
             continue
+
+        if not viewMode and cameraConnected:
+            try:
+                remFileName = availRemoteFiles[fileName][F_NAME]
+            except:
+                # Local file does not exist anymore on remote/camera. Probably deleted...
+                print('File %s not found on remote/camera. Deleting' % (fileName))
+                os.remove(filePath)
+                continue
 
 #        if not viewMode:
 #            try:
@@ -758,6 +768,7 @@ def downloadThumbnail(e):
             print('downloadThumbnail(): %s: Cannot use existing thumbnail. Will download it' % (thumbFile))
         else:
             f.close()  # Using available local file
+#            print('downloadThumbnail(): Using existing thumbnail %s' % (thumbFile))
             return 0
 
     if cameraConnected:
@@ -766,7 +777,7 @@ def downloadThumbnail(e):
             response = urllib.request.urlopen(uri)
         except IOError as e:
             msg = "downloadThumbnail(): I/O error: Opening URL %s %s" % (uri, "({0}): {1}".format(e.errno, e.strerror))
-            print (msg)
+            print(msg)
             cameraConnected = False
 
     if cameraConnected:
@@ -799,7 +810,7 @@ def getRootDirInfo(rootDir, uri): # XXX
             response = urllib.request.urlopen(uri)
         except IOError as e:
             msg = "getRootDirInfo(): I/O error: Opening URL %s %s" % (uri, "({0}): {1}".format(e.errno, e.strerror))
-            print (msg)
+            print(msg)
             cameraConnected = False
 
     if cameraConnected:
@@ -851,7 +862,7 @@ def getRootDirInfo(rootDir, uri): # XXX
     print("getRootDirInfo(): %d files found" % i)
 
     # Sort the dict by date: Latest file first
-    availRemoteFilesSorted = sorted(list(availRemoteFiles.items()), key=lambda x: int(x[1][F_DATEINSECS]), reverse=fileSortRecentFirst) #True)
+    availRemoteFilesSorted = sorted(list(availRemoteFiles.items()), key=lambda x: int(x[1][F_DATEINSECS]), reverse=fileSortRecentFirst)
     for e in availRemoteFilesSorted:
         print("Detected remote file: %s size %d created %s %s %d" % (e[1][F_NAME],e[1][F_SIZE],getHumanDate(e[1][F_DATE]),getHumanTime(e[1][F_TIME]),int(e[1][F_DATEINSECS])))
     return i
@@ -958,7 +969,7 @@ def updateFileDicts():
 
     # Detect local files
     localFilesCnt = localFilesInfo(osvmDownloadDir)
-    print("updateFileDicts():", "%d local files, %d remote files"% (localFilesCnt,availRemoteFilesCnt))
+    print('updateFileDicts(): %d local files, %d remote files' % (localFilesCnt,availRemoteFilesCnt))
     return localFilesCnt,availRemoteFilesCnt
 
 def str2bool(v):
@@ -4521,10 +4532,13 @@ class InstallDialog(wx.Dialog):
         self.mainInstallThrLock.acquire() # Acquire the lock to prevent the thread from running
         self.mainInstallThr = MainInstallThread(self, "MainInstallThread", self.mainInstallThrLock)
         self.mainInstallThr.setDaemon(True)
+        print('>>start')
         self.mainInstallThr.start()
 
+        print('>>_initialize')
         self._initialize()
 
+        print('>>_runThread')
         self._runThread()
 
     def _initialize(self):
@@ -4553,6 +4567,7 @@ class InstallDialog(wx.Dialog):
 
         # Loop thru all operations and setup assoc. controls
         for i in range(len(self.opList)):
+            print('Creating entry %d/%d' % (i,len(self.opList)))
             op = self.opList[i]
             opStatus = op[OP_STATUS]
             # If this operation is not used, skip it
@@ -4805,6 +4820,7 @@ class InstallDialog(wx.Dialog):
         # Process all pending INSTALL/UPDATE operations
         # Start the main thread which will create all the sub-threads 
         # to do the actual transfer
+        print('Releasing IntallThreadLock')
         self.mainInstallThrLock.release()	#Let the install threads run
         self.timer.Start(TIMER1_FREQ)
 
