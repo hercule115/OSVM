@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#PB291001.JPG
+
 _myName_     = 'OSVM'
 _myLongName_ = 'Olympus Sync & View Manager'
 _myVersion_  = '2.1'
@@ -240,6 +240,7 @@ iface = None
 allNetWorks = list() # List of all available networks
 knownNetworks = list()
 fileSortRecentFirst = DEFAULT_SORT_ORDER
+installSubPanelsCount = 5
 
 # List of root directories on the camera
 rootDirList = []
@@ -1448,7 +1449,7 @@ class WifiDialog(wx.Dialog):
         if viewMode:
             m = "<big><span foreground='blue'>%s</span></big>" % 'Select a WIFI Network'
         else:
-            m = "<big><span foreground='blue'>%s</span></big>" % 'Select the Camera AP'
+            m = "<big><span foreground='blue'>%s</span></big>" % 'Select the Camera Access Point'
         self.wintitle.SetLabelMarkup(m)
 
         # Sort networks by RSSI
@@ -2010,8 +2011,7 @@ class HelpDialog(wx.Dialog):
         self.hwin.SetPage(helpText)
 
         # Button to close the Help dialog
-        self.btnClose = wx.Button(label='Close', id=wx.ID_CLOSE,
-                                  name='Close', parent=self.panel1, style=0)
+        self.btnClose = wx.Button(label='Close', id=wx.ID_CLOSE, parent=self.panel1, style=0)
         self.btnClose.Bind(wx.EVT_BUTTON, self.OnBtnClose)
         
         # Everything in a BoxSizer
@@ -2078,6 +2078,9 @@ class InstallThread(threading.Thread):
             self.remBlocks  = op[OP_SIZE][1]
             self.fileSize   = availRemoteFiles[self.fileName][F_SIZE]
 
+            # Update subpanel to use for this operation
+            wx.CallAfter(self._pDialog.nextInstallSubPanel, op)
+            
             print('%s: Processing file %s: (%sB, %d bytes %d blocks)' % (self._name, self.fileName, self.fileSize, self.remSize, self.remBlocks))
 
             # Store thread in current operation
@@ -2327,15 +2330,15 @@ class MediaViewer(wx.Dialog):
 
         self.mainSizer.Add(self.imageCtrl, 0, wx.ALL|wx.CENTER, 5)
 
-        self.btnPrev = wx.Button(label='Prev', name='btnPrev', parent=self, style=0)
+        self.btnPrev = wx.Button(label='Prev', parent=self, style=0)
         self.btnPrev.SetToolTip('Load previous Image')
         self.btnPrev.Bind(wx.EVT_BUTTON, self.imageOnBtnPrev)
 
-        self.btnPlay = wx.Button(label='Play', name='btnPlay', parent=self, style=0)
+        self.btnPlay = wx.Button(label='Play', parent=self, style=0)
         self.btnPlay.SetToolTip('Start the Slideshow')
         self.btnPlay.Bind(wx.EVT_BUTTON, self.imageOnBtnPlay)
 
-        self.btnNext = wx.Button(label='Next', name='btnNext', parent=self, style=0)
+        self.btnNext = wx.Button(label='Next', parent=self, style=0)
         self.btnNext.SetToolTip('Load Next Image')
         self.btnNext.Bind(wx.EVT_BUTTON, self.imageOnBtnNext)
 
@@ -2343,7 +2346,7 @@ class MediaViewer(wx.Dialog):
             for b in [self.btnPrev,self.btnPlay,self.btnNext]:
                 b.Disable()
 
-        self.btnQuit = wx.Button(id=wx.ID_EXIT, label='Quit', name='btnQuit', parent=self, style=0)
+        self.btnQuit = wx.Button(id=wx.ID_EXIT, label='Quit', parent=self, style=0)
         self.btnQuit.SetToolTip('Quit Viewer')
         self.btnQuit.Bind(wx.EVT_BUTTON, self.imageOnBtnQuit)
 
@@ -2485,10 +2488,10 @@ class MediaViewer(wx.Dialog):
         self.btnRew = wx.Button(self, label='Rew')
         self.Bind(wx.EVT_BUTTON, self.videoOnBtnRew, self.btnRew)
 
-        self.btnPlay = wx.Button(self, label='Play', name='btnPlay')
+        self.btnPlay = wx.Button(self, label='Play')
         self.Bind(wx.EVT_BUTTON, self.videoOnBtnPlay, self.btnPlay)
 
-        self.btnVolume = wx.Button(self, label='Mute', name='btnMute')
+        self.btnVolume = wx.Button(self, label='Mute')
         self.Bind(wx.EVT_BUTTON, self.videoOnBtnVolume, self.btnVolume)
 
         self.volSlider = wx.Slider(self, -1, 0, 0, 100)
@@ -3190,7 +3193,7 @@ class PropertiesDialog(wx.Dialog):
 
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
         # Close button
-        self.btnClose = wx.Button(id=wx.ID_CLOSE, name='btnClose', parent=self.panel1, style=0)
+        self.btnClose = wx.Button(id=wx.ID_CLOSE, parent=self.panel1, style=0)
         self.btnClose.SetToolTip('Close this Dialog')
         self.btnClose.Bind(wx.EVT_BUTTON, self.OnBtnClose)
 
@@ -3342,8 +3345,7 @@ class ColorPickerDialog(wx.Dialog):
             sts.Add(st, 0, border=0, flag=wx.EXPAND)
             sts.Add(4, 4, 1, border=0, flag=wx.EXPAND)
 
-            sb = wx.StaticBox(id=wx.ID_ANY, label='', 
-                              name='staticBox', parent=self.panel1, style=0)
+            sb = wx.StaticBox(id=wx.ID_ANY, label='', parent=self.panel1, style=0)
             defcol = fileColors[i][0]
             cp = wx.ColourPickerCtrl(parent=self.panel1, id=wx.ID_ANY, colour=defcol, 
                                      style=wx.CLRP_DEFAULT_STYLE | wx.CLRP_SHOW_LABEL)
@@ -3574,13 +3576,12 @@ class ChromeCastDialog(wx.Dialog):
 
         # widgets at the Bottom 
         # Cancel button
-        self.btnCancel = wx.Button(id=wx.ID_CANCEL, label='Cancel',
-                                   name='btnCancel', parent=self.panel1, style=0)
+        self.btnCancel = wx.Button(id=wx.ID_CANCEL, label='Cancel', parent=self.panel1, style=0)
         self.btnCancel.SetToolTip('Discard changes')
         self.btnCancel.Bind(wx.EVT_BUTTON, self.OnBtnCancel)
 
         # Close button
-        self.btnClose = wx.Button(id=wx.ID_CLOSE, name='btnClose', parent=self.panel1, style=0)
+        self.btnClose = wx.Button(id=wx.ID_CLOSE, parent=self.panel1, style=0)
         self.btnClose.SetToolTip('Close this Dialog')
         self.btnClose.Bind(wx.EVT_BUTTON, self.OnBtnClose)
         self.btnClose.SetDefault()
@@ -3603,7 +3604,7 @@ class ChromeCastDialog(wx.Dialog):
         # Create box sizers
         self.topBoxSizer = wx.BoxSizer(orient=wx.VERTICAL)
         self.staticBox1 = wx.StaticBox(id=wx.ID_ANY, label=' Select a ChromeCast to use ', 
-                                       name='sb1', parent=self.panel1, style=0)
+                                       parent=self.panel1, style=0)
         self.propsBoxSizer = wx.StaticBoxSizer(box=self.staticBox1, orient=wx.HORIZONTAL)
         self.bottomBoxSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
 
@@ -3867,7 +3868,7 @@ class PreferencesDialog(wx.Dialog):
 
         #### Misc Preferences
         self.staticBox2 = wx.StaticBox(id=wx.ID_ANY, label=' Global Preferences ', 
-                                       name='staticBox2', parent=self.panel1, style=0)
+                                       parent=self.panel1, style=0)
 
         self.cb1 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Use Compact Mode')
         self.cb1.SetValue(compactMode)
@@ -3885,11 +3886,10 @@ class PreferencesDialog(wx.Dialog):
         self.cb6.SetValue(overwriteLocalFiles)
 
         self.staticText7 = wx.StaticText(id=wx.ID_ANY, label='Max Download:', 
-                                         name='maxDownload', parent=self.panel1, style=0)
+                                         parent=self.panel1, style=0)
 
         self.maxDownloadChoice = wx.Choice(choices=[str(i) for i in range(MAX_OPERATIONS+1)], 
-                                           id=wx.ID_ANY, name='maxDownloadCnt',
-                                           parent=self.panel1, style=0)
+                                           id=wx.ID_ANY, parent=self.panel1, style=0)
         self.maxDownloadChoice.SetToolTip('Max allowed download. (0 = unlimited)')
         self.maxDownloadChoice.SetStringSelection(str(maxDownload))
         self.maxDownloadChoice.Bind(wx.EVT_CHOICE, self.OnMaxDownloadChoice, id=wx.ID_ANY)
@@ -3909,30 +3909,26 @@ class PreferencesDialog(wx.Dialog):
 
         # viewMode preferences in staticBox4
         self.staticBox4 = wx.StaticBox(id=wx.ID_ANY,
-                                       label=' View Mode Preferences ',# name='staticBox4',
+                                       label=' View Mode Preferences ',
                                        parent=self.panel1, style=0)
 
         self.staticText8 = wx.StaticText(id=wx.ID_ANY, label='Slideshow Delay:', 
-                                         name='ssDelay', parent=self.panel1, style=0)
+                                         parent=self.panel1, style=0)
 
         self.ssDelayChoice = wx.Choice(choices=[str(i) for i in range(MIN_SS_DELAY, MAX_SS_DELAY)], 
-                                           id=wx.ID_ANY,# name='ssDelayCnt',
-                                           parent=self.panel1, style=0)
+                                           id=wx.ID_ANY, parent=self.panel1, style=0)
         self.ssDelayChoice.SetToolTip('Delay interval')
         self.ssDelayChoice.SetStringSelection(str(ssDelay))
         self.ssDelayChoice.Bind(wx.EVT_CHOICE, self.OnSsDelayChoice, id=wx.ID_ANY)
 
         # Configuration
         self.staticBox1 = wx.StaticBox(id=wx.ID_ANY,
-              label=' Local Configuration ', #name='staticBox1',
-              parent=self.panel1, style=0)
+              label=' Local Configuration ', parent=self.panel1, style=0)
 
         self.staticBox3 = wx.StaticBox(id=wx.ID_ANY,
-              label=' Remote Configuration ', #name='staticBox3',
-              parent=self.panel1, style=0)
+              label=' Remote Configuration ', parent=self.panel1, style=0)
 
         self.downLocTextCtrl = wx.TextCtrl(id=wx.ID_ANY,
-#                                                 name='downLocTextCtrl', 
                                                  parent=self.panel1, 
                                                  style=wx.TE_PROCESS_ENTER, 
                                                  size=wx.Size(300, -1), 
@@ -3946,7 +3942,7 @@ class PreferencesDialog(wx.Dialog):
         self.downLocTextCtrl.Bind(wx.EVT_TEXT_ENTER, self.OnDownLocTextCtrlText)
 
         self.btnSelectDownLoc = wx.Button(id=wx.ID_ANY, label='Select Download Directory',
-                                          name='SelectDownLocation', parent=self.panel1, style=0)
+                                          parent=self.panel1, style=0)
         self.btnSelectDownLoc.SetToolTip('Select local download directory')
         self.btnSelectDownLoc.Bind(wx.EVT_BUTTON, self.getOnClick(self.downLocTextCtrl))
 
@@ -3954,7 +3950,6 @@ class PreferencesDialog(wx.Dialog):
         self.staticText5 = wx.StaticText(id=wx.ID_ANY, label='Camera Base Directory:', parent=self.panel1, style=0)
 
         self.cameraUrlTextCtrl = wx.TextCtrl(id=wx.ID_ANY,
-#                                             name='cameraUrlTextCtrl', 
                                              parent=self.panel1, 
                                              style=wx.TE_PROCESS_ENTER, 
                                              size=wx.Size(400, -1))
@@ -3975,18 +3970,15 @@ class PreferencesDialog(wx.Dialog):
         self.remBaseDirTextCtrl.Bind(wx.EVT_TEXT, self.OnRemBaseDirTextCtrl)
 
         #### Bottom buttons
-        self.btnCancel = wx.Button(id=wx.ID_CANCEL, label='Cancel',#name='btnCancel', 
-                                   parent=self.panel1, style=0)
+        self.btnCancel = wx.Button(id=wx.ID_CANCEL, label='Cancel', parent=self.panel1, style=0)
         self.btnCancel.SetToolTip('Discard changes')
         self.btnCancel.Bind(wx.EVT_BUTTON, self.OnBtnCancel)
 
-        self.btnReset = wx.Button(id=wx.ID_DEFAULT, label='Default', #name='btnReset', 
-                                  parent=self.panel1, style=0)
+        self.btnReset = wx.Button(id=wx.ID_DEFAULT, label='Default', parent=self.panel1, style=0)
         self.btnReset.SetToolTip('Reset to factory defaults')
         self.btnReset.Bind(wx.EVT_BUTTON, self.OnBtnReset)
 
-        self.btnApply = wx.Button(id=wx.ID_APPLY, label='Apply',#name='btnApply', 
-                                  parent=self.panel1, style=0)
+        self.btnApply = wx.Button(id=wx.ID_APPLY, label='Apply', parent=self.panel1, style=0)
         self.btnApply.SetToolTip('Apply changes to current session')
         self.btnApply.SetDefault()
         self.btnApply.Bind(wx.EVT_BUTTON, self.OnBtnApply)
@@ -4357,8 +4349,7 @@ class OSVMConfig(wx.Frame):
 #        self.btnDebug.SetToolTip(u'Use local files for debug')
 #        self.btnDebug.Bind(wx.EVT_BUTTON, self.OnBtnDebug)
 
-        self.btnExit = wx.Button(id=wx.ID_EXIT, label='Quit',
-                                 name='btnExit', parent=self.panel1, style=0)
+        self.btnExit = wx.Button(id=wx.ID_EXIT, label='Quit', parent=self.panel1, style=0)
         self.btnExit.SetToolTip('No, Thanks. I want to escape')
         self.btnExit.Bind(wx.EVT_BUTTON, self.OnBtnExit)
 
@@ -4526,91 +4517,84 @@ class InstallDialog(wx.Dialog):
         self.totalCount = 0
         self.errorCnt = 0
         self.tmpOpList = []
+        self.installSubPanelIdx = 0
+        self.installSubPanels = []
 
         # Create the main thread
         self.mainInstallThrLock = threading.Lock()
         self.mainInstallThrLock.acquire() # Acquire the lock to prevent the thread from running
         self.mainInstallThr = MainInstallThread(self, "MainInstallThread", self.mainInstallThrLock)
         self.mainInstallThr.setDaemon(True)
-        print('>>start')
         self.mainInstallThr.start()
 
-        print('>>_initialize')
         self._initialize()
-
-        print('>>_runThread')
         self._runThread()
 
     def _initialize(self):
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self,
                                    size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
 
-        # sub-panel : a scrolled panel to contain the pending operations
-        # Loop thru all requests to get the count of operations to handle
-        numEntries = 0
-        for i in range(len(self.opList)):
-            if not self.opList[i][OP_STATUS]: # If this operation is not used, skip it
-                continue
-            if self.opList[i][OP_TYPE] == FILE_DELETE: # skip DELETE operations
-                continue
-            numEntries += 1
-
-        hpanel2 = min(100 * numEntries, 300) # start scrolling if more than 3 requests
-        self.panel2 = scrolled.ScrolledPanel(parent=self.panel1, id=wx.ID_ANY, 
-                                             size=(500,hpanel2), style=wx.TAB_TRAVERSAL)
-
-        # Create TOP Level BoxSizer
+        # Create Top Level BoxSizer
         self.topBoxSizer = wx.BoxSizer(orient=wx.VERTICAL)
 
-        # Create a BoxSizer (managed by panel2) for all the pending operations
-        self.operationsGridSizer = wx.GridSizer(cols=1, vgap=5, hgap=5)
-
-        # Loop thru all operations and setup assoc. controls
+        # Loop thru all operations and fill details
         for i in range(len(self.opList)):
-            print('Creating entry %d/%d' % (i,len(self.opList)))
             op = self.opList[i]
             opStatus = op[OP_STATUS]
             # If this operation is not used, skip it
             if not opStatus:
                 continue
-            fileName  = op[OP_FILENAME]
+
             operation = op[OP_TYPE] # FILE_DOWNLOAD = 1  FILE_DELETE = 2
             if operation == FILE_DELETE:
                 continue
+            fileName = op[OP_FILENAME]
             self.numOps += 1
 
             dirName  = availRemoteFiles[fileName][F_DIRNAME]
             fileSize = availRemoteFiles[fileName][F_SIZE]
-#            print ('Must download file %s/%s: %d' % (dirName, fileName, fileSize))
 
             # Save full pathname of local file
             op[OP_FILEPATH] = os.path.join(self.downloadDir, fileName)
 
-            if 0:
-                (ret1, ret2) = self._checkRemoteFile(dirName, fileName)
-                if ret1 < 0 or ret1 != fileSize:
-                    print('ERROR:', ret2)
-                    self.installError(1, ret2, op)
-                    continue # Skip this file
-                # Save file size, # block count (floating) and remote url
-                nBlocks = ret1 / URLLIB_READ_BLKSIZE
-                op[OP_SIZE] = (ret1, nBlocks)
-                op[OP_REMURL] = ret2
-            else:
-                nBlocks = fileSize / URLLIB_READ_BLKSIZE
-                op[OP_SIZE] = (fileSize, nBlocks)
-                fileUrl = '%s%s/%s' % (osvmFilesDownloadUrl, dirName, fileName)
-                op[OP_REMURL] = fileUrl
+            nBlocks = fileSize / URLLIB_READ_BLKSIZE
+            op[OP_SIZE] = (fileSize, nBlocks)
+            fileUrl = '%s%s/%s' % (osvmFilesDownloadUrl, dirName, fileName)
+            op[OP_REMURL] = fileUrl
 
-            # List of all widgets related to this operation install
-            opWidgets = [] 
+            self.totalBlocks += math.ceil(nBlocks)
 
-            #### wx Controls ####
+        print('%d operations configured' % self.numOps)
+
+        self._createInstallSubPanels()
+        self._createOtherControls()
+
+        # Set a timer to count the elapsed time
+        self.timer = wx.Timer(self, wx.ID_ANY)
+        self.Bind(wx.EVT_TIMER, self.OnTimer, self.timer)
+
+        self.panel1.SetSizerAndFit(self.topBoxSizer)
+        self.SetClientSize(self.topBoxSizer.GetSize())
+        self.Centre()
+
+    def _createInstallSubPanels(self):
+        global installSubPanelsCount
+
+        # sub-panel to contain 5 pending operations
+        self.panel2 = wx.Panel(parent=self.panel1, id=wx.ID_ANY, 
+                               size=(500,400), style=wx.TAB_TRAVERSAL)
+
+        # Create a BoxSizer (managed by panel2) for all the pending operations
+        self.operationsGridSizer = wx.GridSizer(cols=1, vgap=5, hgap=5)
+
+        for i in range(installSubPanelsCount):
+            # List of all widgets related to this operation
+            opWidgets = []
+
             # widget0. Progress gauge. Range is rounded up
-            w = wx.Gauge(range=math.ceil(nBlocks), parent=self.panel2, id=wx.ID_ANY, size=(200, 15)) 
+            w = wx.Gauge(range=10, parent=self.panel2, id=wx.ID_ANY, size=(200, 15)) 
             opWidgets.append(w)
-            self.totalBlocks += math.ceil(nBlocks) # nBlocks
-#            print ('InstallDialog(): nBlocks=%f totalBlocks=%f' % (nBlocks,self.totalBlocks))
+
             # widget1
             w = wx.StaticText(label='Time elapsed:', parent=self.panel2, id=wx.ID_ANY)
             opWidgets.append(w)
@@ -4627,17 +4611,15 @@ class InstallDialog(wx.Dialog):
             w = wx.StaticText(label='00:00:00', parent=self.panel2, id=wx.ID_ANY)
             opWidgets.append(w)
 
-            # widget5. package name and size
-            w5label = '%s  %.1f KB' % (fileName, fileSize/ONEKILO)
-            w = wx.StaticBox(label=w5label, id=wx.ID_ANY, name=fileName,
-                             parent=self.panel2, style=0)
+            # widget5. file name and size
+            w = wx.StaticBox(label='', id=wx.ID_ANY, parent=self.panel2, style=0)
             opWidgets.append(w)
 
             # widget6. global box sizer for 1 operation
             w = wx.StaticBoxSizer(box=opWidgets[INST_STBOX], orient=wx.HORIZONTAL)
             opWidgets.append(w)
 
-            # widget7. To contain time related widgets
+            # widget7. To contain time related widgets (INST_GRDSZ)
             w = wx.FlexGridSizer(2, 2, vgap=5, hgap=5)
             opWidgets.append(w)
 
@@ -4647,7 +4629,7 @@ class InstallDialog(wx.Dialog):
             w.Add(opWidgets[INST_REMTXT], 0, border=5, flag=wx.EXPAND)
             w.Add(opWidgets[INST_REMCNT], 0, border=5, flag=wx.EXPAND)
 
-            # widget8 & 9. Add 3 LEDs per operation: download, extract, install
+            # widget8 (INST_LEDBOXSZ). Add 3 LEDs per operation: download, extract, install
             ledBoxSz = wx.BoxSizer(orient=wx.VERTICAL)
             opWidgets.append(ledBoxSz)
             ledList = [0,0,0]    # List of 3 LEDs
@@ -4659,23 +4641,23 @@ class InstallDialog(wx.Dialog):
             ledList[0] = w = LED(self.panel2)
             w.SetState(LED_GREY)
             w.SetToolTip(ledMeans[0])
-            # Add this LED in the sizer
+            # Add this LED in the sizer 
             ledBoxSz.Add(w, 0, border=0, flag=wx.EXPAND)
 
-            # Add ledList to the list of widgets for this op
-            opWidgets.append(ledList)            
+            # Add ledList (INST_LEDLIST) to the list of widgets for this op
+            opWidgets.append(ledList)
 
-            # Put the Gauge widgets in a sizer
+            # Put the Gauge widgets in a sizer (INST_GKBOXSZ)
             gkBoxSz = wx.BoxSizer(orient=wx.VERTICAL)
             opWidgets.append(gkBoxSz)
 
+            gkBoxSz.AddStretchSpacer(prop=1)
             gkBoxSz.Add(opWidgets[INST_GAUGE], 0, border=0, flag=wx.EXPAND)
-            gkBoxSz.Add(0, 12, 0, border=0, flag=wx.EXPAND)
-            gkBoxSz.Add(w, 0, border=0, flag=wx.EXPAND)
+            gkBoxSz.AddStretchSpacer(prop=1)
 
             # Add widgets related to this op in its sizer
             opWidgets[INST_OPBOXSZ].Add(opWidgets[INST_GKBOXSZ], 0, border=5, 
-                                        flag=wx.ALL  | wx.ALIGN_CENTER_VERTICAL)
+                                        flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL)
             opWidgets[INST_OPBOXSZ].Add(8, 0, 1, border=0, flag=wx.EXPAND)
             opWidgets[INST_OPBOXSZ].Add(opWidgets[INST_LEDBOXSZ], 0, border=5, 
                                         flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL)
@@ -4687,12 +4669,16 @@ class InstallDialog(wx.Dialog):
             self.operationsGridSizer.Add(opWidgets[INST_OPBOXSZ], 0, border=0, 
                                          flag=wx.TOP | wx.LEFT | wx.RIGHT | wx.EXPAND)
 
-            # Store all widgets used by this op
-            op[OP_INWGT] = opWidgets
+            # Store all widgets in this subpanel in the installSubPanels list
+            self.installSubPanels.append(opWidgets)
 
-        # Add the scrolled panel in the topBoxSizer
+        # Add the panel in the topBoxSizer
         self.topBoxSizer.Add(self.panel2, 0, border=10, flag=wx.ALL | wx.EXPAND)
 
+        self.panel2.SetSizer(self.operationsGridSizer)
+        self.panel2.SetAutoLayout(True)
+
+    def _createOtherControls(self):
         # TextCtrl to display installation output messages
         self.statusBar = wx.TextCtrl(parent=self.panel1, size=(300, 100), id=wx.ID_ANY, style=wx.TE_MULTILINE)
 
@@ -4717,7 +4703,7 @@ class InstallDialog(wx.Dialog):
         # Finally add bottom buttons in a sizer
         self.queueTxt = wx.StaticText(label='Queue:', 
                                              parent=self.panel1, id=wx.ID_ANY)
-        self.queueCnt = wx.StaticText(label='000/000', parent=self.panel1, id=wx.ID_ANY)
+        self.queueCnt = wx.StaticText(label='0000/0000', parent=self.panel1, id=wx.ID_ANY)
         self.avSpeedTxt = wx.StaticText(label='Average Speed:', 
                                              parent=self.panel1, id=wx.ID_ANY)
         self.avSpeedCnt = wx.StaticText(label='000 KB/s', parent=self.panel1, id=wx.ID_ANY)
@@ -4726,12 +4712,11 @@ class InstallDialog(wx.Dialog):
         self.ETACnt = wx.StaticText(label='', parent=self.panel1, id=wx.ID_ANY)
 
         self.btnCancel = wx.Button(id=wx.ID_CANCEL, label='Cancel All',
-                                   name='Cancel All', parent=self.panel1, style=0)
+                                   parent=self.panel1, style=0)
         self.btnCancel.SetToolTip('Cancel all pending operations')
         self.btnCancel.Bind(wx.EVT_BUTTON, self.OnBtnCancel)
 
-        self.btnDone = wx.Button(id=wx.ID_ANY, label='Done',
-                                 name='Done', parent=self.panel1, style=0)
+        self.btnDone = wx.Button(id=wx.ID_ANY, label='Done', parent=self.panel1, style=0)
         self.btnDone.SetToolTip('Exit Installation Dialog')
         self.btnDone.Bind(wx.EVT_BUTTON, self.OnBtnDone)
         self.btnDone.Disable()
@@ -4763,20 +4748,6 @@ class InstallDialog(wx.Dialog):
         self.topBoxSizer.Add(4, 4, 0, border=0, flag=wx.EXPAND)
         self.topBoxSizer.Add(self.opBoxSizer, 0, border=10, 
                                   flag=wx.ALL | wx.EXPAND | wx.ALIGN_RIGHT)
-        
-        print("Configured requests:", self.numOps)
-        
-        # Set a timer to count the elapsed time
-        self.timer = wx.Timer(self, wx.ID_ANY)
-        self.Bind(wx.EVT_TIMER, self.OnTimer, self.timer)
-
-        self.panel2.SetSizer(self.operationsGridSizer)
-        self.panel2.SetAutoLayout(True)
-        self.panel2.SetupScrolling()
-
-        self.panel1.SetSizerAndFit(self.topBoxSizer)
-        self.SetClientSize(self.topBoxSizer.GetSize())
-        self.Centre()
 
     #### Events ####
 
@@ -4804,7 +4775,7 @@ class InstallDialog(wx.Dialog):
                     self.updateCounter(op)
                     self._updateLeds(op)
                     self._updateLabel(op)
-                    self.panel2.ScrollChildIntoView(op[OP_INWGT][4]) #Time remaining counter
+#                    self.panel2.ScrollChildIntoView(op[OP_INWGT][4]) #Time remaining counter
 
         self.timerTicks += TIMER1_FREQ
         self.totalSecs = self.timerTicks / 1000
@@ -4840,7 +4811,8 @@ class InstallDialog(wx.Dialog):
         return (totalSize, fileUrl)
 
     def _updateLabel(self, op):
-        stBox = op[OP_INWGT][INST_STBOX]
+        stBox = self.subPanel[INST_STBOX]
+
         statinfo = os.stat(op[OP_FILEPATH])
         if statinfo.st_size < (2 * ONEMEGA):
             label = '%s  %dKB / %dKB' % (os.path.basename(op[OP_FILEPATH]), 
@@ -4853,7 +4825,8 @@ class InstallDialog(wx.Dialog):
         stBox.SetLabel(label)
 
     def _updateLeds(self, op):
-        ledList = op[OP_INWGT][INST_LEDLIST]
+        ledList = self.subPanel[INST_LEDLIST]
+
         led = ledList[op[OP_INSTEP]]      # LED to update
         state = op[OP_INLEDSTATE]         # ON/BLINK/OFF
         color = op[OP_INLEDCOL]           # YELLOW/GREEN/RED
@@ -4893,6 +4866,18 @@ class InstallDialog(wx.Dialog):
 
     # External callable methods
 
+    # Set the subpanel to use. Update some widgets (filename, size,...)
+    def nextInstallSubPanel(self, op):
+        global installSubPanelsCount
+
+        print('nextInstallSubPanel(): Using subpanel %d' % self.installSubPanelIdx)
+        self.subPanel = self.installSubPanels[self.installSubPanelIdx]
+
+        self.subPanel[INST_GAUGE].SetRange(range=math.ceil(op[OP_SIZE][1]))
+        wlabel = '%s  %.1f KB' % (op[OP_FILENAME], op[OP_SIZE][0]/ONEKILO)
+        self.subPanel[INST_STBOX].SetLabel(wlabel)
+        self.installSubPanelIdx = (self.installSubPanelIdx + 1) % installSubPanelsCount
+
     # Update the Install Dialog window containing the gauges
     # Called by the timer handler and by the worker thread
     def updateCounter(self, op, reason=0):
@@ -4905,7 +4890,7 @@ class InstallDialog(wx.Dialog):
             count = op[OP_INCOUNT]
 
         # update gauge for this operation
-        op[OP_INWGT][INST_GAUGE].SetValue(count)
+        self.subPanel[INST_GAUGE].SetValue(count)
 
         # Update Elapsed time widget
         op[OP_INTICKS] += 1
@@ -4916,10 +4901,10 @@ class InstallDialog(wx.Dialog):
         remaining = time.strftime('%H:%M:%S', time.gmtime(abs((approxTime - op[OP_INTICKS])/TICK_PER_SEC)))
 
         # Update Elapsed time widget
-        op[OP_INWGT][INST_ELAPCNT].SetLabel(elapsed)
+        self.subPanel[INST_ELAPCNT].SetLabel(elapsed)
 
         #  Update Remaining time widget
-        op[OP_INWGT][INST_REMCNT].SetLabel(remaining)
+        self.subPanel[INST_REMCNT].SetLabel(remaining)
 
         # Any click on the Cancel button
         if self.installCanceled:
@@ -4969,7 +4954,7 @@ class InstallDialog(wx.Dialog):
         self._updateLeds(op)
         if step == 2:
             #  Clear Remaining time widget
-            op[OP_INWGT][INST_REMCNT].SetLabel('00:00:00')
+            self.subPanel[INST_REMCNT].SetLabel('00:00:00')
 
 ####
 class CleanDownloadDirDialog(wx.Dialog):
@@ -6052,7 +6037,7 @@ class OSVM(wx.Frame):
 
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self,
                                size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
-#1907   self.panel1.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
+#        self.panel1.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
 
         self.panel1.Bind(wx.EVT_KEY_DOWN, self._onKeyPress)
         self.panel1.SetFocusIgnoringChildren()
@@ -6112,7 +6097,6 @@ class OSVM(wx.Frame):
         self._dpcSetValue(remOldestDate, self.dpc1, remNewestDate, self.dpc2)
 
         self.castDeviceName = wx.StaticText(id=wx.ID_ANY,
-                                            name='castDeviceName',
                                             parent=self.panel1,
                                             size=(60,16),
                                             style=wx.ST_ELLIPSIZE_MIDDLE)
@@ -6133,17 +6117,17 @@ class OSVM(wx.Frame):
         if not pycc:
             self.btnCast.Disable()
 
-        self.btnRew = wx.Button(size=wx.Size(32,32), name='btnRew', parent=self.panel1, style=wx.NO_BORDER)
+        self.btnRew = wx.Button(size=wx.Size(32,32), parent=self.panel1, style=wx.NO_BORDER)
         self._displayBitmap(self.btnRew, 'rew.png', wx.BITMAP_TYPE_PNG)
         self.btnRew.SetToolTip('Restart the Slideshow from beginning')
         self.btnRew.Bind(wx.EVT_BUTTON, self.OnBtnRew)
 
-        self.btnPlay = wx.Button(size=wx.Size(32,32), name='btnPlay', parent=self.panel1, style=wx.NO_BORDER)
+        self.btnPlay = wx.Button(size=wx.Size(32,32), parent=self.panel1, style=wx.NO_BORDER)
         self._displayBitmap(self.btnPlay, 'play.png', wx.BITMAP_TYPE_PNG)
         self.btnPlay.SetToolTip('Start the Slideshow')
         self.btnPlay.Bind(wx.EVT_BUTTON, self.OnBtnPlay)
 
-        self.btnStop = wx.Button(size=wx.Size(32,32), name='btnStop', parent=self.panel1, style=wx.NO_BORDER)
+        self.btnStop = wx.Button(size=wx.Size(32,32), parent=self.panel1, style=wx.NO_BORDER)
         self._displayBitmap(self.btnStop, 'stop.png', wx.BITMAP_TYPE_PNG)
         self.btnStop.SetToolTip('Stop the Slideshow')
         self.btnStop.Bind(wx.EVT_BUTTON, self.OnBtnStop)
@@ -6164,12 +6148,12 @@ class OSVM(wx.Frame):
             self.colorGrid.append(wx.StaticText(self.panel1, label=FILE_COLORS_STATUS[i]))
 
         self.btnCancel = wx.Button(id=wx.ID_CANCEL, label='Cancel All',
-                                   name='Cancel All', parent=self.panel1, style=0)
+                                   parent=self.panel1, style=0)
         self.btnCancel.SetToolTip('Cancel all pending requests')
         self.btnCancel.Bind(wx.EVT_BUTTON, self.OnBtnCancel)
 
         self.btnCommit = wx.Button(id=wx.ID_OK, label='Commit',
-                                   name='Commit', parent=self.panel1, style=0)
+                                   parent=self.panel1, style=0)
         self.btnCommit.SetToolTip('Commit all pending requests')
         self.btnCommit.Bind(wx.EVT_BUTTON, self.OnBtnCommit)
         if not cameraConnected:
@@ -6182,21 +6166,18 @@ class OSVM(wx.Frame):
         else:
             lbl = ' Available Remote Files (on camera) Page:'
 
-        self.staticBox3 = wx.StaticBox(id=wx.ID_ANY, label=lbl, 
-                                       name='staticBox3', parent=self.panel1, 
+        self.staticBox3 = wx.StaticBox(id=wx.ID_ANY, label=lbl, parent=self.panel1, 
                                        pos=wx.Point(10, 199), size=wx.Size(1192, 100), style=0)
         if viewMode:
             lbl = ' File Viewer Control '
         else:
             lbl = ' Select Files to Sync... '
-        self.staticBox4 = wx.StaticBox(id=wx.ID_ANY,
-                                       label=lbl, name='staticBox4',
-                                       parent=self.panel1, pos=wx.Point(10, 64), style=0)
+        self.staticBox4 = wx.StaticBox(id=wx.ID_ANY, label=lbl, parent=self.panel1, 
+                                       pos=wx.Point(10, 64), style=0)
 
         self._createThumbnailPanel()
 
-        self.statusBar1 = wx.StatusBar(id=wx.ID_ANY,
-                                       name='statusBar1', parent=self.panel1, style=0)
+        self.statusBar1 = wx.StatusBar(id=wx.ID_ANY,parent=self.panel1, style=0)
         self.statusBar1.SetToolTip('Status')
         self.statusBar1.SetFont(wx.Font(11, wx.SWISS, wx.ITALIC, wx.NORMAL, False, 'foo'))
 
@@ -6222,17 +6203,14 @@ class OSVM(wx.Frame):
         else:
             label= '%s: %s\n%s\nPython (%dbits): %s wxpython: %s' % (_myName_, _myVersion_,  (platform.platform()), __pythonBits__, __pythonVersion__, wx.version())            
 
-        self.pltfInfo = wx.StaticText(label=label,
-                                      id=wx.ID_ANY,
-                                      name='pltfInfo',
-                                      parent=self.panel1)
+        self.pltfInfo = wx.StaticText(label=label, id=wx.ID_ANY, parent=self.panel1)
         self.pltfInfo.SetFont(wx.Font(7, wx.SWISS, wx.NORMAL, wx.NORMAL, False, 'Ubuntu'))
 
         self.btnSwitchMode = wx.Button(id=wx.ID_ANY, parent=self.panel1, style=0)
         self.btnSwitchMode.SetLabel('Switch to Sync Mode' if viewMode else 'Switch to View Mode')
         self.btnSwitchMode.Bind(wx.EVT_BUTTON, self.OnBtnSwitchMode)
 
-        self.btnSwitchNetwork = wx.Button(id=wx.ID_ANY, label='Switch Network', 
+        self.btnSwitchNetwork = wx.Button(id=wx.ID_ANY, label='Select Camera', 
                                           parent=self.panel1, style=0)
         self.btnSwitchNetwork.Bind(wx.EVT_BUTTON, self.OnBtnSwitchNetwork)
         if __system__ != 'Darwin' or not networkSelector:
@@ -6764,7 +6742,7 @@ class OSVM(wx.Frame):
 
         self._dpcSetValue(self.fromDate, self.dpc1, None, self.dpc2)
 
-        print ('OnFromDate(): fromDate: %s . Clearing pending list' % self.fromDate)
+        print ('OnFromDate(): fromDate: %s. Clearing pending list' % self.fromDate)
         self._clearAllRequests()
 
         if self.fileType == 'JPG':
