@@ -77,6 +77,7 @@ import wx.adv
 import socket
 import datetime
 import glob
+import ctypes
 
 import simpleQRScanner
 
@@ -178,6 +179,7 @@ DEFAULT_ASK_BEFORE_EXIT = True
 DEFAULT_SAVE_PREFERENCES_ON_EXIT = True
 DEFAULT_MAX_DOWNLOAD = 1
 DEFAULT_OVERWRITE_LOCAL_FILES = False
+DEFAULT_AUTO_SWITCH_TO_CAMERA_NETWORK = False
 DEFAULT_OSVM_ROOT_URL  = 'http://192.168.0.10:80'
 DEFAULT_OSVM_REM_BASE_DIR = '/DCIM'
 DEFAULT_OSVM_DOWNLOAD_DIR = os.path.join(expanduser("~"), _osvmDir_, 'download')
@@ -199,11 +201,13 @@ OSVM_DOWNLOAD_DIR = 'osvmdownloaddir'
 OSVM_FILES_DOWNLOAD_URL = 'osvmrooturl'
 REM_BASE_DIR = "rembasedir"
 MAX_DOWNLOAD = 'maxdownload'
-OVERWRITE_LOCAL_FILES = "overwritelocalfiles"
+OVERWRITE_LOCAL_FILES = 'overwritelocalfiles'
+AUTO_SWITCH_TO_CAMERA_NETWORK = 'autoswitchtocameranetwork'
 SS_DELAY = 'slideshowdelay'
 LAST_CAST_DEVICE_NAME = 'lastcastdevicename'
 LAST_CAST_DEVICE_UUID = 'lastcastdeviceuuid'
 SORT_ORDER = 'filesortreverse'
+FAVORITE_NETWORK = 'favoritenetwork'
 
 # Globals Managed by Preferences / Frame # In _osvmDir_
 htmlRootFile = 'htmlRootFile.html'
@@ -220,9 +224,11 @@ osvmDownloadDir = DEFAULT_OSVM_DOWNLOAD_DIR
 osvmFilesDownloadUrl = ''
 maxDownload = DEFAULT_MAX_DOWNLOAD
 overwriteLocalFiles = False
+autoSwitchToFavoriteNetwork = False
 rootUrl = DEFAULT_OSVM_ROOT_URL
 remBaseDir = DEFAULT_OSVM_REM_BASE_DIR
 ssDelay = DEFAULT_SLIDESHOW_DELAY
+favoriteNetwork = ('','')  # Favorite Network, e.g. Camera
 viewMode = False
 autoViewMode = False
 autoSyncMode = False
@@ -385,7 +391,8 @@ CLEAN_FILETYPES = { 'JPG':0, 'MOV':0 }
  NET_CHANNEL,
  NET_SECURITY,
  NET_KNOWN,
- NET_NET] = [i for i in range(8)]
+ NET_FAVORITE,
+ NET_NET] = [i for i in range(9)]
 
 cameraConnected = True
 
@@ -488,7 +495,7 @@ def cleanup():
 
 def printGlobals():
     global cameraConnected
-    global compactMode, askBeforeCommit, askBeforeExit, overwriteLocalFiles
+    global compactMode, askBeforeCommit, askBeforeExit, overwriteLocalFiles, autoSwitchToFavoriteNetwork
     global savePreferencesOnExit
     global localFilesCnt
     global availRemoteFilesCnt
@@ -499,11 +506,13 @@ def printGlobals():
     global ssDelay
     global knownNetworks
     global fileSortRecentFirst
+    global favoriteNetwork
 
     print('compactMode: %s' % compactMode)
     print('askBeforeCommit: %s' % askBeforeCommit)
     print('askBeforeExit: %s' % askBeforeExit)
     print('overwriteLocalFiles: %s' % overwriteLocalFiles)
+    print('autoSwitchToFavoriteNetwork: %s' % autoSwitchToFavoriteNetwork)
     print('cameraConnected: %s' % cameraConnected)
     print('maxDownload: %s' % maxDownload)
     print('localFilesCnt: %s' % localFilesCnt)
@@ -514,6 +523,7 @@ def printGlobals():
     print('fileColors:', fileColors)
     print('ssDelay:', ssDelay)
     print('knownNetworks:', knownNetworks)
+    print('favoriteNetwork:', favoriteNetwork)
     print('fileSortRecentFirst:', fileSortRecentFirst)
 
 def getTmpFile():
@@ -607,6 +617,7 @@ def scanForNetworks():
     global allNetworks
     global knownNetworks
     global iface
+    global favoriteNetwork
 
     setBusyCursor(True)
     networks, error = iface.scanForNetworksWithName_error_(None, None)
@@ -622,12 +633,15 @@ def scanForNetworks():
         n_bssid        = n.bssid()
         n_securityMode = CWSecurityModes[n.securityMode()]
         n_known = False
+        n_favorite = False
         for kn in knownNetworks:
                 ssid,bssid,passwd = kn.split(',')
                 if n_ssid == ssid and n_bssid == bssid:
                     n_known = True
                     break
-        allNetworks.append((n_ssid,n_bssid,'',n_rssi,n_channel,n_securityMode,n_known,n))
+        if favoriteNetwork[NET_SSID] == n_ssid and favoriteNetwork[NET_BSSID] == n_bssid:
+            n_favorite = True
+        allNetworks.append((n_ssid,n_bssid,'',n_rssi,n_channel,n_securityMode,n_known,n_favorite,n))
     return None
 
 #
@@ -657,6 +671,48 @@ def delKnownNetwork(ssid, bssid):
     e = [s for s in knownNetworks if sub in s]
     knownNetworks.remove(e[0])
     print('delKnownNetwork(): Removed %s' % e)
+
+def switchToFavoriteNetwork():
+    global favoriteNetwork
+    global allNetworks
+    global knownNetworks
+    global iface
+
+    if iface.ssid() == favoriteNetwork[NET_SSID] and iface.bssid() == favoriteNetwork[NET_BSSID]:
+        # Nothing to do
+        return 0
+
+    print('switchToFavoriteNetwork():Switching to favorite network:', favoriteNetwork)
+
+    # Update network list
+    error = scanForNetworks()
+    if error:
+        print(error)
+        return -1
+
+    # Check in all networks
+    ssid = None
+    for net in allNetworks:
+        if net[NET_SSID] == favoriteNetwork[NET_SSID] and net[NET_BSSID] == favoriteNetwork[NET_BSSID]:
+            for kn in knownNetworks: # kn='ssid,bssid,passwd'
+                knParms = kn.split(',')
+                if knParms[NET_SSID] == favoriteNetwork[NET_SSID] and knParms[NET_BSSID] == favoriteNetwork[NET_BSSID]:
+                    ssid = knParms[NET_SSID]
+                    bssid = knParms[NET_BSSID]
+                    password = knParms[NET_PASSWD]
+                    break
+            break
+    if ssid is None:
+        print('switchToFavoriteNetwork(): Favorite network not found in networks list')
+        return -1
+
+    print('switchToFavoriteNetwork(): Connecting to known network %s, bssid %s password %s' 
+          % (ssid, bssid, password))
+    success, error = iface.associateToNetwork_password_error_(net[NET_NET], password, None)
+    if success:
+        return 0
+    print(error)
+    return -1
 
 #
 # Browse a directory, looking for filenames ending with: JPG, MOV, ORF, MPO
@@ -864,8 +920,8 @@ def getRootDirInfo(rootDir, uri): # XXX
 
     # Sort the dict by date: Latest file first
     availRemoteFilesSorted = sorted(list(availRemoteFiles.items()), key=lambda x: int(x[1][F_DATEINSECS]), reverse=fileSortRecentFirst)
-    for e in availRemoteFilesSorted:
-        print("Detected remote file: %s size %d created %s %s %d" % (e[1][F_NAME],e[1][F_SIZE],getHumanDate(e[1][F_DATE]),getHumanTime(e[1][F_TIME]),int(e[1][F_DATEINSECS])))
+#    for e in availRemoteFilesSorted:
+#        print("Detected remote file: %s size %d created %s %s %d" % (e[1][F_NAME],e[1][F_SIZE],getHumanDate(e[1][F_DATE]),getHumanTime(e[1][F_TIME]),int(e[1][F_DATEINSECS])))
     return i
 
 def htmlRoot(rootUrl): # XXX
@@ -1422,7 +1478,8 @@ class WifiDialog(wx.Dialog):
         self.parent = parent
         self.net = None # Selected network
         self.netkey = None
-    
+        self.favoriteCbList = list()
+
         # Build allNetworks list
         error = scanForNetworks()
         if error:
@@ -1443,7 +1500,7 @@ class WifiDialog(wx.Dialog):
         global allNetworks
 
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
-        self.panel2 = scrolled.ScrolledPanel(parent=self.panel1, id=wx.ID_ANY, size=(650,200), style=wx.TAB_TRAVERSAL)
+        self.panel2 = scrolled.ScrolledPanel(parent=self.panel1, id=wx.ID_ANY, size=(680,200), style=wx.TAB_TRAVERSAL)
 
         self.wintitle = wx.StaticText(self.panel1)
         if viewMode:
@@ -1457,9 +1514,9 @@ class WifiDialog(wx.Dialog):
 
         # Store all WIFI networks information in a list
         self.netProps = list()
-        self.netProps.append(('SSID', 'RSSI', 'Channel', 'BSSID', 'Security', 'Known')) # Header
+        self.netProps.append(('SSID', 'RSSI', 'Channel', 'BSSID', 'Security', 'Known', 'Favorite')) # Header
         for n in self.netwSorted:
-            self.netProps.append((n[NET_SSID],n[NET_RSSI],n[NET_CHANNEL],n[NET_BSSID],n[NET_SECURITY],n[NET_KNOWN]))
+            self.netProps.append((n[NET_SSID],n[NET_RSSI],n[NET_CHANNEL],n[NET_BSSID],n[NET_SECURITY],n[NET_KNOWN],n[NET_FAVORITE]))
         # Grid containing the information
         rows = len(self.netProps)
         cols = len(self.netProps[0])
@@ -1485,17 +1542,22 @@ class WifiDialog(wx.Dialog):
             btn = wx.RadioButton(self.panel2, 
                                  label=self.netProps[i][0],
                                  name=self.netProps[i][0], 
-                                 style=(wx.RB_GROUP if not i else 0)) # SSID
-#            btn = wx.RadioButton(self.panel2, style=(wx.RB_GROUP if not i else 0)) # SSID
-#            btn.SetLabelMarkup("<b>%s</b>" % self.netProps[i][0])
+                                 style=(wx.RB_GROUP if i==1 else 0)) # SSID
             btn.Bind(wx.EVT_RADIOBUTTON, self.OnRadioButton)
             self.onerowfields.append(btn)
-            for j in range(1,len(self.netProps[0])-1):
+            for j in range(1,len(self.netProps[0])-2):
                 self.onerowfields.append(wx.StaticText(self.panel2, label=str(self.netProps[i][j])))
+            # Known Network checkbox
             knownCb = wx.CheckBox(self.panel2, label='')
-            knownCb.SetValue(self.netProps[i][len(self.netProps[0])-1])
+            knownCb.SetValue(self.netProps[i][len(self.netProps[0])-2])
             knownCb.Bind(wx.EVT_CHECKBOX, self.OnKnownCb)
             self.onerowfields.append(knownCb)
+            # Favorite Network checkbox
+            favoriteCb = wx.CheckBox(self.panel2, label='')
+            favoriteCb.SetValue(self.netProps[i][len(self.netProps[0])-1])
+            favoriteCb.Bind(wx.EVT_CHECKBOX, self.OnFavoriteCb)
+            self.onerowfields.append(favoriteCb)
+            self.favoriteCbList.append(favoriteCb)
             # Create directory entry. key=(SSID,BSSID)
             k = (self.netwSorted[i-1][NET_SSID],self.netwSorted[i-1][NET_BSSID])
             self.btnDir[k] = btn
@@ -1572,6 +1634,39 @@ class WifiDialog(wx.Dialog):
                 self.netkey = k
         event.Skip()
 
+    def OnFavoriteCb(self, event):
+        global allNetworks
+        global favoriteNetwork
+
+        cb = event.GetEventObject()
+        self.timer.Stop()
+
+        oldValue = cb.GetValue()
+
+        # Disable all favorite checkboxes
+        for w in self.favoriteCbList:
+            w.SetValue(False)
+
+        # Set this checkbox
+        cb.SetValue(oldValue)
+
+        if oldValue == False: # Clear favoriteNetwork
+            favoriteNetwork = ('','')
+            self.timer.Start(5000)
+            event.Skip()
+            return
+
+        # Get associated network
+        for onerowfields in self.fields:
+            if cb in onerowfields:
+                ssid = onerowfields[0].GetLabel()
+                for net in allNetworks:
+                    if net[NET_SSID] == ssid:
+                        break
+        favoriteNetwork = (net[NET_SSID],net[NET_BSSID])
+        self.timer.Start(5000)
+        event.Skip()
+
     def OnKnownCb(self, event):
         global allNetworks
 
@@ -1585,7 +1680,6 @@ class WifiDialog(wx.Dialog):
                 for net in allNetworks:
                     if net[NET_SSID] == ssid:
                         break
-#        print(net)
 
         if cb.GetValue():
             # Popup a dialog to ask for this known network password
@@ -1713,6 +1807,8 @@ class WifiDialog(wx.Dialog):
         event.Skip()
 
     def OnTimer(self, event):
+        global allNetworks
+
         error = scanForNetworks()
         if error:
             print(error)
@@ -1724,9 +1820,9 @@ class WifiDialog(wx.Dialog):
 
         # Store all WIFI networks information in a list
         self.netProps = list()
-        self.netProps.append(('SSID', 'RSSI', 'Channel', 'BSSID', 'Security', 'Known')) # Header
+        self.netProps.append(('SSID', 'RSSI', 'Channel', 'BSSID', 'Security', 'Known', 'Favorite')) # Header
         for n in self.netwSorted:
-            self.netProps.append((n[NET_SSID],n[NET_RSSI],n[NET_CHANNEL],n[NET_BSSID],n[NET_SECURITY],n[NET_KNOWN]))
+            self.netProps.append((n[NET_SSID],n[NET_RSSI],n[NET_CHANNEL],n[NET_BSSID],n[NET_SECURITY],n[NET_KNOWN],n[NET_FAVORITE]))
         rows = len(self.netProps)
         cols = len(self.netProps[0])
 
@@ -1741,6 +1837,9 @@ class WifiDialog(wx.Dialog):
         # Create a directory containing the radio buttons
         self.btnDir = {}
 
+        # Clear existing list of favorite checkboxes
+        self.favoriteCbList = list()
+
         # first line header
         self.onerowfields = list()
         for i in range(len(self.netProps[0])):
@@ -1754,21 +1853,30 @@ class WifiDialog(wx.Dialog):
 
         for i in range(1,rows):
             self.onerowfields = list()
-            btn = wx.RadioButton(self.panel2, label=self.netProps[i][0], style=(wx.RB_GROUP if not i else 0)) # SSID
+            btn = wx.RadioButton(self.panel2, label=self.netProps[i][0], style=(wx.RB_GROUP if i==1 else 0)) # SSID
             btn.SetLabelMarkup("<b>%s</b>" % self.netProps[i][0])
             btn.Bind(wx.EVT_RADIOBUTTON, self.OnRadioButton)
             self.onerowfields.append(btn)
-            for j in range(1,len(self.netProps[0])-1):
+            for j in range(1,len(self.netProps[0])-2):#-1
                 self.onerowfields.append(wx.StaticText(self.panel2, label=str(self.netProps[i][j])))
             knownCb = wx.CheckBox(self.panel2, label='')
-            knownCb.SetValue(self.netProps[i][len(self.netProps[0])-1])
+            knownCb.SetValue(self.netProps[i][len(self.netProps[0])-2]) #-1
             knownCb.Bind(wx.EVT_CHECKBOX, self.OnKnownCb)
             self.onerowfields.append(knownCb)
+            # Favorite Checkbox button
+            favoriteCb = wx.CheckBox(self.panel2, label='')
+            favoriteCb.SetValue(self.netProps[i][len(self.netProps[0])-1])
+            favoriteCb.Bind(wx.EVT_CHECKBOX, self.OnFavoriteCb)
+            self.favoriteCbList.append(favoriteCb)
+            self.onerowfields.append(favoriteCb)
+
             self.fields.append(self.onerowfields) # append to self.fields
 
             # Create a new directory entry
             k = (self.netwSorted[i-1][NET_SSID],self.netwSorted[i-1][NET_BSSID]) # -1 for header
             self.btnDir[k] = btn 
+
+#        self.panel2.Refresh()
 
         if self.netkey:
             try:
@@ -2045,13 +2153,31 @@ class InstallThread(threading.Thread):
 
         print('%s: Started' % self._name)
 
-    def stopit(self):
+    def stopIt(self):
         print('%s: Stopping' % self._name)
         self._stopper.set()
         print('%s: isStopped(): %s' % (self._name, self.isStopped()))
 
     def isStopped(self):
         return self._stopper.isSet()
+
+    def getId(self): 
+        # returns id of the respective thread 
+        if hasattr(self, '_thread_id'): 
+            return self._thread_id 
+        for id, thread in threading._active.items(): 
+            if thread is self: 
+                return id
+
+    # Raise an exception to unblock a working thread
+    def raiseException(self): 
+        thread_id = self.getId() 
+        print('%s: id=%d Raising exception' % (self._name,thread_id))
+        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 
+                                                         ctypes.py_object(SystemExit)) 
+        if res > 1: 
+            ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0) 
+            print('Exception raise failure') 
 
     def run(self):
         print('%s: Running' % self._name)
@@ -2125,15 +2251,17 @@ class MainInstallThread(threading.Thread):
 
         print ('%s: Started' % self._name)
 
-    def stopit(self):
-        print('%s: Stopping' % self._name)
+    def stopIt(self):
+        print('%s: Stopping children threads' % self._name)
         for thr in self._threads:
             if thr.isAlive():
                 print('%s: Stopping thread: %s' % (self._name, thr.name))
-                thr.stopit()
+                thr.stopIt()
+                thr.raiseException()
+                thr.join()
 
-        self._stopper.set()
-        print('%s: isStopped() : %s' % (self._name, self.isStopped()))
+#        self._stopper.set()
+#        print('%s: isStopped() : %s' % (self._name, self.isStopped()))
 
     def isStopped(self):
         return self._stopper.isSet()
@@ -2203,7 +2331,7 @@ class SlideShowThread(threading.Thread):
 
         print('%s: Started' % self._name)
 
-    def stopit(self):
+    def stopIt(self):
         print('%s: Stopping' % self._name)
         self._stopper.set()
         print('%s: isStopped() : %s' % (self._name, self.isStopped()))
@@ -2365,10 +2493,10 @@ class MediaViewer(wx.Dialog):
 
     def _imageLoad(self, image):
         imageFileName = os.path.basename(image)
-        img = wx.Image(image, wx.BITMAP_TYPE_ANY)
+        wximg = wx.Image(image, wx.BITMAP_TYPE_ANY)
         # scale the image, preserving the aspect ratio
-        W = img.GetWidth()
-        H = img.GetHeight()
+        W = wximg.GetWidth()
+        H = wximg.GetHeight()
         if W > H:
             r = W / H
 #            NewW = self.photoMaxSize
@@ -2381,9 +2509,9 @@ class MediaViewer(wx.Dialog):
 #            NewW = self.photoMaxSize * W / H
             NewH = self.photoMaxSize
             NewW = self.photoMaxSize * r
-        img = img.Scale(NewW,NewH)
+        wximg = wximg.Scale(NewW,NewH)
 
-        self.imageCtrl.SetBitmap(wx.Bitmap(img))
+        self.imageCtrl.SetBitmap(wx.Bitmap(wximg))
         self.SetTitle(imageFileName)
         self.Refresh()
         
@@ -2726,6 +2854,7 @@ class Preferences():
         self.config['Preferences'][ASK_BEFORE_EXIT]        = str(DEFAULT_ASK_BEFORE_EXIT)
         self.config['Preferences'][SAVE_PREFS_ON_EXIT]     = str(DEFAULT_SAVE_PREFERENCES_ON_EXIT)
         self.config['Preferences'][OVERWRITE_LOCAL_FILES]  = str(DEFAULT_OVERWRITE_LOCAL_FILES)
+        self.config['Preferences'][AUTO_SWITCH_TO_CAMERA_NETWORK] = str(AUTO_SWITCH_TO_CAMERA_NETWORK)
         self.config['Preferences'][THUMB_GRID_COLUMNS]     = str(DEFAULT_THUMB_GRID_NUM_COLS)
         self.config['Preferences'][THUMB_SCALE_FACTOR]     = str(DEFAULT_THUMB_SCALE_FACTOR)
         self.config['Preferences'][OSVM_DOWNLOAD_DIR]      = DEFAULT_OSVM_DOWNLOAD_DIR
@@ -2742,6 +2871,7 @@ class Preferences():
         self.config['View Mode Preferences'][LAST_CAST_DEVICE_UUID] = ''
 
         self.config['Networks'] = {}
+        self.config['Networks'][FAVORITE_NETWORK] = None,None
 
         self.config['Colors'] = {}
         for i in range(len(DEFAULT_FILE_COLORS)):
@@ -2774,6 +2904,8 @@ class Preferences():
         global knownNetworks
         global fileSortRecentFirst
         global thumbnailGridRows
+        global favoriteNetwork
+        global autoSwitchToFavoriteNetwork
 
         try:
             self.config.read( __initFilePath__)
@@ -2793,15 +2925,16 @@ class Preferences():
             askBeforeExit         = str2bool(sectionPreferences[ASK_BEFORE_EXIT])
             savePreferencesOnExit = str2bool(sectionPreferences[SAVE_PREFS_ON_EXIT])
             overwriteLocalFiles   = str2bool(sectionPreferences[OVERWRITE_LOCAL_FILES])
+            autoSwitchToFavoriteNetwork = str2bool(sectionPreferences[AUTO_SWITCH_TO_CAMERA_NETWORK])
             thumbnailGridColumns  = int(sectionPreferences[THUMB_GRID_COLUMNS])
             thumbnailScaleFactor  = float(sectionPreferences[THUMB_SCALE_FACTOR])
             osvmDownloadDir       = sectionPreferences[OSVM_DOWNLOAD_DIR]
             fileSortRecentFirst       = str2bool(sectionPreferences[SORT_ORDER])
 
-            sectionSyncModePreferences = self.config['Sync Mode Preferences']
-            remBaseDir		  = sectionSyncModePreferences[REM_BASE_DIR]
-            osvmFilesDownloadUrl   = sectionSyncModePreferences[OSVM_FILES_DOWNLOAD_URL]
-            maxDownload           = int(sectionSyncModePreferences[MAX_DOWNLOAD])
+            sectionSyncModePref   = self.config['Sync Mode Preferences']
+            remBaseDir		  = sectionSyncModePref[REM_BASE_DIR]
+            osvmFilesDownloadUrl  = sectionSyncModePref[OSVM_FILES_DOWNLOAD_URL]
+            maxDownload           = int(sectionSyncModePref[MAX_DOWNLOAD])
             if maxDownload == 0:
                 maxDownload = MAX_OPERATIONS
 
@@ -2810,9 +2943,10 @@ class Preferences():
             lastCastDeviceUuid = self.config['View Mode Preferences'][LAST_CAST_DEVICE_UUID]
 
             sectionNetworks = self.config['Networks']
+            s = sectionNetworks[FAVORITE_NETWORK]
+            favoriteNetwork = (s.split(',')[0],s.split(',')[1])
             knownNetworks = list()
-            for n in sectionNetworks:
-                knownNetworks.append(sectionNetworks[n])
+            knownNetworks = [value for key, value in sectionNetworks.items() if 'network_' in key]
 
             # Colors section
             sectionColors = self.config['Colors']
@@ -2832,26 +2966,30 @@ class Preferences():
 
             iniFileVersion = self.config['Version'][INI_VERSION]
 
+            # Reload globals from default values
             sectionPreferences    = self.config['Preferences']
             compactMode           = str2bool(sectionPreferences[COMPACT_MODE])
             askBeforeCommit       = str2bool(sectionPreferences[ASK_BEFORE_COMMIT])
             askBeforeExit         = str2bool(sectionPreferences[ASK_BEFORE_EXIT])
             savePreferencesOnExit = str2bool(sectionPreferences[SAVE_PREFS_ON_EXIT])
+            overwriteLocalFiles   = str2bool(sectionPreferences[OVERWRITE_LOCAL_FILES])
+            autoSwitchToFavoriteNetwork = str2bool(sectionPreferences[AUTO_SWITCH_TO_CAMERA_NETWORK])
             thumbnailGridColumns  = int(sectionPreferences[THUMB_GRID_COLUMNS])
             thumbnailScaleFactor  = float(sectionPreferences[THUMB_SCALE_FACTOR])
             osvmDownloadDir       = sectionPreferences[OSVM_DOWNLOAD_DIR]
             fileSortRecentFirst       = str2bool(sectionPreferences[SORT_ORDER])
 
-            sectionSyncModePreferences = self.config['Sync Mode Preferences']
-            remBaseDir		  = sectionSyncModePreferences[REM_BASE_DIR]
-            osvmFilesDownloadUrl   = sectionSyncModePreferences[OSVM_FILES_DOWNLOAD_URL]
-            maxDownload           = int(sectionSyncModePreferences[MAX_DOWNLOAD])
+            sectionSyncModePref   = self.config['Sync Mode Preferences']
+            remBaseDir		  = sectionSyncModePref[REM_BASE_DIR]
+            osvmFilesDownloadUrl  = sectionSyncModePref[OSVM_FILES_DOWNLOAD_URL]
+            maxDownload           = int(sectionSyncModePref[MAX_DOWNLOAD])
             if maxDownload == 0:
                 maxDownload = MAX_OPERATIONS
 
             ssDelay = self.config['View Mode Preferences'][SS_DELAY]
 
             self.config['Networks'] = {}
+            favoriteNetwork = ('None','None')
 
             sectionColors = self.config['Colors']
             for i in range(len(fileColors)):
@@ -2880,7 +3018,9 @@ class Preferences():
         global overwriteLocalFiles
         global castDevice
         global knownNetworks
+        global favoriteNetwork
         global fileSortRecentFirst
+        global autoSwitchToFavoriteNetwork
 
         print("Saving preference file:", __initFilePath__)
 
@@ -2893,6 +3033,7 @@ class Preferences():
         self.config['Preferences'][ASK_BEFORE_EXIT]        = str(askBeforeExit)
         self.config['Preferences'][SAVE_PREFS_ON_EXIT]     = str(savePreferencesOnExit)
         self.config['Preferences'][OVERWRITE_LOCAL_FILES]  = str(overwriteLocalFiles)
+        self.config['Preferences'][AUTO_SWITCH_TO_CAMERA_NETWORK] = str(autoSwitchToFavoriteNetwork)
         self.config['Preferences'][THUMB_GRID_COLUMNS]     = str(thumbnailGridColumns)
         self.config['Preferences'][THUMB_SCALE_FACTOR]     = str(thumbnailScaleFactor)
         self.config['Preferences'][OSVM_DOWNLOAD_DIR]      = osvmDownloadDir
@@ -2910,8 +3051,11 @@ class Preferences():
             self.config['View Mode Preferences'][LAST_CAST_DEVICE_NAME] = 'None'
             self.config['View Mode Preferences'][LAST_CAST_DEVICE_UUID] = ''
 
-        self.config['Networks'] = {}
         sectionNetworks = self.config['Networks']
+        # Save the favorite network
+        sectionNetworks[FAVORITE_NETWORK] = ','.join(favoriteNetwork)
+
+        # Save all knownNetworks
         for i in range(len(knownNetworks)):
             sectionNetworks['network_%d' % (i)] = knownNetworks[i]
 
@@ -3700,6 +3844,7 @@ class PreferencesDialog(wx.Dialog):
         parent.Add(self.cb3, 0, border=0, flag=wx.EXPAND)
         parent.Add(self.cb5, 0, border=0, flag=wx.EXPAND)
         parent.Add(self.cb6, 0, border=0, flag=wx.EXPAND)
+        parent.Add(self.cb7, 0, border=0, flag=wx.EXPAND)
         parent.Add(self.maxDownloadSizer, 0, border=0, flag= wx.EXPAND)
         parent.Add(self.fileSortSizer, 0, border=0, flag= wx.EXPAND)
         parent.Add(self.colorPickerSizer, 0, border=0, flag= wx.EXPAND)
@@ -3735,6 +3880,7 @@ class PreferencesDialog(wx.Dialog):
     def _init_remConfigBoxSizer_Items(self, parent):
         parent.Add(self.configBoxSizer3, 0, border=0, flag= wx.ALL)
         parent.Add(self.configBoxSizer4, 0, border=0, flag= wx.ALL)
+        parent.Add(self.configBoxSizer5, 0, border=0, flag= wx.ALL)
 
     def _init_configBoxSizer1_Items(self, parent):
         pass
@@ -3758,8 +3904,10 @@ class PreferencesDialog(wx.Dialog):
         parent.Add(self.remBaseDirTextCtrl, 0, border=5, flag=wx.EXPAND | wx.ALL)
 
     def _init_configBoxSizer5_Items(self, parent):
+        parent.Add(self.favoriteNetwork, 0, border=5,
+                   flag=wx.ALIGN_CENTER_VERTICAL | wx.BOTTOM | wx.LEFT | wx.TOP)
         parent.Add(self.staticText6, 0, border=5,
-                         flag=wx.ALIGN_CENTER_VERTICAL | wx.BOTTOM | wx.LEFT | wx.TOP)
+                   flag=wx.ALIGN_CENTER_VERTICAL | wx.BOTTOM | wx.LEFT | wx.TOP)
 
     # Bottom items
     def _init_bottomBoxSizer_Items(self, parent):
@@ -3841,6 +3989,7 @@ class PreferencesDialog(wx.Dialog):
         self._init_remConfigBoxSizer_Items(self.remConfigBoxSizer)
         self._init_configBoxSizer3_Items(self.configBoxSizer3)
         self._init_configBoxSizer4_Items(self.configBoxSizer4)
+        self._init_configBoxSizer5_Items(self.configBoxSizer5)
         self._init_bottomBoxSizer_Items(self.bottomBoxSizer)
         self._init_bottomBoxSizer1_Items(self.bottomBoxSizer1)
         self._init_bottomBoxSizer2_Items(self.bottomBoxSizer2)
@@ -3857,11 +4006,13 @@ class PreferencesDialog(wx.Dialog):
         global askBeforeExit
         global savePreferencesOnExit
         global overwriteLocalFiles
+        global autoSwitchToFavoriteNetwork
         global osvmFilesDownloadUrl
         global fileColors
         global remBaseDir
         global fileSortRecentFirst
         global compactMode
+        global favoriteNetwork
 
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self,
                                size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
@@ -3884,6 +4035,10 @@ class PreferencesDialog(wx.Dialog):
 
         self.cb6 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Overwrite Local Files')
         self.cb6.SetValue(overwriteLocalFiles)
+
+        self.cb7 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Auto switch to Camera AP')
+        self.cb7.SetValue(autoSwitchToFavoriteNetwork)
+        self.cb7.SetToolTip('Automatically switch to favorite network (if set) when entering Sync Mode')
 
         self.staticText7 = wx.StaticText(id=wx.ID_ANY, label='Max Download:', 
                                          parent=self.panel1, style=0)
@@ -3969,6 +4124,11 @@ class PreferencesDialog(wx.Dialog):
         self.remBaseDirTextCtrl.SetCursor(wx.STANDARD_CURSOR)
         self.remBaseDirTextCtrl.Bind(wx.EVT_TEXT, self.OnRemBaseDirTextCtrl)
 
+        self.favoriteNetwork = wx.Button(id=wx.ID_ANY, label='Select Favorite Camera AP',
+                                        parent=self.panel1, style=0)
+        self.favoriteNetwork.SetToolTip('Choose favorite camera access point')
+        self.favoriteNetwork.Bind(wx.EVT_BUTTON, self.OnFavoriteCamera)
+        self.staticText6 = wx.StaticText(id=wx.ID_ANY, label=favoriteNetwork[NET_SSID], parent=self.panel1, style=0)
         #### Bottom buttons
         self.btnCancel = wx.Button(id=wx.ID_CANCEL, label='Cancel', parent=self.panel1, style=0)
         self.btnCancel.SetToolTip('Discard changes')
@@ -4006,6 +4166,7 @@ class PreferencesDialog(wx.Dialog):
         self.cb3.SetValue(DEFAULT_SAVE_PREFERENCES_ON_EXIT)
         self.cb5.SetValue(DEFAULT_ASK_BEFORE_EXIT)
         self.cb6.SetValue(DEFAULT_OVERWRITE_LOCAL_FILES)
+        self.cb7.SetValue(DEFAULT_AUTO_SWITCH_TO_CAMERA_NETWORK)
         self.maxDownloadChoice.SetStringSelection(str(DEFAULT_MAX_DOWNLOAD))
         self.fileSortChoice.SetStringSelection(self.sortTypes[0])
         self.ssDelayChoice.SetStringSelection(str(DEFAULT_SLIDESHOW_DELAY))
@@ -4024,6 +4185,7 @@ class PreferencesDialog(wx.Dialog):
         global savePreferencesOnExit
         global maxDownload
         global overwriteLocalFiles
+        global autoSwitchToFavoriteNetwork
         global osvmDownloadDir
         global osvmFilesDownloadUrl
         global fileColors
@@ -4036,6 +4198,7 @@ class PreferencesDialog(wx.Dialog):
         savePreferencesOnExit = self.cb3.GetValue()
         askBeforeExit         = self.cb5.GetValue()
         overwriteLocalFiles   = self.cb6.GetValue()
+        autoSwitchToFavoriteNetwork = self.cb7.GetValue()
         maxDownload           = int(self.maxDownloadChoice.GetSelection())
         remBaseDir            = self.remBaseDirTextCtrl.GetValue()
         ssDelay               = int(self.ssDelayChoice.GetSelection()) + MIN_SS_DELAY
@@ -4066,6 +4229,15 @@ class PreferencesDialog(wx.Dialog):
             dlg.Destroy()
         return OnClick
 
+    def OnFavoriteCamera(self, event):
+        global favoriteNetwork
+
+        dlg = WifiDialog(self)
+        ret = dlg.ShowModal()
+        dlg.Destroy()
+        self.staticText6.SetLabel(favoriteNetwork[NET_SSID])
+        event.Skip()
+
     def OnColorPicker(self, event):
         dlg = ColorPickerDialog(self)
         if dlg.ShowModal() == wx.ID_OK:
@@ -4093,23 +4265,36 @@ class PreferencesDialog(wx.Dialog):
         self._updateGlobalsFromGUI()
         self.parent._savePreferences()
 
-        if not os.path.isdir(osvmDownloadDir):
-            print('Creating:', osvmDownloadDir)
-            try:
-                os.mkdir(osvmDownloadDir)
-            except OSError as e:
-                msg = "Cannot create %s: %s" % (osvmDownloadDir, "{0}".format(e.strerror))
-                dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
-                dlg.ShowModal()
-                self.needRescan = False
-                self.EndModal(wx.ID_CANCEL)
-                return
+#        if not os.path.isdir(osvmDownloadDir):
+#            print('Creating:', osvmDownloadDir)
+#            try:
+#                os.mkdir(osvmDownloadDir)
+#            except OSError as e:
+#                msg = "Cannot create %s: %s" % (osvmDownloadDir, "{0}".format(e.strerror))
+#                dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
+#                dlg.ShowModal()
+#                self.needRescan = False
+#                self.EndModal(wx.ID_CANCEL)
+#                return
+
+#        __thumbDir__ = os.path.join(osvmDownloadDir, '.thumbnails')
+#        if not os.path.isdir(__thumbDir__):
+#            print('Creating:', __thumbDir__)
+#            try:
+#                os.mkdir(__thumbDir__)
+#            except OSError as e:
+#                msg = "Cannot create %s: %s" % (__thumbDir__, "{0}".format(e.strerror))
+#                dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
+#                dlg.ShowModal()
+#                self.needRescan = False
+#                self.EndModal(wx.ID_CANCEL)
+#                return
 
         __thumbDir__ = os.path.join(osvmDownloadDir, '.thumbnails')
         if not os.path.isdir(__thumbDir__):
             print('Creating:', __thumbDir__)
             try:
-                os.mkdir(__thumbDir__)
+                os.makedirs(__thumbDir__, exist_ok=True)
             except OSError as e:
                 msg = "Cannot create %s: %s" % (__thumbDir__, "{0}".format(e.strerror))
                 dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
@@ -4117,7 +4302,7 @@ class PreferencesDialog(wx.Dialog):
                 self.needRescan = False
                 self.EndModal(wx.ID_CANCEL)
                 return
-#        self.needRescan = True
+
         self.EndModal(wx.ID_APPLY)
         event.Skip()
 
@@ -4176,7 +4361,7 @@ class OSVMConfigThread(threading.Thread):
         self._name = name
         self._stopper = threading.Event()
 
-    def stopit(self):
+    def stopIt(self):
         print('%s: Stopping' % self._name)
         self._stopper.set()
         print('%s: isStopped() : %s' % (self._name, self.isStopped()))
@@ -4196,11 +4381,30 @@ class OSVMConfigThread(threading.Thread):
 
         wx.CallAfter(self._pDialog.setBusyCursor, 1)
 
+#        if not os.path.isdir(osvmDownloadDir):
+#            print('%s: Creating: %s' % (self._name, osvmDownloadDir))
+#            try:
+#                os.mkdir(osvmDownloadDir)
+#            except OSError as e:
+#                msg = "Cannot create %s: %s" % (osvmDownloadDir, "{0}".format(e.strerror))
+#                dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
+#                dlg.ShowModal()
+
+#        __thumbDir__ = os.path.join(osvmDownloadDir, '.thumbnails')
+#        if not os.path.isdir(__thumbDir__):
+#            print('%s: Creating: %s' % (self._name, __thumbDir__))
+#            try:
+#                os.mkdir(__thumbDir__)
+#            except OSError as e:
+#                msg = "Cannot create %s: %s" % (__thumbDir__, "{0}".format(e.strerror))
+#                dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
+#                dlg.ShowModal()
+
         __thumbDir__ = os.path.join(osvmDownloadDir, '.thumbnails')
         if not os.path.isdir(__thumbDir__):
-            print('Creating:', __thumbDir__)
+            print('%s: Creating: %s' % (self._name, __thumbDir__))
             try:
-                os.mkdir(__thumbDir__)
+                os.makedirs(__thumbDir__, exist_ok=True)
             except OSError as e:
                 msg = "Cannot create %s: %s" % (__thumbDir__, "{0}".format(e.strerror))
                 dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
@@ -4256,6 +4460,8 @@ class OSVMConfig(wx.Frame):
 #        dlg = PreferencesDialog(self.prefs)
 #        ret = dlg.ShowModal()
 #        dlg.Destroy()
+
+        printGlobals()
 
         self._initGUI()
 
@@ -4417,12 +4623,10 @@ class OSVMConfig(wx.Frame):
         frame = OSVM(self, -1, "%s" % (_myLongName_))
         self.setBusyCursor(False)
         self.panel1.Enable(False)
-#        frame.ShowModal()
         frame.Show()
         self.panel1.Enable(True)
         for b in [self.btnEnterViewMode, self.btnEnterSyncMode]:
             b.Disable()
-#        self.Destroy()
 
     def OnBtnEnterSyncMode(self, event):
         global viewMode
@@ -4433,6 +4637,8 @@ class OSVMConfig(wx.Frame):
 
         if self.MainConfigThread.is_alive():
             self.MainConfigThread.join() # Block until thread has finished
+
+        switchToFavoriteNetwork()
 
         print('OnBtnEnterSyncMode(): cameraConnected =', cameraConnected)
 
@@ -4755,7 +4961,7 @@ class InstallDialog(wx.Dialog):
         self.timer.Stop()
         self.installCanceled = True
         # Stop the install threads
-        self.mainInstallThr.stopit()
+        self.mainInstallThr.stopIt()
         while self.mainInstallThr.isAlive():
             time.sleep(1)
 
@@ -5319,7 +5525,6 @@ class OSVM(wx.Frame):
         self.eventLoop.Run()
  
     def _updateGlobalsFromGUI(self):
-        #printGlobals()
         pass
 
     def _checkLocalDir(self, localDir):
@@ -5344,7 +5549,6 @@ class OSVM(wx.Frame):
         return (0, '')
 
     def _updateGUIFromGlobals(self):
-        #printGlobals()
         pass
 
     def _updateStaticBox3Label(self, reason=''):
@@ -5453,12 +5657,13 @@ class OSVM(wx.Frame):
 
         if viewMode:
             fileListToUse = localFilesSorted
+            self.customPanel.setLogoPanelTopTitle('No Local File Detected')
         else:
             fileListToUse = availRemoteFilesSorted
+            self.customPanel.setLogoPanelTopTitle('No Remote File Detected')
+            self.customPanel.setLogoPanelMidTitle('Connect to the Camera and Refresh')
 
         numTabs = len(fileListToUse) / (thumbnailGridRows * thumbnailGridColumns)
-#        print('fileListToUse length=%d numTabs=%f' % (len(fileListToUse), numTabs))
-
 #        self.tabs = list()
 
         firstIdx = 0
@@ -6059,33 +6264,8 @@ class OSVM(wx.Frame):
         self.fromCb.SetValue(False)
         self.fromCb.Bind(wx.EVT_CHECKBOX, self.OnFromDate, id=wx.ID_ANY)
 
-        if viewMode:
-            if not localFilesCnt:	# No local file available
-                today = datetime.date.today()
-                remNewestDate = today.strftime("%m/%d/%Y")
-                remOldestDate = '01/01/1970'
-                print('remOldestDate:',remOldestDate)
-                print('remNewestDate:',remNewestDate)
-            else:
-                remNewestDate = secondsTomdY(localFilesSorted[0][1][F_DATE])
-                remOldestDate = secondsTomdY(localFilesSorted[-1][1][F_DATE])
-                print('remOldestDate:',remOldestDate,localFilesSorted[0][1][F_DATE])
-                print('remNewestDate:',remNewestDate,localFilesSorted[-1][1][F_DATE])
-        else:
-            if not availRemoteFilesCnt:	# No remote file available
-                today = datetime.date.today()
-                remNewestDate = today.strftime("%m/%d/%Y")
-                remOldestDate = '01/01/1970'
-                print('remOldestDate:',remOldestDate)
-                print('remNewestDate:',remNewestDate)
-            else:
-                remNewestDate = getHumanDate(availRemoteFilesSorted[0][1][F_DATE])
-                remOldestDate = getHumanDate(availRemoteFilesSorted[-1][1][F_DATE])
-                print('remOldestDate:',remOldestDate,availRemoteFilesSorted[0][1][F_DATE])
-                print('remNewestDate:',remNewestDate,availRemoteFilesSorted[-1][1][F_DATE])
-
         self.dpc1 = wx.adv.DatePickerCtrl(self.panel1,
-                                          style = wx.adv.DP_SHOWCENTURY | wx.adv.DP_ALLOWNONE)
+                                          style = wx.adv.DP_DROPDOWN | wx.adv.DP_SHOWCENTURY | wx.adv.DP_ALLOWNONE)
 
         self.toCb = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='To Date')
         self.toCb.SetValue(False)
@@ -6094,7 +6274,7 @@ class OSVM(wx.Frame):
         self.dpc2 = wx.adv.DatePickerCtrl(self.panel1,
                                           style = wx.adv.DP_DROPDOWN | wx.adv.DP_SHOWCENTURY | wx.adv.DP_ALLOWNONE)
 
-        self._dpcSetValue(remOldestDate, self.dpc1, remNewestDate, self.dpc2)
+        self._setDatePickerCtrl()
 
         self.castDeviceName = wx.StaticText(id=wx.ID_ANY,
                                             parent=self.panel1,
@@ -6122,7 +6302,7 @@ class OSVM(wx.Frame):
         self.btnRew.SetToolTip('Restart the Slideshow from beginning')
         self.btnRew.Bind(wx.EVT_BUTTON, self.OnBtnRew)
 
-        self.btnPlay = wx.Button(size=wx.Size(32,32), parent=self.panel1, style=wx.NO_BORDER)
+        self.btnPlay = wx.Button(name='btnPlay', size=wx.Size(32,32), parent=self.panel1, style=wx.NO_BORDER)
         self._displayBitmap(self.btnPlay, 'play.png', wx.BITMAP_TYPE_PNG)
         self.btnPlay.SetToolTip('Start the Slideshow')
         self.btnPlay.Bind(wx.EVT_BUTTON, self.OnBtnPlay)
@@ -6243,6 +6423,38 @@ class OSVM(wx.Frame):
 
         w0,h0 = self.panel1.GetSize()
         w1,h1 = self.statusBar1.GetSize()
+
+    def _setDatePickerCtrl(self):
+        global viewMode
+        global remOldestDate
+        global remNewestDate
+
+        if viewMode:
+            if not localFilesCnt:	# No local file available
+                today = datetime.date.today()
+                remNewestDate = today.strftime("%m/%d/%Y")
+                remOldestDate = '01/01/1970'
+                print('remOldestDate:',remOldestDate)
+                print('remNewestDate:',remNewestDate)
+            else:
+                remNewestDate = secondsTomdY(localFilesSorted[0][1][F_DATE])
+                remOldestDate = secondsTomdY(localFilesSorted[-1][1][F_DATE])
+                print('remOldestDate:',remOldestDate,localFilesSorted[0][1][F_DATE])
+                print('remNewestDate:',remNewestDate,localFilesSorted[-1][1][F_DATE])
+        else:
+            if not availRemoteFilesCnt:	# No remote file available
+                today = datetime.date.today()
+                remNewestDate = today.strftime("%m/%d/%Y")
+                remOldestDate = '01/01/1970'
+                print('remOldestDate:',remOldestDate)
+                print('remNewestDate:',remNewestDate)
+            else:
+                remNewestDate = getHumanDate(availRemoteFilesSorted[0][1][F_DATE])
+                remOldestDate = getHumanDate(availRemoteFilesSorted[-1][1][F_DATE])
+                print('remOldestDate:',remOldestDate,availRemoteFilesSorted[0][1][F_DATE])
+                print('remNewestDate:',remNewestDate,availRemoteFilesSorted[-1][1][F_DATE])
+
+        self._dpcSetValue(remOldestDate, self.dpc1, remNewestDate, self.dpc2)
 
     def _dpcSetValue(self, date1, w1, date2, w2):
         if date1:
@@ -6510,14 +6722,23 @@ class OSVM(wx.Frame):
 
     def OnBtnSwitchMode(self, event):
         global viewMode
+        global autoSwitchToFavoriteNetwork
+        global favoriteNetwork
 
         button = event.GetEventObject()
-        print('OnBtnSwitchMode(): Switching to: %s' % 'Sync Mode' if viewMode else 'View Mode')
+        print('OnBtnSwitchMode(): Switching to: %s Mode' % ('Sync' if viewMode else 'View'))
         viewMode = not viewMode
         if viewMode:
             button.SetLabel('Switch to Sync Mode')
         else:
             button.SetLabel('Switch to View Mode')
+            # Switch to favorite network
+            if autoSwitchToFavoriteNetwork and favoriteNetwork != ('None','None'):
+                if switchToFavoriteNetwork():
+                    msg = 'Switch to favorite network has failed'
+                    self.updateStatusBar(msg)
+                    print(msg)
+                    self.panel1.Refresh()
 
         # Simulate a 'Rescan' event
         evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.btnRescan.GetId())
@@ -6628,7 +6849,6 @@ class OSVM(wx.Frame):
     def OnFileTypesChoice(self, event):
         idx = self.fileTypesChoice.GetSelection()
         self.fileType = FILETYPES[idx]
-        print('Selected:',self.fileType)
         if self.fileType == 'JPG' or self.fileType == 'MOV':
             self.OnBtnCancel(1)
             self._selectFiles(self.fileType)
@@ -6725,6 +6945,9 @@ class OSVM(wx.Frame):
         event.Skip()
 
     def OnFromDate(self, event):
+        global remOldestDate
+        global remNewestDate
+
         button = event.GetEventObject()
 
         if button.GetValue():	# Take FROM date into account
@@ -6784,6 +7007,9 @@ class OSVM(wx.Frame):
         event.Skip()
 
     def OnToDate(self, event):
+        global remOldestDate
+        global remNewestDate
+
         button = event.GetEventObject()
 
         if button.GetValue():	# Take TO date into account
@@ -7044,9 +7270,13 @@ class OSVM(wx.Frame):
         self._updateGlobalsFromGUI()
         # Set file sort choice
         self.fileSortChoice.SetStringSelection(self.sortTypes[0] if fileSortRecentFirst else self.sortTypes[1])
-        # Update information
+        # Reset File type selector
+        self.fileTypesChoice.SetStringSelection(FILETYPES[0])
+        # Update file information
         localFilesCnt,availRemoteFilesCnt = updateFileDicts()
         slideShowLastIdx = localFilesCnt
+        # Update datePickerCtrls
+        self._setDatePickerCtrl()
         # Update LEDs colors
         self._updateLEDs()
         # Cancel all pending operations
@@ -7453,6 +7683,7 @@ class OSVM(wx.Frame):
         else:
             self._displayBitmap(self.staticBitmap2, "traffic-light-red-65-nobg.png", wx.BITMAP_TYPE_PNG)
 
+# Arguments parser
 def parse_argv():
     desc = 'Graphical UI to manage files (pictures, video) on a OLYMPUS camera over WIFI''Also a File viewer over GoogleCast'
 
