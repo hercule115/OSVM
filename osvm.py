@@ -2,7 +2,7 @@
 
 _myName_     = 'OSVM'
 _myLongName_ = 'Olympus Sync & View Manager'
-_myVersion_  = '2.1'
+_myVersion_  = '2.1.1'
 
 import wx.lib.platebtn as platebtn
 
