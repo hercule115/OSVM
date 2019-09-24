@@ -4787,13 +4787,15 @@ class InstallDialog(wx.Dialog):
         global installSubPanelsCount
 
         # sub-panel to contain 5 pending operations
+        h = min(installSubPanelsCount,self.numOps) * 60 + 40
         self.panel2 = wx.Panel(parent=self.panel1, id=wx.ID_ANY, 
-                               size=(500,400), style=wx.TAB_TRAVERSAL)
+                               size=(500,h), style=wx.TAB_TRAVERSAL)
 
         # Create a BoxSizer (managed by panel2) for all the pending operations
         self.operationsGridSizer = wx.GridSizer(cols=1, vgap=5, hgap=5)
 
-        for i in range(installSubPanelsCount):
+        for i in range(min(installSubPanelsCount,self.numOps)):
+            print('Creating subpanel #%d' % i)
             # List of all widgets related to this operation
             opWidgets = []
 
@@ -4907,15 +4909,25 @@ class InstallDialog(wx.Dialog):
         self.totalElapSz.Add(self.totalElapCnt, 0, border=10, flag=wx.TOP | wx.EXPAND)
 
         # Finally add bottom buttons in a sizer
-        self.queueTxt = wx.StaticText(label='Queue:', 
-                                             parent=self.panel1, id=wx.ID_ANY)
-        self.queueCnt = wx.StaticText(label='0000/0000', parent=self.panel1, id=wx.ID_ANY)
+        # Add various counters at the bottom in a sizer
+        self.fileQueueLabel = wx.StaticText(label='Files:', parent=self.panel1, id=wx.ID_ANY)
+        # Format the fileQueueCnt initial label
+        n = int(math.log10(self.numOps))+1
+        lbl = '{s:0{width}}/{s:0{width}}'.format(s=0,width=n)
+        self.fileQueueCnt   = wx.StaticText(label=lbl, parent=self.panel1, id=wx.ID_ANY)
+
+        self.sizeQueueLabel = wx.StaticText(label='Size:', parent=self.panel1, id=wx.ID_ANY)
+        # Format the sizeQueueCnt initial label
+        n = int(math.log10(self.totalBlocks))+1
+        lbl = '{s:0{width}}/{s:0{width}}'.format(s=0,width=n)
+        self.sizeQueueCnt = wx.StaticText(label=lbl, parent=self.panel1, id=wx.ID_ANY)
+
         self.avSpeedTxt = wx.StaticText(label='Average Speed:', 
                                              parent=self.panel1, id=wx.ID_ANY)
         self.avSpeedCnt = wx.StaticText(label='000 KB/s', parent=self.panel1, id=wx.ID_ANY)
 
         self.ETATxt = wx.StaticText(label='ETA:', parent=self.panel1, id=wx.ID_ANY)
-        self.ETACnt = wx.StaticText(label='', parent=self.panel1, id=wx.ID_ANY)
+        self.ETACnt = wx.StaticText(label='00:00:00', parent=self.panel1, id=wx.ID_ANY)
 
         self.btnCancel = wx.Button(id=wx.ID_CANCEL, label='Cancel All',
                                    parent=self.panel1, style=0)
@@ -4929,23 +4941,28 @@ class InstallDialog(wx.Dialog):
 
         self.opBoxSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
 
-        self.opBoxSizer.Add(self.queueTxt, 0, border=0, flag=wx.ALIGN_CENTER_VERTICAL)
-        self.opBoxSizer.Add(4, 4, 0, border=0, flag=0)
-        self.opBoxSizer.Add(self.queueCnt, 0, border=0, flag=wx.ALIGN_CENTER_VERTICAL)
-        self.opBoxSizer.Add(4, 4, 1, border=0, flag=wx.EXPAND)
+        self.opBoxSizer.Add(self.fileQueueLabel, 0, border=0, flag=wx.ALIGN_CENTER_VERTICAL)
+        self.opBoxSizer.AddStretchSpacer(prop=0)
+        self.opBoxSizer.Add(self.fileQueueCnt, 0, border=0, flag=wx.ALIGN_CENTER_VERTICAL)
+        self.opBoxSizer.AddStretchSpacer(prop=3)
+
+        self.opBoxSizer.Add(self.sizeQueueLabel, 0, border=0, flag=wx.ALIGN_CENTER_VERTICAL)
+        self.opBoxSizer.AddStretchSpacer(prop=0)
+        self.opBoxSizer.Add(self.sizeQueueCnt, 0, border=0, flag=wx.ALIGN_CENTER_VERTICAL)
+        self.opBoxSizer.AddStretchSpacer(prop=3)
 
         self.opBoxSizer.Add(self.avSpeedTxt, 0, border=0, flag=wx.ALIGN_CENTER_VERTICAL)
-        self.opBoxSizer.Add(4, 4, 0, border=0, flag=0)#8
+        self.opBoxSizer.AddStretchSpacer(prop=0)
         self.opBoxSizer.Add(self.avSpeedCnt, 0, border=0, flag=wx.ALIGN_CENTER_VERTICAL)
-        self.opBoxSizer.Add(4, 4, 1, border=0, flag=wx.EXPAND)
+        self.opBoxSizer.AddStretchSpacer(prop=3)
 
         self.opBoxSizer.Add(self.ETATxt, 0, border=0, flag=wx.ALIGN_CENTER_VERTICAL)
-        self.opBoxSizer.Add(4, 4, 0, border=0, flag=0)
+        self.opBoxSizer.AddStretchSpacer(prop=0)
         self.opBoxSizer.Add(self.ETACnt, 0, border=0, flag=wx.ALIGN_CENTER_VERTICAL)
-        self.opBoxSizer.Add(4, 4, 20, border=0, flag=wx.EXPAND)
+        self.opBoxSizer.AddStretchSpacer(prop=3)
 
         self.opBoxSizer.Add(self.btnCancel, 0, border=0, flag=0)
-        self.opBoxSizer.Add(8, 4, 0, border=0, flag=0)
+        self.opBoxSizer.AddStretchSpacer(prop=3)
         self.opBoxSizer.Add(self.btnDone, 0, border=0, flag=0)
         
         # Add button box sizer in top box sizer
@@ -4981,7 +4998,6 @@ class InstallDialog(wx.Dialog):
                     self.updateCounter(op)
                     self._updateLeds(op)
                     self._updateLabel(op)
-#                    self.panel2.ScrollChildIntoView(op[OP_INWGT][4]) #Time remaining counter
 
         self.timerTicks += TIMER1_FREQ
         self.totalSecs = self.timerTicks / 1000
@@ -5112,6 +5128,10 @@ class InstallDialog(wx.Dialog):
         #  Update Remaining time widget
         self.subPanel[INST_REMCNT].SetLabel(remaining)
 
+        # Update the block transferred counter
+        n = int(math.log10(self.totalBlocks))+1
+        self.sizeQueueCnt.SetLabel('{s}/{t}'.format(s=self.totalCount,t=self.totalBlocks))
+
         # Any click on the Cancel button
         if self.installCanceled:
             self.keepGoing = False
@@ -5149,8 +5169,8 @@ class InstallDialog(wx.Dialog):
         op[OP_INLEDCOL] = LED_ORANGE
         # Get # digits in numOps
         numDigits = int(math.log10(self.numOps))+1
-        # Format the queueCnt label
-        self.queueCnt.SetLabel('{s:0{width}}/{t}'.format(s=qSize,width=numDigits,t=self.numOps))
+        # Format the fileQueueCnt label
+        self.fileQueueCnt.SetLabel('{s:0{width}}/{t:0{width}}'.format(s=qSize,width=numDigits,t=self.numOps))
 
     # Called at end of a given install step: download/0, extract/1 or install/2
     def endStep(self, op, step):
