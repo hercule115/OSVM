@@ -2,7 +2,7 @@
 
 _myName_     = 'OSVM'
 _myLongName_ = 'Olympus Sync & View Manager'
-_myVersion_  = '2.1.1'
+_myVersion_  = '2.1.2'
 
 import wx.lib.platebtn as platebtn
 
@@ -360,6 +360,7 @@ TICK_PER_SEC = 1000 / TIMER1_FREQ
 TIMER2_FREQ = 200 # milliseconds
 TIMER3_FREQ = 200 # milliseconds
 TIMER4_FREQ = 100 # milliseconds
+TIMER5_FREQ = 50 # milliseconds
 
 # LEDs colours
 LEDS_COLOURS = [['#929292', '#A8A8A8', '#9C9C9C', '#B7B7B7'], # grey
@@ -2423,6 +2424,9 @@ class MediaViewer(wx.Dialog):
         self.slideTimer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self._imageNext, self.slideTimer)
 
+        self.gaugeTimer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self._gaugeTimerHandler, self.gaugeTimer)
+
         self.SetTitle("Image Viewer")
 
         self._imageInitialize()
@@ -2446,6 +2450,11 @@ class MediaViewer(wx.Dialog):
         """
         Layout the widgets on the panel
         """
+        global ssDelay
+
+        self.gaugeRange = int(ssDelay) * 1000 # in milli
+        self.gaugeRemaining = self.gaugeRange # in milli
+
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
 
         self.mainSizer      = wx.BoxSizer(wx.VERTICAL)
@@ -2474,6 +2483,9 @@ class MediaViewer(wx.Dialog):
             for b in [self.btnPrev,self.btnPlay,self.btnNext]:
                 b.Disable()
 
+        self.ssDelayGauge = wx.Gauge(range=self.gaugeRange, parent=self, size=(200,15))
+        self.ssDelayGauge.SetValue(self.gaugeRange)
+
         self.btnQuit = wx.Button(id=wx.ID_EXIT, label='Quit', parent=self, style=0)
         self.btnQuit.SetToolTip('Quit Viewer')
         self.btnQuit.Bind(wx.EVT_BUTTON, self.imageOnBtnQuit)
@@ -2481,6 +2493,8 @@ class MediaViewer(wx.Dialog):
         self.btnSizer.Add(self.btnPrev, 0, border=10, flag=wx.EXPAND| wx.ALL)
         self.btnSizer.Add(self.btnPlay, 0, border=10, flag=wx.EXPAND| wx.ALL)
         self.btnSizer.Add(self.btnNext, 0, border=10, flag=wx.EXPAND| wx.ALL)
+        self.btnSizer.AddStretchSpacer(prop=1)
+        self.btnSizer.Add(self.ssDelayGauge, 0, border=10, flag=wx.EXPAND| wx.ALL)
 
         self.quitBoxSizer.Add(self.btnQuit, 0, border=10, flag=wx.EXPAND| wx.ALL)
 
@@ -2544,18 +2558,30 @@ class MediaViewer(wx.Dialog):
         evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self._btnNextInfo.GetId())
         evt.SetEventObject(self.btnNext)
         wx.PostEvent(self.btnNext, evt)
-       
+        # Reset the gauge
+        self.ssDelayGauge.SetValue(self.gaugeRange)
+        self.gaugeRemaining = self.gaugeRange
+
+    def _gaugeTimerHandler(self, event):
+        self.gaugeRemaining -= TIMER5_FREQ # milli
+        self.ssDelayGauge.SetValue(self.gaugeRemaining)
+        
     def imageOnBtnPlay(self, event):
         global ssDelay
+
+        if len(self.listToUse) == 1: # Single file, nothing to do
+            return
 
         # Starts and stops the slideshow
         button = event.GetEventObject()
         label = button.GetLabel()
         if label == 'Play':
             self.slideTimer.Start(int(ssDelay) * 1000)
+            self.gaugeTimer.Start(TIMER5_FREQ)
             button.SetLabel('Stop')
         else:
             self.slideTimer.Stop()
+            self.gaugeTimer.Stop()
             button.SetLabel('Play')
        
     def imageOnBtnQuit(self, event):
@@ -4912,13 +4938,19 @@ class InstallDialog(wx.Dialog):
         # Add various counters at the bottom in a sizer
         self.fileQueueLabel = wx.StaticText(label='Files:', parent=self.panel1, id=wx.ID_ANY)
         # Format the fileQueueCnt initial label
-        n = int(math.log10(self.numOps))+1
+        try:
+            n = int(math.log10(self.numOps))+1
+        except:
+            n = 0
         lbl = '{s:0{width}}/{s:0{width}}'.format(s=0,width=n)
         self.fileQueueCnt   = wx.StaticText(label=lbl, parent=self.panel1, id=wx.ID_ANY)
 
         self.sizeQueueLabel = wx.StaticText(label='Size:', parent=self.panel1, id=wx.ID_ANY)
         # Format the sizeQueueCnt initial label
-        n = int(math.log10(self.totalBlocks))+1
+        try:
+            n = int(math.log10(self.totalBlocks))+1
+        except:
+            n = 0
         lbl = '{s:0{width}}/{s:0{width}}'.format(s=0,width=n)
         self.sizeQueueCnt = wx.StaticText(label=lbl, parent=self.panel1, id=wx.ID_ANY)
 
