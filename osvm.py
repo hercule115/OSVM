@@ -2,7 +2,7 @@
 
 _myName_     = 'OSVM'
 _myLongName_ = 'Olympus Sync & View Manager'
-_myVersion_  = '2.1.2'
+_myVersion_  = '2.1.3'
 
 import wx.lib.platebtn as platebtn
 
@@ -6394,9 +6394,9 @@ class OSVM(wx.Frame):
 
         # The staticBox3 label MUST end with the string 'Page:' (will be updated automagically)
         if viewMode:
-            lbl = ' Available Local Files Page:'
+            lbl = ' Available Local Files: %d.  Page:' % localFilesCnt
         else:
-            lbl = ' Available Remote Files (on camera) Page:'
+            lbl = ' Available Remote Files (on camera).  Page:'
 
         self.staticBox3 = wx.StaticBox(id=wx.ID_ANY, label=lbl, parent=self.panel1, 
                                        pos=wx.Point(10, 199), size=wx.Size(1192, 100), style=0)
@@ -7348,7 +7348,9 @@ class OSVM(wx.Frame):
         print(msg)
 
         if viewMode:
-            self.staticBox3.SetLabel(' Available Local Files Page:')
+            lbl = ' Available Local Files: %d.  Page:' % localFilesCnt
+#            self.staticBox3.SetLabel(' Available Local Files Page:')
+            self.staticBox3.SetLabel(lbl)
             self._updateStaticBox3Label('OnBtnRescan')
             self.staticBox4.SetLabel(' File Viewer Control ')
             self.statusBar1.SetStatusText('View Mode', 1)
