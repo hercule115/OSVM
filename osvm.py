@@ -2,7 +2,7 @@
 
 _myName_     = 'OSVM'
 _myLongName_ = 'Olympus Sync & View Manager'
-_myVersion_  = '2.1.3'
+_myVersion_  = '2.1.4'
 
 import wx.lib.platebtn as platebtn
 
@@ -5604,10 +5604,12 @@ class OSVM(wx.Frame):
         pass
 
     def _updateStaticBox3Label(self, reason=''):
+        global localFilesCnt
+
         olbl = self.staticBox3.GetLabel()
-        prefix = olbl[:olbl.index('Page:')]
+        prefix = olbl[:olbl.index(':')]
         self._pageCount = self.noteBook.GetPageCount()
-        nlbl = '%sPage: %d/%d' % (prefix, self.noteBook.GetSelection()+1,self._pageCount)
+        nlbl = '%s: %d.  Page: %d/%d' % (prefix, localFilesCnt, self.noteBook.GetSelection()+1,self._pageCount)
         self.staticBox3.SetLabel(nlbl)
 
     def _createThumbnailTab(self, parent, listOfThumbnail, idx):
@@ -7349,7 +7351,6 @@ class OSVM(wx.Frame):
 
         if viewMode:
             lbl = ' Available Local Files: %d.  Page:' % localFilesCnt
-#            self.staticBox3.SetLabel(' Available Local Files Page:')
             self.staticBox3.SetLabel(lbl)
             self._updateStaticBox3Label('OnBtnRescan')
             self.staticBox4.SetLabel(' File Viewer Control ')
