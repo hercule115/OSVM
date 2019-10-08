@@ -1119,7 +1119,7 @@ def downloadFile(op, pDialog):
                 ret = -2
                 break
         except:
-            print('%s: downloadFile(): Error: Downloading package' % thr.name)
+            print('%s: downloadFile(): Error: Downloading file' % thr.name)
             ret = -1
             break
         if not chunk: 
@@ -6907,6 +6907,7 @@ class OSVM(wx.Frame):
             self.OnBtnCancel(1)
             self._selectFiles(self.fileType)
         elif self.fileType == 'ALL':
+            self.OnBtnCancel(1)
             self._selectFiles('JPG')
             self._selectFiles('MOV')
         else:
@@ -7251,6 +7252,10 @@ class OSVM(wx.Frame):
                 if viewMode:
                     cnt = self._unSelectFiles('JPG')
                     cnt += self._unSelectFiles('MOV')
+                    # Re-Select files by type (if specified)
+                    e = wx.PyCommandEvent(wx.EVT_CHOICE.typeId, self.fileTypesChoice.GetId())
+                    e.SetEventObject(self.fileTypesChoice)
+                    wx.PostEvent(self.fileTypesChoice, e)
                 else:
                     cnt = self._unSyncFiles('JPG')
                     cnt += self._unSyncFiles('MOV')
