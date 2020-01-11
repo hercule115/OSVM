@@ -414,7 +414,7 @@ def downloadThumbnail(e, globs):
     thumbFile = e[globs.F_NAME]
     thumbSize = e[globs.F_SIZE]
 
-    thumbnailPath = os.path.join(globs.__thumbDir__, thumbFile)
+    thumbnailPath = os.path.join(globs.thumbDir, thumbFile)
 
     if os.path.isfile(thumbnailPath): 
         try: 
@@ -1522,42 +1522,27 @@ class OSVMConfigThread(threading.Thread):
 
         wx.CallAfter(self._pDialog.setBusyCursor, 1)
 
-#        if not os.path.isdir(globs.osvmDownloadDir):
-#            print('%s: Creating: %s' % (self._name, globs.osvmDownloadDir))
-#            try:
-#                os.mkdir(globs.osvmDownloadDir)
-#            except OSError as e:
-#                msg = "Cannot create %s: %s" % (globs.osvmDownloadDir, "{0}".format(e.strerror))
-#                dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
-#                dlg.ShowModal()
-
-#        globs.__thumbDir__ = os.path.join(globs.osvmDownloadDir, '.thumbnails')
-#        if not os.path.isdir(globs.__thumbDir__):
-#            print('%s: Creating: %s' % (self._name, globs.__thumbDir__))
-#            try:
-#                os.mkdir(globs.__thumbDir__)
-#            except OSError as e:
-#                msg = "Cannot create %s: %s" % (globs.__thumbDir__, "{0}".format(e.strerror))
-#                dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
-#                dlg.ShowModal()
-
-        globs.__thumbDir__ = os.path.join(globs.osvmDownloadDir, '.thumbnails')
-        if not os.path.isdir(globs.__thumbDir__):
-            print('%s: Creating: %s' % (self._name, globs.__thumbDir__))
+        globs.thumbDir = os.path.join(globs.osvmDownloadDir, '.thumbnails')
+        if not os.path.isdir(globs.thumbDir):
+            print('%s: Creating: %s' % (self._name, globs.thumbDir))
             try:
-                os.makedirs(globs.__thumbDir__, exist_ok=True)
+                os.makedirs(globs.thumbDir, exist_ok=True)
             except OSError as e:
-                msg = "Cannot create %s: %s" % (globs.__thumbDir__, "{0}".format(e.strerror))
+                msg = "Cannot create %s: %s" % (globs.thumbDir, "{0}".format(e.strerror))
                 dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
                 dlg.ShowModal()
 
+        time.sleep(5) # To let the timer run for animation
+
         # Update dictionaries using current config parameters
+        myprint('Updating file dictionaries')
         globs.localFilesCnt,globs.availRemoteFilesCnt = updateFileDicts(globs)
 
         msg = '%d local files, %d remote files' % (globs.localFilesCnt,
                                                    globs.availRemoteFilesCnt)
         wx.CallAfter(self._pDialog.setTitleStaticText2, msg)
         wx.CallAfter(self._pDialog.setBusyCursor, 0)
+
         self._pDialog.timer.Stop()
 
         msg1 = 'Configuration is READY'
@@ -1578,6 +1563,8 @@ class OSVMConfigThread(threading.Thread):
             evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self._btnEnterSyncMode.GetId())
             evt.SetEventObject(self._pDialog.btnEnterSyncMode)
             wx.PostEvent(self._pDialog.btnEnterSyncMode, evt)
+
+        myprint('Timer status:',self._pDialog.timer.IsRunning())
 
         print("%s Exiting." % (self._name))
 
@@ -1715,8 +1702,8 @@ class OSVMConfig(wx.Frame):
         self._displayOSVMBitmap(globs)
 
         self.timer = wx.Timer(self)
-#        self.Bind(wx.EVT_TIMER, self.OnUpdate, self.timer)
-        self.timer.Bind(wx.EVT_TIMER, lambda evt, temp=globs: self.OnUpdate(evt, temp))
+        self.Bind(wx.EVT_TIMER, lambda evt, temp=globs: self.OnUpdate(evt, temp), self.timer)
+        myprint('Starting timer')
         self.timer.Start(globs.TIMER2_FREQ)
 
         # TOP Level BoxSizer
@@ -1737,6 +1724,11 @@ class OSVMConfig(wx.Frame):
         self.SetClientSize(self.topBoxSizer1.GetSize())
         self.Centre()
 
+    def restartTimer(self, globs):
+        self.timer.Stop()
+        self.timer.Start(globs.TIMER2_FREQ)
+        myprint('Timer restarted after exception')
+                
     def OnUpdate(self, event, globs):
         text = 'Initializing Configuration. Please wait...'
 
@@ -1747,7 +1739,7 @@ class OSVMConfig(wx.Frame):
         else:
             msg = '{:>{width}}'.format(text[0:self.timerCnt],width=(len(text)))
         self.titleStaticText1.SetLabel(msg)
-        #print(self.timerCnt,msg)
+        myprint(self.timerCnt,msg)
 
     def OnBtnEnterViewMode(self, event, globs):
         globs.viewMode = True
@@ -1756,6 +1748,7 @@ class OSVMConfig(wx.Frame):
             self.MainConfigThread.join() # Block until thread has finished
 
         self.setBusyCursor(True)
+        myprint('Launching OSVM')
         frame = OSVM(self, -1, globs.myLongName, globs)
         self.setBusyCursor(False)
         self.panel1.Enable(False)
@@ -1763,6 +1756,8 @@ class OSVMConfig(wx.Frame):
         self.panel1.Enable(True)
         for b in [self.btnEnterViewMode, self.btnEnterSyncMode]:
             b.Disable()
+        myprint('Timer status:',self.timer.IsRunning())
+        
 
     def OnBtnEnterSyncMode(self, event, globs):
         globs.viewMode = False
@@ -1796,6 +1791,7 @@ class OSVMConfig(wx.Frame):
         self.panel1.Enable(True)
         for b in [self.btnEnterViewMode, self.btnEnterSyncMode]:
             b.Disable()
+        myprint('Stopping timer')
         self.timer.Stop()
 #        self.Destroy()
 
@@ -1820,7 +1816,8 @@ class OSVMConfig(wx.Frame):
 
     # Update titleStaticText1 (from thread)
     def setTitleStaticText1(self, msg):
-        self.timer.Stop()
+        myprint('Stopping timer')
+#        self.timer.Stop()
         self.titleStaticText1.SetLabel(msg)
         self.SendSizeEvent() # to center the text
 
@@ -2414,7 +2411,7 @@ class OSVM(wx.Frame):
             remFileSizeString = humanBytes(remFileSize)
 
             # Display thumbnail (with scaling)
-            thumbnailPath = os.path.join(globs.__thumbDir__, remFileName)
+            thumbnailPath = os.path.join(globs.thumbDir, remFileName)
             self._displayThumbnail(button, thumbnailPath, wx.BITMAP_TYPE_JPEG)
 
             # Set tooltip
@@ -2499,7 +2496,11 @@ class OSVM(wx.Frame):
 #        self.noteBook.Bind(fnb.EVT_FLATNOTEBOOK_PAGE_CHANGING,self.ev2)
 
         setBusyCursor(False)
-
+        myprint('Timer status:',self.parent.timer.IsRunning())
+        myprint('Stopping timer in OSVMConfig')
+        self.parent.timer.Stop() # Stop the timer in parent class (OSVMConfig)
+        myprint('Timer status:',self.parent.timer.IsRunning())
+        
     #
     # This function will rescan the installation according to user preferences
     #
@@ -2728,7 +2729,7 @@ class OSVM(wx.Frame):
 
         print('_overlayThumbnail(): Overlaying %s' % image)
         overlay = Image.open(image)
-        background = Image.open(os.path.join(globs.__imgDir__, "play2-160x120.png"))
+        background = Image.open(os.path.join(globs.imgDir, "play2-160x120.png"))
         background = background.convert("RGB")
         overlay = overlay.convert("RGB")
 
@@ -2749,7 +2750,7 @@ class OSVM(wx.Frame):
             (w,h) = Img.GetSize().Get()
         except:
 #            myprint('Invalid thumbnail file %s' % (image))
-            imgPath = os.path.join(globs.__thumbDir__, globs.__imgDir__, 'sad-smiley.png')
+            imgPath = os.path.join(globs.thumbDir, globs.imgDir, 'sad-smiley.png')
             Img = wx.Image(imgPath, wx.BITMAP_TYPE_PNG)
             (w,h) = Img.GetSize().Get()
         
@@ -3303,7 +3304,7 @@ class OSVM(wx.Frame):
     # stop statusBar1 animation
     def finish(self):
         if self.timer.IsRunning():
-            print ('finish(): Stopping animation')
+            myprint ('Stopping animation')
             self.timer.Stop()
 
         msg = 'All scheduled operations finished/Cancelled'
@@ -3475,7 +3476,7 @@ class OSVM(wx.Frame):
             button.SetLabel('Switch to View Mode')
             # Switch to favorite network
             if globs.autoSwitchToFavoriteNetwork and globs.favoriteNetwork != ('None','None'):
-                if switchToFavoriteNetwork(globs):
+                if WifiDialog.switchToFavoriteNetwork(globs):
                     msg = 'Switch to favorite network has failed'
                     self.updateStatusBar(msg)
                     print(msg)
@@ -3524,7 +3525,6 @@ class OSVM(wx.Frame):
         event.Skip()
 
     def OnBtnQuit(self, event, globs):
-        myprint(event.GetEventObject())
         if globs.askBeforeExit:
             dlg = wx.MessageDialog(None, 'Do you really want to quit?', 'Question',
                                    wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
