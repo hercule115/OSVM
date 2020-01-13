@@ -618,7 +618,7 @@ def deleteLocalFiles(pDialog, opList, globs):
         if not op[globs.OP_STATUS] or op[globs.OP_TYPE] != globs.FILE_DELETE:
             continue
         filePath = op[globs.OP_FILEPATH]
-        (ret, msg) = deleteLocalFile(pDialog, filePath)
+        (ret, msg) = deleteLocalFile(pDialog, filePath, globs)
 
 def downloadFile(op, pDialog, globs):
     fileName   = op[globs.OP_FILENAME]
