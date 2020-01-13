@@ -277,10 +277,7 @@ class myGlobals():
          self.NET_FAVORITE,
          self.NET_NET] = [i for i in range(9)]
 
-        self.cameraConnected = True
-
-#        self.ONEMEGA = 1024.0 * 1024.0
-#        self.ONEKILO = 1024.0
+        self.cameraConnected = False
 
         self.ID_CONNECT_ERROR = 400
 
