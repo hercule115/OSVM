@@ -56,10 +56,6 @@ class PropertiesDialog(wx.Dialog):
         if pkginfo2[globs.F_NAME]:
             ldate = time.strftime('%d-%b-%Y %H:%M', time.localtime(pkginfo2[globs.F_DATE]))
             localFileSizeString1 = humanBytes(pkginfo2[globs.F_SIZE])
-#            if pkginfo2[globs.F_SIZE] < globs.ONEMEGA:
-#                localFileSizeString1 = '%.1f KB' % (pkginfo2[globs.F_SIZE] / globs.ONEKILO)
-#            else:
-#                localFileSizeString1 = '%.1f MB' % (pkginfo2[globs.F_SIZE] / globs.ONEMEGA)
             localFileSizeString2 = '(%s bytes)' % str(pkginfo2[globs.F_SIZE])
         else:
             ldate = ''
@@ -73,11 +69,7 @@ class PropertiesDialog(wx.Dialog):
         else:
             # Remote file attrs
             rdate = time.strftime('%d-%b-%Y %H:%M', time.localtime(int(pkginfo1[globs.F_DATEINSECS])))
-            if pkginfo1[globs.F_SIZE] < globs.ONEMEGA:
-                remFileSizeString = '%.1f KB' % (pkginfo1[F_SIZE] / globs.ONEKILO)
-            else:
-                remFileSizeString = '%.1f MB' % (pkginfo1[F_SIZE] / globs.ONEMEGA)
-
+            remFileSizeString = humanBytes(pkginfo1[globs.F_SIZE])
             props = [ ('File Name',	        str(self.fileName)),       # Must be first
                       ('Remote File Date', 	rdate),
                       ('Remote File Size',	'%s (%s bytes)' % (remFileSizeString, str(pkginfo1[globs.F_SIZE]))),

@@ -8,6 +8,18 @@ import inspect
 
 import osvmGlobals
 
+try:
+    import vlc # MediaViewer
+except ImportError:
+    msg = 'Vlc module not installed. Disabling Video Viewer'
+    print(msg)
+    #globs.vlcVideoViewer = False
+    vlcVideoViewer = False
+    #globs.disabledModules.append(('VLC',msg))
+else:
+    #globs.vlcVideoViewer = True
+    vlcVideoViewer = True
+
 ####
 print(__name__)
 
@@ -58,7 +70,6 @@ class MediaViewerDialog(wx.Dialog):
         self.Bind(wx.EVT_TIMER, self._imageNext, self.slideTimer)
 
         self.gaugeTimer = wx.Timer(self)
-#        self.gaugeTimer.Bind(wx.EVT_TIMER, lambda evt,temp=globs: self._gaugeTimerHandler(evt,temp))
         self.Bind(wx.EVT_TIMER, lambda evt,temp=globs: self._gaugeTimerHandler(evt,temp), self.gaugeTimer)
 
         self.SetTitle("Image Viewer")
@@ -238,7 +249,7 @@ class MediaViewerDialog(wx.Dialog):
         self.vlcInstance = vlc.Instance()
         self.mediaIsFinished = False
 
-        self._videoInitialize()
+        self._videoInitialize(globs)
 
     def _videoSetWindow(self, player):
         # set the window id where to render VLC's video output
@@ -250,7 +261,7 @@ class MediaViewerDialog(wx.Dialog):
         elif sys.platform == "darwin": # for MacOS
             player.set_nsobject(handle)
 
-    def _videoInitialize(self):
+    def _videoInitialize(self, globs):
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
 
         self.mainSizer       = wx.BoxSizer(wx.VERTICAL)
@@ -272,7 +283,8 @@ class MediaViewerDialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.videoOnBtnRew, self.btnRew)
 
         self.btnPlay = wx.Button(self, label='Play')
-        self.Bind(wx.EVT_BUTTON, self.videoOnBtnPlay, self.btnPlay)
+        #        self.Bind(wx.EVT_BUTTON, self.videoOnBtnPlay, self.btnPlay)
+        self.btnPlay.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.videoOnBtnPlay(evt,temp))
 
         self.btnVolume = wx.Button(self, label='Mute')
         self.Bind(wx.EVT_BUTTON, self.videoOnBtnVolume, self.btnVolume)
@@ -304,7 +316,7 @@ class MediaViewerDialog(wx.Dialog):
         self.mainSizer.Add(self.timeSliderSizer, flag=wx.EXPAND, border=0)
         self.mainSizer.Add(self.btnSizer, 1, flag=wx.EXPAND)
 
-    def videoOnBtnPlay(self, event):
+    def videoOnBtnPlay(self, event, globs):
         button = event.GetEventObject()
 
         for e in self.listToUse: # each entry is a list containing filename as first field
@@ -337,7 +349,7 @@ class MediaViewerDialog(wx.Dialog):
                 dlg.ShowModal()
             else:
                 self.playerIsStopped = False
-                self.timer.Start(TIMER2_FREQ)
+                self.timer.Start(globs.TIMER2_FREQ)
                 while not self.mediaIsFinished:
                     wx.Yield() 
 
@@ -460,19 +472,14 @@ def main():
     # Create Globals instance
     g = globs.myGlobals()
 
+    globs.vlcVideoViewer = vlcVideoViewer
+    if not globs.vlcVideoViewer:
+        globs.disabledModules.append(('VLC',msg))
+
     # Create a list of image files containing a single file
     g.localFileInfos['plus-32.jpg'] = ['plus-32.jpg', 0, 0, '']    
     g.localFilesSorted = sorted(list(g.localFileInfos.items()), key=lambda x: int(x[1][g.F_DATE]), reverse=g.fileSortRecentFirst)
 
-    try:
-        import vlc # MediaViewer
-    except ImportError:
-        msg = 'Vlc module not installed. Disabling Video Viewer'
-        print(msg)
-        globs.vlcVideoViewer = False
-        globs.disabledModules.append(('VLC',msg))
-    else:
-        globs.vlcVideoViewer = True
     
             # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)

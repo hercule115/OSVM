@@ -19,7 +19,7 @@ class ColorLED(wx.Control):
         size = (17, 17)
         wx.Control.__init__(self, parent, id, size, (-1,-1), style)
         self.MinSize = size
-        self._state = -1
+        self._color = color
         self.SetState(globs, color)
         self.Bind(wx.EVT_PAINT, self.OnPaint, self)
         

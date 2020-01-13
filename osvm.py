@@ -93,6 +93,7 @@ import LogoPanel
 import MediaViewerDialog
 import PreferencesDialog
 import PropertiesDialog
+import ThumbnailDialog
 import WifiDialog
 
 try:
@@ -627,7 +628,9 @@ def downloadFile(op, pDialog, globs):
     remBlocks  = op[globs.OP_SIZE][1]
     thr        = op[globs.OP_INTH]
 
-    myprint('%s: %s %s %d %d' % thr.name, remoteFile, localFile, remSize, remBlocks)
+    print(fileName)
+    print(localFile)
+    myprint('%s: %s %s %d %d' % (thr.name, remoteFile, localFile, remSize, remBlocks))
 
     # Hack to use existing local file to save download time
     if not globs.overwriteLocalFiles:
@@ -889,7 +892,7 @@ class InstallThread(threading.Thread):
 
             # step 0. Download file from camera
             wx.CallAfter(self._pDialog.startStep, op, 0, self._workQueue.qsize())
-            (ret, msg) = downloadFile(op, self._pDialog, globs)
+            (ret, msg) = downloadFile(op=op, pDialog=self._pDialog, globs=globs)
             print('%s: downloadFile() ret=%d msg=%s' % (self._name, ret, msg))
             if ret < 0:
                 if ret != -2:
@@ -1765,7 +1768,7 @@ class OSVMConfig(wx.Frame):
         if self.MainConfigThread.is_alive():
             self.MainConfigThread.join() # Block until thread has finished
 
-        switchToFavoriteNetwork(globs)
+        WifiDialog.switchToFavoriteNetwork(globs)
 
         myprint('globs.cameraConnected =', globs.cameraConnected)
 
@@ -1969,7 +1972,8 @@ class InstallDialog(wx.Dialog):
             ledMeans = [ 'File Download', 'File Extraction', 'File Installation' ]
 
             # Only 1 LED is enough
-            ledList[0] = w = ColorLED(self.panel2, globs, globs.LEDS_COLOURS[globs.LED_GREY][0])
+            myprint('color=%s' % globs.LEDS_COLOURS[globs.LED_GREY][0])
+            ledList[0] = w = LedControl.ColorLED(self.panel2, globs, globs.LEDS_COLOURS[globs.LED_GREY][0])
             w.SetToolTip(ledMeans[0])
             # Add this LED in the sizer 
             ledBoxSz.Add(w, 0, border=0, flag=wx.EXPAND)
@@ -2162,14 +2166,17 @@ class InstallDialog(wx.Dialog):
         stBox = self.subPanel[globs.INST_STBOX]
 
         statinfo = os.stat(op[globs.OP_FILEPATH])
-        if statinfo.st_size < (2 * globs.ONEMEGA):
-            label = '%s  %dKB / %dKB' % (os.path.basename(op[globs.OP_FILEPATH]), 
-                                         statinfo.st_size/1024, 
-                                         op[globs.OP_SIZE][0]/1024)
-        else:
-            label = '%s  %.1fMB / %.1fMB' % (os.path.basename(op[globs.OP_FILEPATH]), 
-                                             statinfo.st_size/globs.ONEMEGA, 
-                                             op[globs.OP_SIZE][0]/globs.ONEMEGA)
+        # if statinfo.st_size < (2 * globs.ONEMEGA):
+        #     label = '%s  %dKB / %dKB' % (os.path.basename(op[globs.OP_FILEPATH]), 
+        #                                  statinfo.st_size/1024, 
+        #                                  op[globs.OP_SIZE][0]/1024)
+        # else:
+        #     label = '%s  %.1fMB / %.1fMB' % (os.path.basename(op[globs.OP_FILEPATH]), 
+        #                                      statinfo.st_size/globs.ONEMEGA, 
+        #                                      op[globs.OP_SIZE][0]/globs.ONEMEGA)
+        label = '%s  %s / %s' % (os.path.basename(op[globs.OP_FILEPATH]), 
+                                         humanBytes(statinfo.st_size),
+                                         humanBytes(op[globs.OP_SIZE][0]))
         stBox.SetLabel(label)
 
     def _updateLeds(self, op, globs):
@@ -2177,13 +2184,13 @@ class InstallDialog(wx.Dialog):
 
         led = ledList[op[globs.OP_INSTEP]]      # LED to update
         state = op[globs.OP_INLEDSTATE]         # ON/BLINK/OFF
-        color = op[globs.OP_INLEDCOL]           # YELLOW/GREEN/RED
+        color = globs.LEDS_COLOURS[op[globs.OP_INLEDCOL]][0]
 
         if state == globs.LED_BLINK:
             if self.totalSecs % 2:
                 led.SetState(globs, color)
             else:
-                led.SetState(globs, globs.LED_GREY)
+                led.SetState(globs, globs.LEDS_COLOURS[globs.LED_GREY][0])
         else:
             led.SetState(globs, color)
 
@@ -2220,7 +2227,8 @@ class InstallDialog(wx.Dialog):
         self.subPanel = self.installSubPanels[self.installSubPanelIdx]
 
         self.subPanel[globs.INST_GAUGE].SetRange(range=math.ceil(op[globs.OP_SIZE][1]))
-        wlabel = '%s  %.1f KB' % (op[globs.OP_FILENAME], op[globs.OP_SIZE][0]/globs.ONEKILO)
+#        wlabel = '%s  %.1f KB' % (op[globs.OP_FILENAME], op[globs.OP_SIZE][0]/globs.ONEKILO)
+        wlabel = '%s  %s' % (op[globs.OP_FILENAME], humanBytes(op[globs.OP_SIZE][0]))
         self.subPanel[globs.INST_STBOX].SetLabel(wlabel)
         self.installSubPanelIdx = (self.installSubPanelIdx + 1) % globs.installSubPanelsCount
 
@@ -2282,7 +2290,7 @@ class InstallDialog(wx.Dialog):
             op[globs.OP_INLEDSTATE] = globs.LED_ON
             op[globs.OP_INLEDCOL] = globs.LED_RED
             try:
-                self._updateLeds(op)
+                self._updateLeds(op, globs)
             except:
                 pass
 
@@ -2301,7 +2309,7 @@ class InstallDialog(wx.Dialog):
         op[globs.OP_INSTEP] = step    # LED number
         op[globs.OP_INLEDSTATE] = globs.LED_ON
         op[globs.OP_INLEDCOL] = globs.LED_GREEN
-        self._updateLeds(op)
+        self._updateLeds(op, globs)
         if step == 2:
             #  Clear Remaining time widget
             self.subPanel[globs.INST_REMCNT].SetLabel('00:00:00')
@@ -2377,7 +2385,11 @@ class OSVM(wx.Frame):
         olbl = self.staticBox3.GetLabel()
         prefix = olbl[:olbl.index(':')]
         self._pageCount = self.noteBook.GetPageCount()
-        nlbl = '%s: %d.  Page: %d/%d' % (prefix, globs.localFilesCnt, self.noteBook.GetSelection()+1,self._pageCount)
+        if globs.viewMode:
+            fileCnt = globs.localFilesCnt
+        else:
+            fileCnt = globs.availRemoteFilesCnt
+        nlbl = '%s: %d.  Page: %d/%d' % (prefix, fileCnt, self.noteBook.GetSelection()+1,self._pageCount)
         self.staticBox3.SetLabel(nlbl)
 
     def _createThumbnailTab(self, parent, listOfThumbnail, idx):
@@ -2405,7 +2417,8 @@ class OSVM(wx.Frame):
                 if remFileName in list(globs.localFileInfos.keys()) and globs.vlcVideoViewer:
                     button.Bind(wx.EVT_BUTTON, self.LaunchViewer)
                 else:
-                    button.Bind(wx.EVT_BUTTON, self.OnThumbButton)
+#                    button.Bind(wx.EVT_BUTTON, self.OnThumbButton)
+                    button.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnThumbButton(evt,temp))
             button.Bind(wx.EVT_RIGHT_DOWN, self.OnThumbButtonRightDown)
 
             remFileSizeString = humanBytes(remFileSize)
@@ -3332,6 +3345,26 @@ class OSVM(wx.Frame):
         sbWidth,dummy = self.statusBar1.GetSize()
         print("OnSize(): Resize event",sbWidth)
 
+    # Left Click on a File button, zoom in the thumbnail
+    def OnThumbButton(self, event, globs):
+        button = event.GetEventObject()
+
+        found = False
+        # Retrieve associated button.
+        # Each entry in thumbButtons[] is: [widget, filename, fgcol, bgcol]
+        for entry in self.thumbButtons:
+            if entry[0] == button:
+                found = True
+                break
+        if not found:
+            return
+
+        thumbFilePath = os.path.join(globs.thumbDir, entry[1])
+        dlg = ThumbnailDialog.ThumbnailDialog(self, thumbnail=thumbFilePath, globs=globs)
+        ret = dlg.ShowModal()
+        dlg.Destroy()
+        event.Skip()
+        
     def OnThumbButtonRightDown(self, event):
         button = event.GetEventObject()
 
