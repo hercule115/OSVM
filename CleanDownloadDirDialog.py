@@ -51,34 +51,33 @@ class CleanDownloadDirDialog(wx.Dialog):
         self.itemList = list()
 
         # Header 
-        i = 0
+        lineno = 0
         w0 = wx.StaticText(self.panel1)
         lbl = "<span foreground='blue'>File Types</span>"
         w0.SetLabelMarkup(lbl)
-        self.gbs.Add(w0, pos=(i,0), border=0, flag=wx.EXPAND)
+        self.gbs.Add(w0, pos=(lineno,0), border=0, flag=wx.EXPAND)
 
         w1 = wx.StaticText(self.panel1) # total counter
         lbl = "<span foreground='blue'>%s</span>" % 'Count'
         w1.SetLabelMarkup(lbl)
-        self.gbs.Add(w1, pos=(i,1), border=0, flag=wx.ALIGN_RIGHT)
+        self.gbs.Add(w1, pos=(lineno,1), border=0, flag=wx.ALIGN_RIGHT)
 
         w2 = wx.StaticText(self.panel1) # total size
-        lbl = "<span foreground='blue'>%s</span>" % 'Total Size'
+        lbl = "<span foreground='blue'>%s</span>" % 'Size'
         w2.SetLabelMarkup(lbl)
-        self.gbs.Add(w2, pos=(i,2), border=0, flag=wx.ALIGN_RIGHT)
+        self.gbs.Add(w2, pos=(lineno,2), border=0, flag=wx.ALIGN_RIGHT)
         
         self.itemList.append((w0,w1,w2))
 
-        i = 1
+        lineno = 1
         for k in globs.CLEAN_FILETYPES.keys():
             w0 = wx.CheckBox(self.panel1, label=k)
             w0.SetValue(False)
             w0.Bind(wx.EVT_CHECKBOX, lambda evt, temp=globs: self.OnFileType(evt, temp))
             
-            globs.CLEAN_FILETYPES[k] = 0 # Clear file counter
-            s = folderSize(self.downloadDir, k, globs)
+            globs.CLEAN_FILETYPES[k], s = folderSize(self.downloadDir, k, True) 
             size = humanBytes(s)
-    
+            
             w1 = wx.StaticText(self.panel1) # counter
             w1.SetFont(wx.Font(12, wx.SWISS, wx.ITALIC, wx.NORMAL, False))
             lbl = "<span foreground='grey'>%s</span>" % str(globs.CLEAN_FILETYPES[k])
@@ -86,36 +85,36 @@ class CleanDownloadDirDialog(wx.Dialog):
 
             w2 = wx.StaticText(self.panel1) # size
             w2.SetFont(wx.Font(12, wx.SWISS, wx.ITALIC, wx.NORMAL, False))
-            lbl = "<span foreground='grey'>%s</span>" % size
+            lbl = "<span foreground='grey'>%s</span>" % (size)
             w2.SetLabelMarkup(lbl)
 
-            self.gbs.Add(w0, pos=(i,0), border=0, flag=wx.EXPAND)
-            self.gbs.Add(w1, pos=(i,1), border=0, flag=wx.ALIGN_LEFT)
-            self.gbs.Add(w2, pos=(i,2), border=0, flag=wx.ALIGN_LEFT)
+            self.gbs.Add(w0, pos=(lineno,0), border=0, flag=wx.EXPAND)
+            self.gbs.Add(w1, pos=(lineno,1), border=0, flag=wx.ALIGN_LEFT)
+            self.gbs.Add(w2, pos=(lineno,2), border=0, flag=wx.ALIGN_LEFT)
             
             self.itemList.append((w0,w1,w2,s,size,globs.CLEAN_FILETYPES[k]))
-            i += 1
-
-        i+= 1 # blank line separator
+            lineno += 1
+        
+        lineno += 1 # blank line separator
         
         # Row for total
         w0 = wx.StaticText(self.panel1)
         w0.SetFont(wx.Font(12, wx.SWISS, wx.ITALIC, wx.NORMAL, False))
         lbl = "<span foreground='red'>Total space to be freed</span>"
         w0.SetLabelMarkup(lbl)
-        self.gbs.Add(w0, pos=(i,0), border=0, flag=wx.EXPAND)
+        self.gbs.Add(w0, pos=(lineno,0), border=0, flag=wx.EXPAND)
 
         w1 = wx.StaticText(self.panel1) # total counter
         w1.SetFont(wx.Font(12, wx.SWISS, wx.ITALIC, wx.NORMAL, False))
         lbl = "<span foreground='red'>%s</span>" % ''
         w1.SetLabelMarkup(lbl)
-        self.gbs.Add(w1, pos=(i,1), border=0, flag=wx.ALIGN_LEFT)
+        self.gbs.Add(w1, pos=(lineno,1), border=0, flag=wx.ALIGN_LEFT)
 
         w2 = wx.StaticText(self.panel1) # total size
         w2.SetFont(wx.Font(12, wx.SWISS, wx.ITALIC, wx.NORMAL, False))
         lbl = "<span foreground='red'>%s</span>" % ''
         w2.SetLabelMarkup(lbl)
-        self.gbs.Add(w2, pos=(i,2), border=0, flag=wx.ALIGN_LEFT)
+        self.gbs.Add(w2, pos=(lineno,2), border=0, flag=wx.ALIGN_LEFT)
         
         self.itemList.append((w0,w1,w2))
 
@@ -140,7 +139,6 @@ class CleanDownloadDirDialog(wx.Dialog):
         self.topBoxSizer.Add(4, 4, 1, border=0, flag=wx.EXPAND)
         self.topBoxSizer.Add(self.bottombs, 0, border=10, flag=wx.ALL | wx.ALIGN_RIGHT)
 
-        
     def OnFileType(self, event, globs):
         w0 = event.GetEventObject() # Checkbox widget
         item = [x for x in self.itemList if x[0] == w0]
@@ -160,18 +158,16 @@ class CleanDownloadDirDialog(wx.Dialog):
         w1.SetLabelMarkup(lbl1)
         w2.SetLabelMarkup(lbl2)
 
-        # Update Total row
+        # Update total row
         sizeTotal = nbTotal = 0
-        i = 1 # Skip header
-        for k in globs.CLEAN_FILETYPES.keys():
-            w0 = self.itemList[i][0]  # wx.Checkbox
-            s  = self.itemList[i][3]  # Size as int
-            n  = self.itemList[i][5]  # Nbfiles as int
+        for x in self.itemList[1:-1]:	# Skip header and Total lines
+            w0 = x[0]  # wx.Checkbox
+            s  = x[3]  # Size as int
+            n  = x[5]  # Nbfiles as int
             if w0.GetValue():
                 sizeTotal += s
                 nbTotal += n
-            i += 1
-
+            
         if nbTotal == 0: nbTotal = '  '
         w1 = self.itemList[-1][1] # StaticText widget for total counter
         w1.SetFont(wx.Font(12, wx.SWISS, wx.NORMAL, wx.NORMAL, False))
@@ -203,20 +199,25 @@ class CleanDownloadDirDialog(wx.Dialog):
         event.Skip()
 
 
+####
 #
 # Get folder size (in bytes) on the disk for files matching suffixes
-# Update CLEAN_FILETYPES dictionary with # of files 
+# Recurse controls recursion
 # ex: folderSize('/a/b/c', '.jpg'))
-def folderSize(folder, suffixes, globs):
+def folderSize(folder, suffixes, recurse):
     totalSize = 0
+    fileCount = 0
     for item in os.listdir(folder):
         itempath = os.path.join(folder, item)
         if item.lower().endswith(suffixes.lower()) and os.path.isfile(itempath):
             totalSize += os.path.getsize(itempath)
-            globs.CLEAN_FILETYPES[suffixes] += 1 # bump file counter
-        elif os.path.isdir(itempath):
-            totalSize += folderSize(itempath, suffixes, globs)
-    return totalSize
+            fileCount += 1 # bump file counter
+        elif os.path.isdir(itempath) and recurse:
+                    c,s = folderSize(itempath, suffixes, recurse)
+                    fileCount += c
+                    totalSize  += s
+                    
+    return fileCount, totalSize
 
         
 def myprint(*args, **kwargs):
@@ -239,11 +240,13 @@ class MyFrame(wx.Frame):
         
 def main():
     # Create Globals instance
-    g = globs.myGlobals()
+    g = osvmGlobals.myGlobals()
 
-    #    g.downloadDir = os.getcwd()
     g.downloadDir = '/Users/didier/SynologyDrive/Photo/Olympus TG4'
- 
+#    g.downloadDir = '.'
+    g.thumbDir = os.path.join(g.downloadDir, '.thumbnails')
+#    g.thumbDir = ('.')
+        
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
     frame = MyFrame(None, -1, title="Test", globs=g)
