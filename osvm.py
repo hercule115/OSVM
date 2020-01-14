@@ -628,8 +628,6 @@ def downloadFile(op, pDialog, globs):
     remBlocks  = op[globs.OP_SIZE][1]
     thr        = op[globs.OP_INTH]
 
-    print(fileName)
-    print(localFile)
     myprint('%s: %s %s %d %d' % (thr.name, remoteFile, localFile, remSize, remBlocks))
 
     # Hack to use existing local file to save download time
@@ -1364,7 +1362,7 @@ class FileOperationMenu(wx.Menu):
                 menuItem.SetBitmap(wx.Bitmap(os.path.join(globs.imgDir,'play.png')))
                 self.popupMenu.Append(menuItem)
                 # Register Properties menu handler with EVT_MENU
-                self.popupMenu.Bind(wx.EVT_MENU, self._MenuSlideShowCb, menuItem)
+                self.popupMenu.Bind(wx.EVT_MENU, lambda evt,temp=globs: self._MenuSlideShowCb(evt,temp), menuItem)
                 continue
 
             if menuEntry[1] == globs.FILE_PROPERTIES:    # Properties
@@ -1373,7 +1371,8 @@ class FileOperationMenu(wx.Menu):
                 self.popupMenu.Append(menuItem)
                 # Register Properties menu handler with EVT_MENU
 #                self.popupMenu.Bind(wx.EVT_MENU, self._MenuPropertiesCb, menuItem)
-                self.popupMenu.Bind(wx.EVT_MENU, lambda menuItem, temp=globs: self._MenuPropertiesCb(menuItem,temp))
+#                self.popupMenu.Bind(wx.EVT_MENU, lambda menuItem, temp=globs: self._MenuPropertiesCb(menuItem,temp))
+                self.popupMenu.Bind(wx.EVT_MENU, lambda evt, temp=globs: self._MenuPropertiesCb(evt,temp), menuItem)
                 continue
 
             if menuEntry[1] == -1:    # Separator
@@ -1397,7 +1396,7 @@ class FileOperationMenu(wx.Menu):
             menuItem.SetBitmap(wx.Bitmap(os.path.join(globs.imgDir, imgFile)))
             self.popupMenu.Append(menuItem)
             # Register menu handler with EVT_MENU
-            self.popupMenu.Bind(wx.EVT_MENU, self._MenuSelectionCb, menuItem)
+            self.popupMenu.Bind(wx.EVT_MENU, lambda evt,temp=globs: self._MenuSelectionCb(evt,temp), menuItem)
 
 #        self.button.SetMenu(self.popupMenu)
 
@@ -1405,13 +1404,13 @@ class FileOperationMenu(wx.Menu):
         self.parent.panel1.PopupMenu(self.popupMenu, self.clickedPos)
         self.popupMenu.Destroy() # destroy to avoid mem leak
 
-    def _MenuSlideShowCb(self, event):
+    def _MenuSlideShowCb(self, event, globs):
         menuEntry = self.popupMenuTitles[event.GetId()][1]
         fileName = str(menuEntry[0])
         myprint("Searching %s in globs.localFilesSorted (%d files)" % (fileName, len(globs.localFilesSorted)))
         idx = [x[0] for x in globs.localFilesSorted].index(fileName)
         fileType = fileName.split('.')[1]	# File suffix
-        filesSelected = self.parent.selectFilesByPosition(fileType, idx)
+        filesSelected = self.parent.selectFilesByPosition(globs, fileType, idx)
 
         # Simulate a button 'Play' press
         self._btnPlayInfo = getattr(self.parent, "btnPlay")
@@ -1429,7 +1428,7 @@ class FileOperationMenu(wx.Menu):
         dlg.Destroy()
         event.Skip()
 
-    def _MenuSelectionCb(self, event):
+    def _MenuSelectionCb(self, event, globs):
         if globs.system == 'Darwin':
             id = event.GetId() - 1
         else:
@@ -1440,7 +1439,7 @@ class FileOperationMenu(wx.Menu):
         what      = menuEntry[1]
 
         if what == globs.FILE_PROPERTIES:
-            self._MenuPropertiesCb(event)
+            self._MenuPropertiesCb(event,globs)
             return
 
         if what == globs.FILE_UNSELECT:
@@ -1742,7 +1741,7 @@ class OSVMConfig(wx.Frame):
         else:
             msg = '{:>{width}}'.format(text[0:self.timerCnt],width=(len(text)))
         self.titleStaticText1.SetLabel(msg)
-        myprint(self.timerCnt,msg)
+        #myprint(self.timerCnt,msg)
 
     def OnBtnEnterViewMode(self, event, globs):
         globs.viewMode = True
