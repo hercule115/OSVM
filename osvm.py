@@ -1370,8 +1370,6 @@ class FileOperationMenu(wx.Menu):
                 menuItem.SetBitmap(wx.Bitmap(os.path.join(globs.imgDir,'properties-32.jpg')))
                 self.popupMenu.Append(menuItem)
                 # Register Properties menu handler with EVT_MENU
-#                self.popupMenu.Bind(wx.EVT_MENU, self._MenuPropertiesCb, menuItem)
-#                self.popupMenu.Bind(wx.EVT_MENU, lambda menuItem, temp=globs: self._MenuPropertiesCb(menuItem,temp))
                 self.popupMenu.Bind(wx.EVT_MENU, lambda evt, temp=globs: self._MenuPropertiesCb(evt,temp), menuItem)
                 continue
 
@@ -2482,8 +2480,11 @@ class OSVM(wx.Frame):
             self.customPanel.setLogoPanelTopTitle('No Remote File Detected')
             self.customPanel.setLogoPanelMidTitle('Connect to the Camera and Refresh')
 
-        numTabs = len(fileListToUse) / (globs.thumbnailGridRows * globs.thumbnailGridColumns)
-#        self.tabs = list()
+        if globs.noPanel:
+            myprint('Skipping loading of thumbnail panel')
+            numTabs = 0
+        else:
+            numTabs = len(fileListToUse) / (globs.thumbnailGridRows * globs.thumbnailGridColumns)
 
         firstIdx = 0
 
@@ -2714,8 +2715,11 @@ class OSVM(wx.Frame):
             else:
                 msg = '%d local files, %d files available on camera' % (globs.localFilesCnt, globs.availRemoteFilesCnt)
 
-        self.statusBar1.SetStatusText(msg, 2)
-
+        self.statusBar1.SetStatusText(msg, self.statusBarFieldsCount-1)
+        
+        if self.statusBar1.GetStatusText(2) != globs.iface.ssid():	# Check if SSID has changed
+            self.statusBar1.SetStatusText(globs.iface.ssid(), 2)
+            
     def _displayBitmap(self, widget, image, type, globs):
         # load the image
         imgPath = os.path.join(globs.imgDir, image)
@@ -3151,10 +3155,12 @@ class OSVM(wx.Frame):
         self.statusBar1.SetToolTip('Status')
         self.statusBar1.SetFont(wx.Font(11, wx.SWISS, wx.ITALIC, wx.NORMAL, False, 'foo'))
 
-        # Configure the status bar with 2 fields
-        self.statusBar1.SetFieldsCount(3)
+        # Configure the status bar with 3 fields
+        self.statusBarFieldsCount = 4
+        self.statusBar1.SetFieldsCount(self.statusBarFieldsCount)
         self.statusBar1.SetStatusText(globs.myName, 0)
         self.statusBar1.SetStatusText('View Mode' if globs.viewMode else 'Sync Mode', 1)
+        self.statusBar1.SetStatusText(globs.iface.ssid(), 2)
 
         if not globs.cameraConnected or globs.viewMode:
             msg = '%d local file(s)' % (globs.localFilesCnt)
@@ -3295,7 +3301,9 @@ class OSVM(wx.Frame):
         # Compute length of 1st field of the status bar (to contain globs.myName)
         textWidth,dummy = dc.GetTextExtent(globs.myName)
         modeWidth,dummy = dc.GetTextExtent('View Mode' if globs.viewMode else 'Sync Mode')
-        self.statusBar1.SetStatusWidths([textWidth + 20, modeWidth + 20, -1])
+        ssidWidth,dummy = dc.GetTextExtent(globs.iface.ssid())
+
+        self.statusBar1.SetStatusWidths([textWidth + 20, modeWidth + 20, ssidWidth + 20, -1])
         #print ('FieldRect:',(self.statusBar1.GetFieldRect(0)))
         #print ('FieldRect:',(self.statusBar1.GetFieldRect(1)))
 
@@ -3521,10 +3529,15 @@ class OSVM(wx.Frame):
 
     def OnBtnSwitchNetwork(self, event, globs):
         # Switch the network
+        ossid = globs.iface.ssid()
         dlg = WifiDialog.WifiDialog(self, globs)
         ret = dlg.ShowModal()
         dlg.Destroy()
         if ret != wx.ID_CANCEL:
+            nssid = globs.iface.ssid()
+            if ossid != nssid:
+                myprint('SSID has changed: %s/%s' % (ossid,nssid))
+                self.updateStatusBar(None)
             # Simulate a 'Rescan' event
             evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.btnRescan.GetId())
             evt.SetEventObject(self.btnRescan)
@@ -4297,6 +4310,9 @@ def parse_argv(globs):
     parser.add_argument("-c", "--compact",
                         action="store_true", dest="compactmode", default=False,
                         help="Use Compact Layout")
+    parser.add_argument("-n", "--nopanel",
+                        action="store_true", dest="nopanel", default=False,
+                        help="Skip loading of thumbnail panels (faster startup)")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-v", "--view", action="store_true", dest="viewmode", default=False,
                        help="Enter View/Cast Mode")
@@ -4377,6 +4393,10 @@ def main(globs):
         myprint('Using Compact Mode')
         globs.compactMode = True
 
+    if args.nopanel:
+        myprint('Skipping Panel load (faster startup)')
+        globs.noPanel = True
+        
     if args.debug == False:     # no debug
         app = wx.App(0)
         actualstdout = sys.stdout
