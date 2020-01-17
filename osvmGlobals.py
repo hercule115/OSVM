@@ -8,7 +8,7 @@ class myGlobals():
 
         self.myName     = 'OSVM'
         self.myLongName = 'Olympus Sync & View Manager'
-        self.myVersion  = '2.2.1'
+        self.myVersion  = '2.2.2'
 
         self.disabledModules = list()
         self.pycc = True
@@ -111,6 +111,7 @@ class myGlobals():
         self.autoViewMode = False
         self.autoSyncMode = False
         self.compactMode = False
+        self.noPanel = False	# Skip loading of thumbnail panels
         self.useExternalViewer = False
         self.httpServer = None
         self.castMediaCtrl = None
