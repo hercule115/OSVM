@@ -150,7 +150,7 @@ class MyFrame(wx.Frame):
         panel = wx.Panel(self)
 
         fileName = 'plus-32.jpg'
-        filePath = os.path.join( os.getcwd(), fileName)
+        filePath = os.path.join( os.getcwd(), 'images', fileName)
         i = os.stat(filePath)
         fileSize = i.st_size
         fileDate = i.st_mtime # in seconds
@@ -164,7 +164,7 @@ class MyFrame(wx.Frame):
 
 def main():
     # Create Globals instance
-    g = globs.myGlobals()
+    g = osvmGlobals.myGlobals()
 
     g.viewMode = True
     
