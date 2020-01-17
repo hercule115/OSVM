@@ -2444,7 +2444,6 @@ class OSVM(wx.Frame):
 
             newEntry = [button, remFileName, fgcol, bgcol]
             self.thumbButtons.append(newEntry)
-#            self.numThumbButtons += 1
 
         if globs.viewMode:
             firstRemFileDate = '%s' % (secondsTodmy(listOfThumbnail[idx][1][globs.F_DATE]))
@@ -2470,8 +2469,6 @@ class OSVM(wx.Frame):
         self._pageCount = self.noteBook.GetPageCount()
         myprint('%d pages' % self._pageCount)
 
-#        self.numThumbButtons = 0
-
         if globs.viewMode:
             fileListToUse = globs.localFilesSorted
             self.customPanel.setLogoPanelTopTitle('No Local File Detected')
@@ -2481,7 +2478,9 @@ class OSVM(wx.Frame):
             self.customPanel.setLogoPanelMidTitle('Connect to the Camera and Refresh')
 
         if globs.noPanel:
-            myprint('Skipping loading of thumbnail panel')
+            msg = 'Skipping loading of thumbnail panel'
+            myprint(msg)
+            self.updateStatusBar(msg)
             numTabs = 0
         else:
             numTabs = len(fileListToUse) / (globs.thumbnailGridRows * globs.thumbnailGridColumns)
@@ -2533,14 +2532,20 @@ class OSVM(wx.Frame):
 
         # Clear existing button list
         self.thumbButtons = list()
-#        self.numThumbButtons = 0
 
         if globs.viewMode:
             fileListToUse = globs.localFilesSorted
         else:
             fileListToUse = globs.availRemoteFilesSorted
 
-        numTabs = len(fileListToUse) / (globs.thumbnailGridRows * globs.thumbnailGridColumns)
+        if globs.noPanel:
+            msg = 'Skipping loading of thumbnail panel'
+            myprint(msg)
+            self.updateStatusBar(msg)
+            numTabs = 0
+        else:
+            numTabs = len(fileListToUse) / (globs.thumbnailGridRows * globs.thumbnailGridColumns)
+#        numTabs = len(fileListToUse) / (globs.thumbnailGridRows * globs.thumbnailGridColumns)
         firstIdx = 0
 
         for t in range(int(math.ceil(numTabs))): # round up
@@ -2717,8 +2722,8 @@ class OSVM(wx.Frame):
 
         self.statusBar1.SetStatusText(msg, self.statusBarFieldsCount-1)
         
-        if self.statusBar1.GetStatusText(2) != globs.iface.ssid():	# Check if SSID has changed
-            self.statusBar1.SetStatusText(globs.iface.ssid(), 2)
+        if self.statusBar1.GetStatusText(self.SB_SSID) != globs.iface.ssid():	# Check if SSID has changed
+            self.statusBar1.SetStatusText(globs.iface.ssid(), self.SB_SSID)
             
     def _displayBitmap(self, widget, image, type, globs):
         # load the image
@@ -3149,20 +3154,28 @@ class OSVM(wx.Frame):
         self.staticBox4 = wx.StaticBox(id=wx.ID_ANY, label=lbl, parent=self.panel1, 
                                        pos=wx.Point(10, 64), style=0)
 
-        self._createThumbnailPanel(globs)
-
         self.statusBar1 = wx.StatusBar(id=wx.ID_ANY,parent=self.panel1, style=0)
         self.statusBar1.SetToolTip('Status')
         self.statusBar1.SetFont(wx.Font(11, wx.SWISS, wx.ITALIC, wx.NORMAL, False, 'foo'))
 
         # Configure the status bar with 3 fields
+        [self.SB_NAME, # globs.myName
+         self.SB_MODE, # Operating mode (View/Sync)
+         self.SB_SSID, # Current SSID
+         self.SB_MSG] = [i for i in range(4)] # Free field for msg
+
         self.statusBarFieldsCount = 4
         self.statusBar1.SetFieldsCount(self.statusBarFieldsCount)
-        self.statusBar1.SetStatusText(globs.myName, 0)
-        self.statusBar1.SetStatusText('View Mode' if globs.viewMode else 'Sync Mode', 1)
-        self.statusBar1.SetStatusText(globs.iface.ssid(), 2)
+        self.statusBar1.SetStatusText(globs.myName, self.SB_NAME)
+        self.statusBar1.SetStatusText('View Mode' if globs.viewMode else 'Sync Mode', self.SB_MODE)
+        self.statusBar1.SetStatusText(globs.iface.ssid(), self.SB_SSID)
 
-        if not globs.cameraConnected or globs.viewMode:
+        self._createThumbnailPanel(globs)
+        
+        if globs.noPanel:
+            msg = 'Skipping loading of thumbnail panel'
+            myprint(msg)
+        elif not globs.cameraConnected or globs.viewMode:
             msg = '%d local file(s)' % (globs.localFilesCnt)
             self._setOfflineMode()
         else:
@@ -3194,12 +3207,10 @@ class OSVM(wx.Frame):
             self.btnSwitchNetwork.Disable()
 
         self.btnHelp = wx.Button(id=wx.ID_HELP, label='Help', parent=self.panel1, style=0)
-#        self.btnHelp.Bind(wx.EVT_BUTTON, self.OnBtnHelp)
         self.btnHelp.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnHelp(evt,temp))
 
         self.btnQuit = wx.Button(id=wx.ID_EXIT, label='Quit', parent=self.panel1, style=0)
         self.btnQuit.SetToolTip('Quit Application')
-#        self.btnQuit.Bind(wx.EVT_BUTTON, self.OnBtnQuit)
         self.btnQuit.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnQuit(evt, temp))
 
         if not globs.compactMode:
@@ -3303,7 +3314,7 @@ class OSVM(wx.Frame):
         modeWidth,dummy = dc.GetTextExtent('View Mode' if globs.viewMode else 'Sync Mode')
         ssidWidth,dummy = dc.GetTextExtent(globs.iface.ssid())
 
-        self.statusBar1.SetStatusWidths([textWidth + 20, modeWidth + 20, ssidWidth + 20, -1])
+        self.statusBar1.SetStatusWidths([textWidth + 20, modeWidth + 20, ssidWidth + 40, -1])
         #print ('FieldRect:',(self.statusBar1.GetFieldRect(0)))
         #print ('FieldRect:',(self.statusBar1.GetFieldRect(1)))
 
@@ -3976,12 +3987,12 @@ class OSVM(wx.Frame):
             self.staticBox3.SetLabel(lbl)
             self._updateStaticBox3Label('OnBtnRescan')
             self.staticBox4.SetLabel(' File Viewer Control ')
-            self.statusBar1.SetStatusText('View Mode', 1)
+            self.statusBar1.SetStatusText('View Mode', self.SB_MODE)
         else:
             self.staticBox3.SetLabel(' Available Remote Files (on camera) Page:')
             self._updateStaticBox3Label('OnBtnRescan')
             self.staticBox4.SetLabel(' Select Files to Sync... ')
-            self.statusBar1.SetStatusText('Sync Mode', 1)
+            self.statusBar1.SetStatusText('Sync Mode', self.SB_MODE)
 
         # Update list of files on the GUI
         self._updateThumbnailPanel()
