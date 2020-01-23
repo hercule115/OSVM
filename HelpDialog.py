@@ -8,7 +8,7 @@ import inspect
 
 import osvmGlobals
 ####
-print(__name__)
+#print(__name__)
 
 defHelpText = """<p>Sorry, the Help file cannot be found on your system. Please check your installation for file <b>help.htm</b>"""
 
@@ -76,15 +76,9 @@ class MyFrame(wx.Frame):
 
         self.Show()
 
-def module_path(local_function):
-   ''' returns the module path without the use of __file__.  
-   Requires a function defined locally in the module.
-   from http://stackoverflow.com/questions/729583/getting-file-path-of-imported-module'''
-   return os.path.abspath(inspect.getsourcefile(local_function))
-        
 def main():
     # Create Globals instance
-    g = globs.myGlobals()
+    g = osvmGlobals.myGlobals()
 
     g.modPath         = module_path(main)
     g.helpPath        = os.path.join(os.path.dirname(g.modPath), 'help.htm')
@@ -96,5 +90,11 @@ def main():
     app.MainLoop()
 
 if __name__ == "__main__":
+    def module_path(local_function):
+        ''' returns the module path without the use of __file__.  
+        Requires a function defined locally in the module.
+        from http://stackoverflow.com/questions/729583/getting-file-path-of-imported-module'''
+        return os.path.abspath(inspect.getsourcefile(local_function))
+        
     main()
         
