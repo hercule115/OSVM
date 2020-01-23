@@ -12,7 +12,7 @@ import ColorPickerDialog
 import WifiDialog
 
 ####
-print(__name__)
+#print(__name__)
 
 class PreferencesDialog(wx.Dialog):
     """
@@ -109,6 +109,11 @@ class PreferencesDialog(wx.Dialog):
                          flag=wx.ALIGN_CENTER_VERTICAL | wx.BOTTOM | wx.LEFT | wx.TOP)
         parent.Add(4, 8, border=0, flag=0)
         parent.Add(self.downLocTextCtrl, 0, border=5, flag=wx.EXPAND | wx.ALL)
+        # Add New control to show available disk space on selected directory
+        parent.Add(4, 8, border=0, flag=0)
+        parent.Add(self.diskSpaceLabel, 0, border=5, flag=wx.EXPAND | wx.ALL)
+        parent.Add(4, 8, border=0, flag=0)
+        parent.Add(self.diskSpaceTextCtrl, 0, border=5, flag=wx.EXPAND | wx.ALL)
 
     def _init_configBoxSizer3_Items(self, parent):
         parent.Add(self.staticText4, 0, border=5,
@@ -303,11 +308,26 @@ class PreferencesDialog(wx.Dialog):
                                      id=wx.ID_ANY)
         self.downLocTextCtrl.Bind(wx.EVT_TEXT_ENTER, self.OnDownLocTextCtrlText)
 
+        # Disk usage control
+        self.diskSpaceLabel = wx.StaticText(label='Free:', parent=self.panel1, id=wx.ID_ANY)
+        self.diskSpaceTextCtrl = wx.TextCtrl(id=wx.ID_ANY,
+                                             parent=self.panel1, 
+                                             style=wx.TE_READONLY|wx.TE_RIGHT,
+                                             size=wx.Size(100, -1), 
+                                             value='')
+        if os.path.exists(globs.osvmDownloadDir):
+            self.diskSpaceTextCtrl.SetValue(diskUsage(globs.osvmDownloadDir)[2])
+        else:
+            self.diskSpaceTextCtrl.SetValue('????')
+        self.diskSpaceTextCtrl.SetToolTip('Available Free Space in Download Directory')
+        self.diskSpaceTextCtrl.SetAutoLayout(True)
+        
         self.btnSelectDownLoc = wx.Button(id=wx.ID_ANY, label='Select Download Directory',
                                           parent=self.panel1, style=0)
         self.btnSelectDownLoc.SetToolTip('Select local download directory')
         self.btnSelectDownLoc.Bind(wx.EVT_BUTTON, self.getOnClick(self.downLocTextCtrl))
 
+        
         self.staticText4 = wx.StaticText(id=wx.ID_ANY, label='Camera HTTP URL:', parent=self.panel1, style=0)
         self.staticText5 = wx.StaticText(id=wx.ID_ANY, label='Camera Base Directory:', parent=self.panel1, style=0)
 
@@ -492,6 +512,10 @@ class PreferencesDialog(wx.Dialog):
 
     def OnDownLocTextCtrlText(self, event):
         self.tmpOsvmDownloadDir = self.downLocTextCtrl.GetValue()
+        if os.path.exists(self.tmpOsvmDownloadDir):
+            self.diskSpaceTextCtrl.SetValue(diskUsage(self.tmpOsvmDownloadDir)[2]) # Free Space
+        else:
+            self.diskSpaceTextCtrl.SetValue('????')
         event.Skip()
 
     def OnUrlTextCtrlText(self, event):
@@ -524,6 +548,8 @@ class MyFrame(wx.Frame):
         dlg.Destroy()
 
         self.Show()
+
+        import os
 
 def main():
     # Create Globals instance
@@ -569,4 +595,20 @@ RSSI:           %s""" % (iname, interface.ssid(), interface.bssid(),interface.tr
     app.MainLoop()
 
 if __name__ == "__main__":
+    def humanBytes(size):
+        power = float(2**10)     # 2**10 = 1024
+        n = 0
+        power_labels = {0 : 'B', 1: 'KB', 2: 'MB', 3: 'GB', 4: 'TB'}
+        while size > power:
+            size = float(size / power)
+            n += 1
+        return '%s %s' % (('%.2f' % size).rstrip('0').rstrip('.'), power_labels[n])
+
+    def diskUsage(path):
+        st = os.statvfs(path)
+        free = st.f_bavail * st.f_frsize
+        total = st.f_blocks * st.f_frsize
+        used = (st.f_blocks - st.f_bfree) * st.f_frsize
+        return (humanBytes(total), humanBytes(used), humanBytes(free))
+
     main()
