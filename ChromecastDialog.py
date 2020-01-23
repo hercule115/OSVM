@@ -9,7 +9,7 @@ import inspect
 import osvmGlobals
 
 ####
-print(__name__)
+#print(__name__)
 
 
 #### ChromecastDialog
@@ -188,14 +188,6 @@ def initPyChromecast(globs):
 
 ########################
 ########################
-def myprint(*args, **kwargs):
-    """My custom print() function."""
-    # Adding new arguments to the print function signature 
-    # is probably a bad idea.
-    # Instead consider testing if custom argument keywords
-    # are present in kwargs
-    __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
-
 class MyFrame(wx.Frame):
     def __init__(self, parent, id, title, globs):
         wx.Frame.__init__(self, parent, id, title)
@@ -214,7 +206,7 @@ else:
         
 def main():
     # Create Globals instance
-    g = globs.myGlobals()
+    g = osvmGlobals.myGlobals()
 
     if not pycc:
         g.disabledModules.append(('PyChromecast',msg))
@@ -227,4 +219,12 @@ def main():
     app.MainLoop()
 
 if __name__ == "__main__":
+    def myprint(*args, **kwargs):
+        """My custom print() function."""
+        # Adding new arguments to the print function signature 
+        # is probably a bad idea.
+        # Instead consider testing if custom argument keywords
+        # are present in kwargs
+        __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
+
     main()
