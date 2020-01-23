@@ -9,7 +9,7 @@ import inspect
 import osvmGlobals
 
 ####
-print(__name__)
+#print(__name__)
 
 class ColorLED(wx.Control):
     """
