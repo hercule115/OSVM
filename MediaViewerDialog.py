@@ -13,15 +13,12 @@ try:
 except ImportError:
     msg = 'Vlc module not installed. Disabling Video Viewer'
     print(msg)
-    #globs.vlcVideoViewer = False
     vlcVideoViewer = False
-    #globs.disabledModules.append(('VLC',msg))
 else:
-    #globs.vlcVideoViewer = True
     vlcVideoViewer = True
 
 ####
-print(__name__)
+#print(__name__)
 
 ### class MediaViewer
 class MediaViewerDialog(wx.Dialog):
@@ -449,19 +446,11 @@ class MediaViewerDialog(wx.Dialog):
 
 
 ########################
-def myprint(*args, **kwargs):
-    """My custom print() function."""
-    # Adding new arguments to the print function signature 
-    # is probably a bad idea.
-    # Instead consider testing if custom argument keywords
-    # are present in kwargs
-    __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
-
 class MyFrame(wx.Frame):
     def __init__(self, parent, id, title, globs):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
-        filePath = os.path.join( os.getcwd(), 'plus-32.jpg')
+        filePath = os.path.join( os.getcwd(), 'images', 'plus-32.jpg')
         dlg = MediaViewerDialog(self, filePath, globs)
         ret = dlg.ShowModal()
         dlg.Destroy()
@@ -470,16 +459,15 @@ class MyFrame(wx.Frame):
 
 def main():
     # Create Globals instance
-    g = globs.myGlobals()
+    g = osvmGlobals.myGlobals()
 
-    globs.vlcVideoViewer = vlcVideoViewer
-    if not globs.vlcVideoViewer:
-        globs.disabledModules.append(('VLC',msg))
+    g.vlcVideoViewer = vlcVideoViewer
+    if not g.vlcVideoViewer:
+        g.disabledModules.append(('VLC',msg))
 
     # Create a list of image files containing a single file
     g.localFileInfos['plus-32.jpg'] = ['plus-32.jpg', 0, 0, '']    
     g.localFilesSorted = sorted(list(g.localFileInfos.items()), key=lambda x: int(x[1][g.F_DATE]), reverse=g.fileSortRecentFirst)
-
     
             # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
@@ -488,5 +476,13 @@ def main():
     app.MainLoop()
 
 if __name__ == "__main__":
+    def myprint(*args, **kwargs):
+        """My custom print() function."""
+        # Adding new arguments to the print function signature 
+        # is probably a bad idea.
+        # Instead consider testing if custom argument keywords
+        # are present in kwargs
+        __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
+
     main()
         
