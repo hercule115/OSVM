@@ -10,7 +10,7 @@ import glob
 import osvmGlobals
 
 ####
-print(__name__)
+#print(__name__)
 
 ####
 class ThumbnailDialog(wx.Dialog):
@@ -86,19 +86,11 @@ class ThumbnailDialog(wx.Dialog):
         event.Skip()
 
 ####
-def myprint(*args, **kwargs):
-    """My custom print() function."""
-    # Adding new arguments to the print function signature 
-    # is probably a bad idea.
-    # Instead consider testing if custom argument keywords
-    # are present in kwargs
-    __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
-
 class MyFrame(wx.Frame):
     def __init__(self, parent, id, title, globs):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
-        thumbnail = os.path.join( os.getcwd(), 'plus-32.jpg')
+        thumbnail = os.path.join( os.getcwd(), 'images', 'plus-32.jpg')
         dlg = ThumbnailDialog(self, thumbnail=thumbnail, globs=globs)
         ret = dlg.ShowModal()
         dlg.Destroy()
@@ -107,7 +99,7 @@ class MyFrame(wx.Frame):
         
 def main():
     # Create Globals instance
-    g = globs.myGlobals()
+    g = osvmGlobals.myGlobals()
 
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
@@ -116,4 +108,12 @@ def main():
     app.MainLoop()
 
 if __name__ == "__main__":
+    def myprint(*args, **kwargs):
+        """My custom print() function."""
+        # Adding new arguments to the print function signature 
+        # is probably a bad idea.
+        # Instead consider testing if custom argument keywords
+        # are present in kwargs
+        __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
+
     main()
