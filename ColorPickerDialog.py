@@ -7,7 +7,7 @@ import math
 import osvmGlobals
 
 ####
-print(__name__)
+#print(__name__)
 
 class ColorPickerDialog(wx.Dialog):
     """
