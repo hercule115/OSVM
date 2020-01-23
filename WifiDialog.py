@@ -12,7 +12,7 @@ import simpleQRScanner
 import osvmGlobals
 
 ####
-print(__name__)
+#print(__name__)
 
 class WifiDialog(wx.Dialog):
     """
@@ -97,7 +97,6 @@ class WifiDialog(wx.Dialog):
             # Known Network checkbox
             knownCb = wx.CheckBox(self.panel2, label='')
             knownCb.SetValue(self.netProps[i][len(self.netProps[0])-2])
-            #            knownCb.Bind(wx.EVT_CHECKBOX, self.OnKnownCb)
             knownCb.Bind(wx.EVT_CHECKBOX, lambda evt, temp=globs: self.OnKnownCb(evt, temp))
             self.onerowfields.append(knownCb)
             # Favorite Network checkbox
@@ -711,23 +710,6 @@ class PasswordDialog(wx.Dialog):
             print(error)
 
 ################################################
-#
-# Set/unset busy cursor (from thread)
-#
-def setBusyCursor(state):
-    if state:
-        wx.BeginBusyCursor(cursor=wx.HOURGLASS_CURSOR)
-    else:
-        wx.EndBusyCursor()
-
-def myprint(*args, **kwargs):
-    """My custom print() function."""
-    # Adding new arguments to the print function signature 
-    # is probably a bad idea.
-    # Instead consider testing if custom argument keywords
-    # are present in kwargs
-    __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
-
 class MyFrame(wx.Frame):
     def __init__(self, parent, id, title, globs):
         wx.Frame.__init__(self, parent, id, title)
@@ -740,7 +722,7 @@ class MyFrame(wx.Frame):
 
 def main():
     # Create Globals instance
-    g = globs.myGlobals()
+    g = osvmGlobals.myGlobals()
 
     g.system = platform.system()    # Linux or Windows or MacOS (Darwin)
 
@@ -782,4 +764,21 @@ RSSI:           %s""" % (iname, interface.ssid(), interface.bssid(),interface.tr
     app.MainLoop()
 
 if __name__ == "__main__":
+    #
+    # Set/unset busy cursor (from thread)
+    #
+    def setBusyCursor(state):
+        if state:
+            wx.BeginBusyCursor(cursor=wx.HOURGLASS_CURSOR)
+        else:
+            wx.EndBusyCursor()
+
+    def myprint(*args, **kwargs):
+        """My custom print() function."""
+        # Adding new arguments to the print function signature 
+        # is probably a bad idea.
+        # Instead consider testing if custom argument keywords
+        # are present in kwargs
+        __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
+
     main()
