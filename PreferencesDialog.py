@@ -4,6 +4,7 @@ import wx
 import sys
 import os
 from copy import deepcopy
+import platform
 
 import osvmGlobals
 
@@ -526,7 +527,7 @@ class MyFrame(wx.Frame):
 
 def main():
     # Create Globals instance
-    g = globs.myGlobals()
+    g = osvmGlobals.myGlobals()
 
     g.system = platform.system()    # Linux or Windows or MacOS (Darwin)
 
