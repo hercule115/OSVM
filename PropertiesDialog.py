@@ -10,7 +10,7 @@ import time
 import osvmGlobals
 
 ####
-print(__name__)
+#print(__name__)
 
 #### Class PropertiesDialog
 class PropertiesDialog(wx.Dialog):
@@ -127,23 +127,6 @@ class PropertiesDialog(wx.Dialog):
         self.Close()
 
 ########################
-def humanBytes(size):
-    power = float(2**10)     # 2**10 = 1024
-    n = 0
-    power_labels = {0 : 'B', 1: 'KB', 2: 'MB', 3: 'GB', 4: 'TB'}
-    while size > power:
-        size = float(size / power)
-        n += 1
-    return '%s %s' % (('%.2f' % size).rstrip('0').rstrip('.'), power_labels[n])
-
-def myprint(*args, **kwargs):
-    """My custom print() function."""
-    # Adding new arguments to the print function signature 
-    # is probably a bad idea.
-    # Instead consider testing if custom argument keywords
-    # are present in kwargs
-    __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
-
 class MyFrame(wx.Frame):
     def __init__(self, parent, id, title, globs):
         wx.Frame.__init__(self, parent, id, title)
@@ -179,4 +162,21 @@ def main():
     app.MainLoop()
 
 if __name__ == "__main__":
+    def humanBytes(size):
+        power = float(2**10)     # 2**10 = 1024
+        n = 0
+        power_labels = {0 : 'B', 1: 'KB', 2: 'MB', 3: 'GB', 4: 'TB'}
+        while size > power:
+            size = float(size / power)
+            n += 1
+        return '%s %s' % (('%.2f' % size).rstrip('0').rstrip('.'), power_labels[n])
+
+    def myprint(*args, **kwargs):
+        """My custom print() function."""
+        # Adding new arguments to the print function signature 
+        # is probably a bad idea.
+        # Instead consider testing if custom argument keywords
+        # are present in kwargs
+        __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
+
     main()
