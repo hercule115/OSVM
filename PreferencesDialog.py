@@ -6,10 +6,16 @@ import os
 from copy import deepcopy
 import platform
 
-import osvmGlobals
+#import osvmGlobals
+#import ColorPickerDialog
+#import WifiDialog
 
-import ColorPickerDialog
-import WifiDialog
+moduleList = ['osvmGlobals', 'ColorPickerDialog', 'WifiDialog']
+
+for m in moduleList:
+    print('Loading: %s' % m)
+    mod = __import__(m, fromlist=[None])
+    globals()[m] = globals().pop('mod')	# Rename module in globals()
 
 ####
 #print(__name__)
@@ -32,6 +38,9 @@ class PreferencesDialog(wx.Dialog):
         """
         self.parent = parent
         self.needRescan = False
+        # Max delay interval for slideshow
+        self.MIN_SS_DELAY = 3
+        self.MAX_SS_DELAY = 11
 
         myStyle = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.TAB_TRAVERSAL
         wx.Dialog.__init__(self, None, wx.ID_ANY, '%s - Preferences' % globs.myLongName, style=myStyle)
@@ -69,8 +78,8 @@ class PreferencesDialog(wx.Dialog):
         parent.Add(self.colorPickerSizer, 0, border=0, flag= wx.EXPAND)
 
     def _init_colorPickerSizer_Items(self, parent):
-        parent.Add(self.colorPickerBtn, 0, border=0, flag=wx.ALL)
-        parent.Add(4, 4, 1, border=0, flag=0)
+        parent.Add(self.colorPickerBtn, 0, border=0,
+                   flag=wx.ALIGN_CENTER_VERTICAL | wx.BOTTOM | wx.LEFT | wx.TOP)
 
     def _init_maxDownloadSizer_Items(self, parent):
         parent.Add(self.staticText7, 0, border=5,
@@ -90,10 +99,8 @@ class PreferencesDialog(wx.Dialog):
         parent.Add(4, 8, border=0, flag=0)
         parent.Add(self.ssDelayChoice, 0, border=5, flag=wx.ALL)
 
-    # local/config items
-
+    # local config items
     def _init_localConfigBoxSizer_Items(self, parent):
-        parent.Add(self.configBoxSizer1, 0, border=0, flag= wx.ALL)
         parent.Add(self.configBoxSizer6, 0, border=0, flag= wx.ALL)
 
     def _init_remConfigBoxSizer_Items(self, parent):
@@ -101,19 +108,15 @@ class PreferencesDialog(wx.Dialog):
         parent.Add(self.configBoxSizer4, 0, border=0, flag= wx.ALL)
         parent.Add(self.configBoxSizer5, 0, border=0, flag= wx.ALL)
 
-    def _init_configBoxSizer1_Items(self, parent):
-        pass
-
     def _init_configBoxSizer6_Items(self, parent):
         parent.Add(self.btnSelectDownLoc, 0, border=5,
-                         flag=wx.ALIGN_CENTER_VERTICAL | wx.BOTTOM | wx.LEFT | wx.TOP)
-        parent.Add(4, 8, border=0, flag=0)
+                   flag=wx.ALIGN_CENTER_VERTICAL | wx.BOTTOM | wx.LEFT | wx.TOP)
+        parent.Add(4, 0, border=0, flag=0)
         parent.Add(self.downLocTextCtrl, 0, border=5, flag=wx.EXPAND | wx.ALL)
-        # Add New control to show available disk space on selected directory
-        parent.Add(4, 8, border=0, flag=0)
-        parent.Add(self.diskSpaceLabel, 0, border=5, flag=wx.EXPAND | wx.ALL)
-        parent.Add(4, 8, border=0, flag=0)
-        parent.Add(self.diskSpaceTextCtrl, 0, border=5, flag=wx.EXPAND | wx.ALL)
+        parent.AddStretchSpacer(prop=1)
+        parent.Add(self.diskSpaceLabel, 0, border=5, flag= wx.ALL | wx.EXPAND)
+        parent.Add(2, 0, border=0, flag=0)
+        parent.Add(self.diskSpaceTextCtrl, proportion=1, border=5, flag=wx.ALL | wx.EXPAND | wx.ALIGN_RIGHT)
 
     def _init_configBoxSizer3_Items(self, parent):
         parent.Add(self.staticText4, 0, border=5,
@@ -135,19 +138,15 @@ class PreferencesDialog(wx.Dialog):
 
     # Bottom items
     def _init_bottomBoxSizer_Items(self, parent):
-        parent.Add(self.bottomBoxSizer2, 1, border=0,
-                        flag= wx.EXPAND | wx.ALL)
+        parent.Add(self.bottomBoxSizer2, 1, border=0, flag= wx.EXPAND | wx.ALL)
         parent.Add(8, 4, 2, border=0, flag=wx.EXPAND)
-        parent.Add(self.bottomBoxSizer1, 0, border=0,
-                        flag= wx.EXPAND | wx.ALL)
+        parent.Add(self.bottomBoxSizer1, 0, border=0, flag= wx.EXPAND | wx.ALL)
 
     def _init_bottomBoxSizer1_Items(self, parent):
-        parent.Add(self.bottomBoxSizer3, 0, border=0,
-                        flag= wx.ALL | wx.ALIGN_RIGHT)
+        parent.Add(self.bottomBoxSizer3, 0, border=0, flag= wx.ALL | wx.ALIGN_RIGHT)
 
     def _init_bottomBoxSizer2_Items(self, parent):
-        parent.Add(self.bottomBoxSizer4, 0, border=0,
-                        flag= wx.ALL | wx.ALIGN_LEFT)
+        parent.Add(self.bottomBoxSizer4, 0, border=0, flag= wx.ALL | wx.ALIGN_LEFT)
         parent.Add(40, 4, 1, border=0, flag=wx.EXPAND)
 
     def _init_bottomBoxSizer3_Items(self, parent):
@@ -176,18 +175,15 @@ class PreferencesDialog(wx.Dialog):
         self.colorPickerSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
 
         # viewMode Download boxSizer
-        self.viewModeBoxSizer = wx.StaticBoxSizer(box=self.staticBox4,
-                                                   orient=wx.HORIZONTAL)
+        self.viewModeBoxSizer = wx.StaticBoxSizer(box=self.staticBox4, orient=wx.HORIZONTAL)
 
         # Local Config staticBoxSizer
-        self.localConfigBoxSizer = wx.StaticBoxSizer(box=self.staticBox1,
-                                                     orient=wx.VERTICAL)
+        self.localConfigBoxSizer = wx.StaticBoxSizer(box=self.staticBox1, orient=wx.HORIZONTAL)
         self.configBoxSizer1 = wx.BoxSizer(orient=wx.HORIZONTAL)
         self.configBoxSizer6 = wx.BoxSizer(orient=wx.HORIZONTAL)
 
         #  Remote Config staticBoxSizer
-        self.remConfigBoxSizer = wx.StaticBoxSizer(box=self.staticBox3,
-                                                   orient=wx.VERTICAL)
+        self.remConfigBoxSizer = wx.StaticBoxSizer(box=self.staticBox3, orient=wx.VERTICAL)
         self.configBoxSizer3 = wx.BoxSizer(orient=wx.HORIZONTAL)
         self.configBoxSizer4 = wx.BoxSizer(orient=wx.HORIZONTAL)
         self.configBoxSizer5 = wx.BoxSizer(orient=wx.HORIZONTAL)
@@ -208,7 +204,6 @@ class PreferencesDialog(wx.Dialog):
         self._init_colorPickerSizer_Items(self.colorPickerSizer)
         self._init_viewModeBoxSizer_Items(self.viewModeBoxSizer)
         self._init_localConfigBoxSizer_Items(self.localConfigBoxSizer)
-        self._init_configBoxSizer1_Items(self.configBoxSizer1)
         self._init_configBoxSizer6_Items(self.configBoxSizer6)
         self._init_remConfigBoxSizer_Items(self.remConfigBoxSizer)
         self._init_configBoxSizer3_Items(self.configBoxSizer3)
@@ -250,14 +245,13 @@ class PreferencesDialog(wx.Dialog):
         self.cb7.SetValue(globs.autoSwitchToFavoriteNetwork)
         self.cb7.SetToolTip('Automatically switch to favorite network (if set) when entering Sync Mode')
 
-        self.staticText7 = wx.StaticText(id=wx.ID_ANY, label='Max Download:', 
+        self.staticText7 = wx.StaticText(id=wx.ID_ANY, label='Max // Download:', 
                                          parent=self.panel1, style=0)
 
         self.maxDownloadChoice = wx.Choice(choices=[str(i) for i in range(globs.MAX_OPERATIONS+1)], 
                                            id=wx.ID_ANY, parent=self.panel1, style=0)
-        self.maxDownloadChoice.SetToolTip('Max allowed download. (0 = unlimited)')
+        self.maxDownloadChoice.SetToolTip('Max allowed download in //. (0 = unlimited)')
         self.maxDownloadChoice.SetStringSelection(str(globs.maxDownload))
-        #        self.maxDownloadChoice.Bind(wx.EVT_CHOICE, self.OnMaxDownloadChoice, id=wx.ID_ANY)
         self.maxDownloadChoice.Bind(wx.EVT_CHOICE, lambda evt, temp=globs:  self.OnMaxDownloadChoice(evt, temp))
         
         
@@ -282,7 +276,7 @@ class PreferencesDialog(wx.Dialog):
         self.staticText8 = wx.StaticText(id=wx.ID_ANY, label='Slideshow Delay:', 
                                          parent=self.panel1, style=0)
 
-        self.ssDelayChoice = wx.Choice(choices=[str(i) for i in range(globs.MIN_SS_DELAY, globs.MAX_SS_DELAY)], 
+        self.ssDelayChoice = wx.Choice(choices=[str(i) for i in range(self.MIN_SS_DELAY, self.MAX_SS_DELAY)], 
                                            id=wx.ID_ANY, parent=self.panel1, style=0)
         self.ssDelayChoice.SetToolTip('Delay interval')
         self.ssDelayChoice.SetStringSelection(str(globs.ssDelay))
@@ -298,7 +292,7 @@ class PreferencesDialog(wx.Dialog):
         self.downLocTextCtrl = wx.TextCtrl(id=wx.ID_ANY,
                                                  parent=self.panel1, 
                                                  style=wx.TE_PROCESS_ENTER, 
-                                                 size=wx.Size(300, -1), 
+                                                 size=wx.Size(400, -1), 
                                                  value='foobar')
         self.downLocTextCtrl.SetValue(globs.osvmDownloadDir)
         self.downLocTextCtrl.SetToolTip('Local Download directory')
@@ -354,23 +348,21 @@ class PreferencesDialog(wx.Dialog):
         self.favoriteNetwork = wx.Button(id=wx.ID_ANY, label='Select Favorite Camera AP',
                                         parent=self.panel1, style=0)
         self.favoriteNetwork.SetToolTip('Choose favorite camera access point')
-#        self.favoriteNetwork.Bind(wx.EVT_BUTTON, self.OnFavoriteCamera)
         self.favoriteNetwork.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnFavoriteCamera(evt, temp))
+
         self.staticText6 = wx.StaticText(id=wx.ID_ANY, label=globs.favoriteNetwork[globs.NET_SSID], parent=self.panel1, style=0)
         #### Bottom buttons
         self.btnCancel = wx.Button(id=wx.ID_CANCEL, label='Cancel', parent=self.panel1, style=0)
         self.btnCancel.SetToolTip('Discard changes')
-#        self.btnCancel.Bind(wx.EVT_BUTTON, self.OnBtnCancel)
         self.btnCancel.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnCancel(evt, temp))
         
         self.btnReset = wx.Button(id=wx.ID_DEFAULT, label='Default', parent=self.panel1, style=0)
         self.btnReset.SetToolTip('Reset to factory defaults')
-        self.btnReset.Bind(wx.EVT_BUTTON, self.OnBtnReset)
+        self.btnReset.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnReset(evt, temp))
 
         self.btnApply = wx.Button(id=wx.ID_APPLY, label='Apply', parent=self.panel1, style=0)
         self.btnApply.SetToolTip('Apply changes to current session')
         self.btnApply.SetDefault()
-#        self.btnApply.Bind(wx.EVT_BUTTON, self.OnBtnApply)
         self.btnApply.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnApply(evt, temp))
 
         url = str(self.cameraUrlTextCtrl.GetValue())
@@ -390,7 +382,7 @@ class PreferencesDialog(wx.Dialog):
         return self.needRescan
 
     # Reset Preference Dialog to Default values
-    def _GUIReset(self):
+    def _GUIReset(self, globs):
         self.cb1.SetValue(globs.DEFAULT_COMPACT_MODE)
         self.cb2.SetValue(globs.DEFAULT_ASK_BEFORE_COMMIT)
         self.cb3.SetValue(globs.DEFAULT_SAVE_PREFERENCES_ON_EXIT)
@@ -416,14 +408,14 @@ class PreferencesDialog(wx.Dialog):
         globs.autoSwitchToFavoriteNetwork = self.cb7.GetValue()
         globs.maxDownload           = int(self.maxDownloadChoice.GetSelection())
         globs.remBaseDir            = self.remBaseDirTextCtrl.GetValue()
-        globs.ssDelay               = int(self.ssDelayChoice.GetSelection()) + globs.MIN_SS_DELAY
+        globs.ssDelay               = int(self.ssDelayChoice.GetSelection()) + self.MIN_SS_DELAY
         globs.fileSortRecentFirst   = not (int(self.fileSortChoice.GetSelection()))
 
         # Update from temporary variables
         globs.osvmDownloadDir      = self.tmpOsvmDownloadDir
         globs.osvmFilesDownloadUrl = self.tmpOsvmPkgFtpUrl
 
-        #printGlobals()
+        #globs.printGlobals()
 
     #### Events ####
     # Event Handler generator for the "Select Location" buttons
@@ -457,8 +449,8 @@ class PreferencesDialog(wx.Dialog):
             self.needRescan = True
         dlg.Destroy()
 
-    def OnBtnReset(self, event):
-        self._GUIReset()
+    def OnBtnReset(self, event, globs):
+        self._GUIReset(globs)
         self.btnApply.SetDefault()
         event.Skip()
 
@@ -507,13 +499,13 @@ class PreferencesDialog(wx.Dialog):
         event.Skip()
 
     def OnSsDelayChoice(self, event, globs):
-        globs.ssDelay = int(self.ssDelayChoice.GetSelection()) + MIN_SS_DELAY
+        globs.ssDelay = int(self.ssDelayChoice.GetSelection()) + self.MIN_SS_DELAY
         event.Skip()
 
     def OnDownLocTextCtrlText(self, event):
         self.tmpOsvmDownloadDir = self.downLocTextCtrl.GetValue()
         if os.path.exists(self.tmpOsvmDownloadDir):
-            self.diskSpaceTextCtrl.SetValue(diskUsage(self.tmpOsvmDownloadDir)[2]) # Free Space
+            self.diskSpaceTextCtrl.SetValue(diskUsage(self.tmpOsvmDownloadDir)[2]) # Get Free Space
         else:
             self.diskSpaceTextCtrl.SetValue('????')
         event.Skip()
@@ -539,6 +531,22 @@ class PreferencesDialog(wx.Dialog):
         event.Skip()
 
 ########################
+def humanBytes(size):
+    power = float(2**10)     # 2**10 = 1024
+    n = 0
+    power_labels = {0 : 'B', 1: 'KB', 2: 'MB', 3: 'GB', 4: 'TB'}
+    while size > power:
+        size = float(size / power)
+        n += 1
+    return '%s %s' % (('%.2f' % size).rstrip('0').rstrip('.'), power_labels[n])
+
+def diskUsage(path):
+    st = os.statvfs(path)
+    free = st.f_bavail * st.f_frsize
+    total = st.f_blocks * st.f_frsize
+    used = (st.f_blocks - st.f_bfree) * st.f_frsize
+    return (humanBytes(total), humanBytes(used), humanBytes(free))
+
 class MyFrame(wx.Frame):
     def __init__(self, parent, id, title, globs):
         wx.Frame.__init__(self, parent, id, title)
@@ -548,8 +556,6 @@ class MyFrame(wx.Frame):
         dlg.Destroy()
 
         self.Show()
-
-        import os
 
 def main():
     # Create Globals instance
@@ -595,20 +601,4 @@ RSSI:           %s""" % (iname, interface.ssid(), interface.bssid(),interface.tr
     app.MainLoop()
 
 if __name__ == "__main__":
-    def humanBytes(size):
-        power = float(2**10)     # 2**10 = 1024
-        n = 0
-        power_labels = {0 : 'B', 1: 'KB', 2: 'MB', 3: 'GB', 4: 'TB'}
-        while size > power:
-            size = float(size / power)
-            n += 1
-        return '%s %s' % (('%.2f' % size).rstrip('0').rstrip('.'), power_labels[n])
-
-    def diskUsage(path):
-        st = os.statvfs(path)
-        free = st.f_bavail * st.f_frsize
-        total = st.f_blocks * st.f_frsize
-        used = (st.f_blocks - st.f_bfree) * st.f_frsize
-        return (humanBytes(total), humanBytes(used), humanBytes(free))
-
     main()
