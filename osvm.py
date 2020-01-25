@@ -84,17 +84,23 @@ import ctypes
 import simpleQRScanner
 
 # Local modules
-import ChromecastDialog
-import CleanDownloadDirDialog
-import DateDialog
-import HelpDialog
-import LedControl
-import LogoPanel
-import MediaViewerDialog
-import PreferencesDialog
-import PropertiesDialog
-import ThumbnailDialog
-import WifiDialog
+moduleList = (
+    'ChromecastDialog', 
+    'CleanDownloadDirDialog', 
+    'DateDialog', 
+    'HelpDialog', 
+    'LedControl', 
+    'LogoPanel', 
+    'MediaViewerDialog', 
+    'PreferencesDialog', 
+    'PropertiesDialog', 
+    'ThumbnailDialog', 
+    'WifiDialog')
+
+for m in moduleList:
+    print('Loading %s' % m)
+    mod = __import__(m, fromlist=[None])
+    globals()[m] = globals().pop('mod') # Rename module in globals()
 
 try:
     import pychromecast
@@ -245,6 +251,13 @@ def humanBytes(size):
         n += 1
     return '%s %s' % (('%.2f' % size).rstrip('0').rstrip('.'), power_labels[n])
 
+def diskUsage(path):
+    st = os.statvfs(path)
+    free = st.f_bavail * st.f_frsize
+    total = st.f_blocks * st.f_frsize
+    used = (st.f_blocks - st.f_bfree) * st.f_frsize
+    return (humanBytes(total), humanBytes(used), humanBytes(free))
+
 def cleanup(globs):
     myprint('Removing temporary files')
     if os.path.exists(globs.htmlRootFile):
@@ -316,16 +329,6 @@ def createSymLink(path, link):
         myprint(msg)
         return -1
     return 0
-
-#
-# Get information about the filesystem in parameter
-#
-# def diskUsage(path):
-#     st = os.statvfs(path)
-#     free = st.f_bavail * st.f_frsize
-#     total = st.f_blocks * st.f_frsize
-#     used = (st.f_blocks - st.f_bfree) * st.f_frsize
-#     return (total, used, free)
 
 # Browse a directory, looking for filenames ending with: JPG, MOV, ORF, MPO
 def listLocalFiles(dir, hidden=False, relative=True):
@@ -1045,7 +1048,7 @@ class Preferences():
             dlg = PreferencesDialog(self, globs)
             dlg.ShowModal()
             dlg.Destroy()
-            printGlobals()
+            #globs.printGlobals()
 
     def _savePreferences(self, globs):
         self._saveInitFile(globs)
@@ -4451,4 +4454,5 @@ RSSI:           %s""" % (iname, interface.ssid(), interface.bssid(),interface.tr
     cleanup(globs)
 
 if __name__ == "__main__":
+    print(diskUsage('.'))
     main(globs)
