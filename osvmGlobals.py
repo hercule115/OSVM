@@ -190,10 +190,6 @@ class myGlobals():
         # Max # of operations to commit in a single click
         self.MAX_OPERATIONS = 2000
 
-        # Max delay interval for slideshow
-        self.MIN_SS_DELAY = 3
-        self.MAX_SS_DELAY = 11
-
         # opList fields index
         [self.OP_STATUS,     # status (busy=1/free=0)
          self.OP_FILENAME,   # remote file name (camera)
