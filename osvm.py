@@ -4455,5 +4455,4 @@ RSSI:           %s""" % (iname, interface.ssid(), interface.bssid(),interface.tr
     cleanup(globs)
 
 if __name__ == "__main__":
-    print(diskUsage('.'))
     main(globs)
