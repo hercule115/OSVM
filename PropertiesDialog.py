@@ -6,6 +6,8 @@ import os
 import builtins as __builtin__
 import inspect
 import time
+import platform
+import subprocess
 
 moduleList = ['osvmGlobals']
 
@@ -42,6 +44,12 @@ class PropertiesDialog(wx.Dialog):
     """
     def _initialize(self, globs):
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
+
+        # Copy Path button
+        self.btnCopyPath = wx.Button(label='Copy Path', id=wx.ID_ANY, parent=self.panel1, style=0)
+        self.btnCopyPath.SetToolTip('Copy the absolute pathname of the file in the clipboard')
+        self.btnCopyPath.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnCopyPath(evt,temp))
+
         # Close button
         self.btnClose = wx.Button(id=wx.ID_CLOSE, parent=self.panel1, style=0)
         self.btnClose.SetToolTip('Close this Dialog')
@@ -113,8 +121,10 @@ class PropertiesDialog(wx.Dialog):
         parent.Add(self.fgsPkgProps, proportion=1, border=5, flag=wx.ALL|wx.EXPAND)
 
     def _init_buttonsBoxSizer_Items(self, parent):
-        parent.Add(0, 4, border=0, flag=wx.EXPAND)
-        parent.Add(self.btnClose, 0, border=0, flag=wx.ALIGN_RIGHT)
+        parent.Add(self.btnCopyPath, 1, border=0, flag=wx.ALIGN_LEFT)
+        parent.AddStretchSpacer(prop=1)
+        #parent.Add(0, 4, border=0, flag=wx.EXPAND)
+        parent.Add(self.btnClose, 1, border=0, flag=wx.ALIGN_RIGHT)
 
     def _init_sizers(self):
         # Create box sizers
@@ -128,6 +138,12 @@ class PropertiesDialog(wx.Dialog):
         self._init_buttonsBoxSizer_Items(self.buttonsBoxSizer)
 
     ## Events
+    def OnBtnCopyPath(self, event, globs):
+        if globs.system == 'Darwin':
+            data = os.path.join(globs.osvmDownloadDir, str(self.fileName))
+            subprocess.run("pbcopy", universal_newlines=True, input=data)
+        event.Skip()
+
     def OnBtnClose(self, event):
         self.Close()
 
@@ -170,8 +186,7 @@ class MyFrame(wx.Frame):
 def main():
     # Create Globals instance
     g = osvmGlobals.myGlobals()
-#    g = m.myGlobals()
-
+    g.system = platform.system()		# Linux or Windows or MacOS (Darwin)
     g.viewMode = True
     
     # Create a list of image files containing a single file
