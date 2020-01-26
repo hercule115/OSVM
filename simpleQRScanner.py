@@ -9,6 +9,19 @@ import cv2
 import time
 import os
 
+import builtins as __builtin__
+import inspect
+
+moduleList = ['osvmGlobals']
+
+for m in moduleList:
+    print('Loading: %s' % m)
+    mod = __import__(m, fromlist=[None])
+    globals()[m] = globals().pop('mod')	# Rename module in globals()
+
+####
+#print(__name__)
+
 # Olympus use a rather simple encoding scheme (kind of Caesar cypher)
 # Using the following encoding. 
 # All Olympus signatures start with a non-encoded 'OIS1' string to ease
@@ -204,4 +217,40 @@ class ShowCapture(wx.Dialog):
         cv2.destroyAllWindows()
         self.EndModal(wx.ID_OK)
 
-print('simpleQRScanner Module Initialized')
+########
+def myprint(*args, **kwargs):
+    """My custom print() function."""
+    # Adding new arguments to the print function signature 
+    # is probably a bad idea.
+    # Instead consider testing if custom argument keywords
+    # are present in kwargs
+    __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
+
+class MyFrame(wx.Frame):
+    def __init__(self, parent, id, title, globs):
+        wx.Frame.__init__(self, parent, id, title)
+        panel = wx.Panel(self)
+
+        dlg = ShowCapture(self, -1, globs.tmpDir)
+        ret = dlg.ShowModal()
+        dlg.Destroy()
+        myprint(OISData)
+        if OISData[0] == 'OIS1':
+            scannedSSID = OISData[1]
+            scannedPasswd = OISData[2]
+            myprint('Scanned SSID: %s, Scanned Password: %s' % (scannedSSID,scannedPasswd))
+
+        self.Show()
+
+def main():
+    # Create Globals instance
+    g = osvmGlobals.myGlobals()
+    g.tmpDir = '/tmp'
+    
+    app = wx.App(False)
+    frame = MyFrame(None, -1, title="Test", globs=g)
+    frame.Show()
+    app.MainLoop()
+
+if __name__ == "__main__":
+    main()
