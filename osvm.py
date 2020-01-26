@@ -81,7 +81,7 @@ import datetime
 import glob
 import ctypes
 
-import simpleQRScanner
+#import simpleQRScanner
 
 # Local modules
 moduleList = (
@@ -95,7 +95,8 @@ moduleList = (
     'PreferencesDialog', 
     'PropertiesDialog', 
     'ThumbnailDialog', 
-    'WifiDialog')
+    'WifiDialog',
+    'simpleQRScanner')
 
 for m in moduleList:
     print('Loading %s' % m)
