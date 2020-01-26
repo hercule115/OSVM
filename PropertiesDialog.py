@@ -140,7 +140,7 @@ class PropertiesDialog(wx.Dialog):
     ## Events
     def OnBtnCopyPath(self, event, globs):
         if globs.system == 'Darwin':
-            data = os.path.join(globs.osvmDownloadDir, str(self.fileName))
+            data = os.path.join(globs.osvmDownloadDir, str(self.fileName)).replace(" ", "\\ ")
             subprocess.run("pbcopy", universal_newlines=True, input=data)
         event.Skip()
 
