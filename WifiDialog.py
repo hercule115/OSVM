@@ -7,9 +7,14 @@ import inspect
 import sys
 import platform
 
-import simpleQRScanner
+#import simpleQRScanner
+#import osvmGlobals
+moduleList = ['osvmGlobals', 'simpleQRScanner']
 
-import osvmGlobals
+for m in moduleList:
+    print('Loading: %s' % m)
+    mod = __import__(m, fromlist=[None])
+    globals()[m] = globals().pop('mod')	# Rename module in globals()
 
 ####
 #print(__name__)
