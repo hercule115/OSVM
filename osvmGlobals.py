@@ -202,7 +202,8 @@ class myGlobals():
          self.FILE_DELETE,
          self.FILE_SELECT,
          self.FILE_UNSELECT,
-         self.FILE_SHARE] = [i for i in range(5)]
+         self.FILE_SHARE,
+         self.FILE_UNSHARE] = [i for i in range(6)]
 
         self.FILE_PROPERTIES = -3
         self.FILE_SLIDESHOW = -4
