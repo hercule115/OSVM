@@ -1368,7 +1368,10 @@ class FileOperationMenu(wx.Menu):
             for op in self.opList:
                 if op[globs.OP_STATUS] and op[globs.OP_FILENAME] == fileName:
                     found = True
-                    menuEntry = [fileName, globs.FILE_UNSELECT, self.button, filePath]
+                    if op[globs.OP_TYPE] == globs.FILE_SHARE:
+                        menuEntry = [fileName, globs.FILE_UNSHARE, self.button, filePath]
+                    else:
+                        menuEntry = [fileName, globs.FILE_UNSELECT, self.button, filePath]
                     self.popupMenuTitles.append((id, menuEntry))
                     id += 1
                     break
@@ -1427,6 +1430,9 @@ class FileOperationMenu(wx.Menu):
             if menuEntry[1] == globs.FILE_SHARE:
                 title = 'Add %s to Share List' % (menuEntry[0])
                 imgFile = 'plus-32.jpg'
+            if menuEntry[1] == globs.FILE_UNSHARE:
+                title = 'Remove %s from Share List' % (menuEntry[0])
+                imgFile = 'moins-32.jpg'
             #XXXX
             elif menuEntry[1] == globs.FILE_DELETE:
                 title = 'Delete file %s' % (menuEntry[0])
@@ -1482,7 +1488,7 @@ class FileOperationMenu(wx.Menu):
 
         myprint('fileName=%s what=%d' % (fileName,what))
         
-        if what == globs.FILE_UNSELECT:
+        if what == globs.FILE_UNSELECT or what == globs.FILE_UNSHARE:
             op = [x for x in self.opList if x[globs.OP_FILENAME] == fileName][0]
             self.parent.resetOneButton(fileName)
             self.parent.resetOneRequest(op)
@@ -2712,7 +2718,7 @@ class OSVM(wx.Frame):
     def pendingOperationsCount(self):
         cnt = 0
         for i in range(len(self.opList)):
-            if self.opList[i][globs.OP_STATUS]:
+            if self.opList[i][globs.OP_STATUS] and self.opList[i][globs.OP_TYPE] != globs.FILE_SHARE:
                 cnt += 1
         return cnt
 
