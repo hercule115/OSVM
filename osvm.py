@@ -4283,15 +4283,16 @@ class OSVM(wx.Frame):
         event.Skip()
 
     def OnBtnCancel(self, event, globs):
-        pendingOpsCnt = self.pendingOperationsCount()
-        if pendingOpsCnt == 0:
-            return
+        # pendingOpsCnt = self.pendingOperationsCount()
+        # if pendingOpsCnt == 0:
+        #     return
 
         # Prevent user action
         msg = 'Cancelling pending requests...'
         self._setMode(globs.MODE_DISABLED, msg)
 
-        if event != 1:
+        if globs.askBeforeCommit:        
+#        if event != 1:
             msg = 'Do you really want to Cancel all pending request(s) ?'
             dial = wx.MessageDialog(None, msg, 'Cancel Operations',
                                     wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
@@ -4299,15 +4300,9 @@ class OSVM(wx.Frame):
             if ret == wx.ID_NO:
                 return
 
-        # Loop thru opList[]: Clear all slots
-        for i in range(len(self.opList)):
-            opStatus = self.opList[i][globs.OP_STATUS]
-            # If this operation is in used, reset associated button
-            if opStatus:
-                fileName = self.opList[i][globs.OP_FILENAME]
-                self.resetOneButton(fileName)
-            self.resetOneRequest(self.opList[i])
-        
+        # Loop thru opList[]: Clear all busy slots
+        self._clearAllRequests()            
+
         # Prevent user action
         msg = 'All requests have been cancelled'
         self._setMode(globs.MODE_ENABLED, msg)
