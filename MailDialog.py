@@ -211,7 +211,6 @@ class MailDialog(wx.Dialog):
                                    globs.smtpServerPort)
         self.smtpConfigInfo = wx.StaticText(label=val, id=wx.ID_ANY, parent=self.panel1)
         self.smtpConfigInfo.SetFont(wx.Font(9, wx.SWISS, wx.NORMAL, wx.NORMAL, False, 'WhatElse'))
-#        self.smtpConfigInfo.SetLabel(val)
             
         # Message ...
         self.msgTextCtrl = wx.TextCtrl(id=wx.ID_ANY,
