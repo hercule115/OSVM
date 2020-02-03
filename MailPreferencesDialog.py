@@ -230,12 +230,12 @@ class MailPreferencesDialog(wx.Dialog):
             globs.smtpServerUserName   = ''
             globs.smtpServerUserPasswd = ''
             
-        print(globs.smtpServer)
-        print(globs.smtpServerProtocol)
-        print(globs.smtpServerPort)
-        print(globs.smtpServerUseAuth)
-        print(globs.smtpServerUserName)
-        print(globs.smtpServerUserPasswd)
+        # print(globs.smtpServer)
+        # print(globs.smtpServerProtocol)
+        # print(globs.smtpServerPort)
+        # print(globs.smtpServerUseAuth)
+        # print(globs.smtpServerUserName)
+        # print(globs.smtpServerUserPasswd)
         
         self.Close()
         self.EndModal(wx.ID_APPLY)
