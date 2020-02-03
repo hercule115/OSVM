@@ -80,7 +80,6 @@ def sendMultiPartMail(globs, sender, receiver, subject, textbody, attachments=[]
     outer.attach(msg)
 
     # Send the mail
-#    port=465  #587#465
     myprint('Sending mail via %s:%d' % (server,port))
     
     wx.BeginBusyCursor(cursor=wx.HOURGLASS_CURSOR)
@@ -160,9 +159,9 @@ class MailDialog(wx.Dialog):
         #        self.attachmentsChoice.Enable(False)
         #        self.attachmentsChoice.Bind(wx.EVT_CHOICE, self.OnAttachmentsChoice, id=wx.ID_ANY)
 
-        self.attachmentLB = wx.ListBox(choices=[v for v in self.attachementList], parent=self.panel1, id=wx.ID_ANY, style=wx.LB_NEEDED_SB | wx.LB_SINGLE)
+        self.attachmentLB = wx.ListBox(choices=[v for v in self.attachementList], parent=self.panel1, id=wx.ID_ANY, style=wx.LB_NEEDED_SB | wx.LB_SINGLE, size=wx.Size(200,-1))
 
-        self.attachmentsGrid.Add(wx.StaticText(self.panel1, label='Attachments'), proportion=1, flag=wx.CENTER)
+        self.attachmentsGrid.Add(wx.StaticText(self.panel1, label='Attachments'), proportion=0, flag=wx.CENTER)
 #        self.attachmentsGrid.Add(self.attachmentsChoice, proportion=1, flag=wx.EXPAND)
         self.attachmentsGrid.Add(self.attachmentLB, proportion=1, flag=wx.EXPAND)
 
@@ -200,12 +199,26 @@ class MailDialog(wx.Dialog):
         # self.prioChoice.SetStringSelection(self.prioLevel[0])
         # self.prioChoice.Bind(wx.EVT_CHOICE, self.OnChoice, id=wx.ID_ANY)
 
+        if globs.smtpServerUseAuth:
+            val = '%s | %s(%d), Auth: %s | %s' % (globs.smtpServer,
+                                                  globs.smtpServerProtocol,
+                                                  globs.smtpServerPort,
+                                                  globs.smtpServerUserName,
+                                                  globs.smtpServerUserPasswd)
+        else:
+            val = '%s | %s(%d)' % (globs.smtpServer,
+                                   globs.smtpServerProtocol,
+                                   globs.smtpServerPort)
+        self.smtpConfigInfo = wx.StaticText(label=val, id=wx.ID_ANY, parent=self.panel1)
+        self.smtpConfigInfo.SetFont(wx.Font(9, wx.SWISS, wx.NORMAL, wx.NORMAL, False, 'WhatElse'))
+#        self.smtpConfigInfo.SetLabel(val)
+            
         # Message ...
         self.msgTextCtrl = wx.TextCtrl(id=wx.ID_ANY,
                                        name=u'msgTextCtrl', 
                                        parent=self.panel1, 
                                        style=wx.TE_MULTILINE,
-                                       size=wx.Size(400, 200), 
+                                       size=wx.Size(400, 150), 
                                        value=u'')
         self.msgTextCtrl.SetToolTip(u'This is your message')
         self.msgTextCtrl.SetAutoLayout(True)
@@ -232,9 +245,9 @@ class MailDialog(wx.Dialog):
                         flag=wx.EXPAND | wx.BOTTOM | wx.LEFT | wx.RIGHT)
         parent.Add(self.attachmentsBoxSizer, 0, border=10,
                         flag=wx.EXPAND | wx.BOTTOM | wx.LEFT | wx.RIGHT)
-#        parent.Add(self.infoBoxSizer, 0, border=10,
-#                        flag=wx.EXPAND | wx.BOTTOM | wx.LEFT | wx.RIGHT)
         parent.Add(self.msgBoxSizer, 0, border=10,
+                        flag=wx.EXPAND | wx.BOTTOM | wx.LEFT | wx.RIGHT)
+        parent.Add(self.infoBoxSizer, 0, border=10,
                         flag=wx.EXPAND | wx.BOTTOM | wx.LEFT | wx.RIGHT)
         parent.Add(self.bottomBoxSizer, 1, border=10,
                         flag=wx.EXPAND | wx.BOTTOM | wx.LEFT | wx.RIGHT)
@@ -255,7 +268,9 @@ class MailDialog(wx.Dialog):
         parent.Add(wx.Size(4, 4), 0, border=0, flag=0)
         parent.Add(self.attachmentsBtnBS, 0, border=5, flag=wx.ALL|wx.EXPAND)
         
-#    def _init_infoBoxSizer_Items(self, parent):
+    def _init_infoBoxSizer_Items(self, parent):
+        parent.Add(self.smtpConfigInfo, 0, border=5, flag=wx.EXPAND | wx.ALL)
+        parent.Add(wx.Size(4, 4), 1, border=0, flag=0)
 #        parent.Add(self.reportChoice, 0, border=5, flag=wx.EXPAND | wx.ALL)
 #        parent.Add(wx.Size(4, 4), 0, border=0, flag=0)
 #        parent.Add(self.prioChoice, 0, border=5, flag=wx.EXPAND | wx.ALL)
@@ -277,7 +292,7 @@ class MailDialog(wx.Dialog):
         self.mailHdrBoxSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
         self.attachmentsBoxSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
         self.attachmentsBtnBS = wx.BoxSizer(orient=wx.VERTICAL)
-#        self.infoBoxSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
+        self.infoBoxSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
         self.msgBoxSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
         self.bottomBoxSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
 
@@ -286,7 +301,7 @@ class MailDialog(wx.Dialog):
         self._init_mailHdrBoxSizer_Items(self.mailHdrBoxSizer)
         self._init_attachmentsBtnBS_Items(self.attachmentsBtnBS)
         self._init_attachmentsBoxSizer_Items(self.attachmentsBoxSizer)
-#        self._init_infoBoxSizer_Items(self.infoBoxSizer)
+        self._init_infoBoxSizer_Items(self.infoBoxSizer)
         self._init_msgBoxSizer_Items(self.msgBoxSizer)
         self._init_bottomBoxSizer_Items(self.bottomBoxSizer)
 
@@ -336,6 +351,17 @@ class MailDialog(wx.Dialog):
         dlg.Destroy()
         if ret == wx.ID_APPLY:
             myprint('Must reread Preferences from globals')
+            if globs.smtpServerUseAuth:
+                val = '%s | %s(%d), Auth: %s | %s' % (globs.smtpServer,
+                                                      globs.smtpServerProtocol,
+                                                      globs.smtpServerPort,
+                                                      globs.smtpServerUserName,
+                                                      globs.smtpServerUserPasswd)
+            else:
+                val = '%s | %s(%d)' % (globs.smtpServer,
+                                       globs.smtpServerProtocol,
+                                       globs.smtpServerPort)
+            self.smtpConfigInfo.SetLabel(val)
         event.Skip()
 
     def OnBtnAdd(self, event, globs):
@@ -434,7 +460,8 @@ def main():
     g.osvmDownloadDir = '/Users/didier/SynologyDrive/Photo/Olympus TG4/'
 
     g.smtpServer = 'smtp.gmail.com'
-    g.smtpServerProtocol = 'SMTP'
+    g.smtpServerProtocol = 'SSL'
+    g.smtpServerPort = 465
     g.smtpServerUseAuth = True
     g.smtpServerUserName   = 'dspoirot@gmail.com'
     g.smtpServerUserPasswd = 'foobar'
