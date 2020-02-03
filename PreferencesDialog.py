@@ -3,14 +3,12 @@ import wx
 
 import sys
 import os
+import builtins as __builtin__
+import inspect
 from copy import deepcopy
 import platform
 
-#import osvmGlobals
-#import ColorPickerDialog
-#import WifiDialog
-
-moduleList = ['osvmGlobals', 'ColorPickerDialog', 'WifiDialog']
+moduleList = ['osvmGlobals', 'ColorPickerDialog', 'MailPreferencesDialog', 'WifiDialog']
 
 for m in moduleList:
     print('Loading: %s' % m)
@@ -44,6 +42,7 @@ class PreferencesDialog(wx.Dialog):
 
         myStyle = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.TAB_TRAVERSAL
         wx.Dialog.__init__(self, None, wx.ID_ANY, '%s - Preferences' % globs.myLongName, style=myStyle)
+
         self._initialize(globs)
 
         self.panel1.SetSizerAndFit(self.topBoxSizer)
@@ -73,9 +72,21 @@ class PreferencesDialog(wx.Dialog):
         parent.Add(self.cb5, 0, border=0, flag=wx.EXPAND)
         parent.Add(self.cb6, 0, border=0, flag=wx.EXPAND)
         parent.Add(self.cb7, 0, border=0, flag=wx.EXPAND)
+
+        parent.Add(self.dummySizer1, 0, border=0, flag= wx.EXPAND) # Empty placeholder
+        parent.Add(self.dummySizer2, 0, border=0, flag= wx.EXPAND) # Empty placeholder
+        
         parent.Add(self.maxDownloadSizer, 0, border=0, flag= wx.EXPAND)
         parent.Add(self.fileSortSizer, 0, border=0, flag= wx.EXPAND)
         parent.Add(self.colorPickerSizer, 0, border=0, flag= wx.EXPAND)
+        parent.Add(self.mailPrefsSizer, 0, border=0, flag= wx.EXPAND)
+
+    def _init_dummySizer_Items(self, parent):
+        pass
+    
+    def _init_mailPrefsSizer_Items(self, parent):
+        parent.Add(self.mailPrefsBtn, 0, border=0,
+                   flag=wx.ALIGN_CENTER_VERTICAL | wx.BOTTOM | wx.LEFT | wx.TOP)
 
     def _init_colorPickerSizer_Items(self, parent):
         parent.Add(self.colorPickerBtn, 0, border=0,
@@ -161,7 +172,7 @@ class PreferencesDialog(wx.Dialog):
         self.topBoxSizer = wx.BoxSizer(orient=wx.VERTICAL)
         # Preferences staticBoxSizer
         self.globPrefsBoxSizer = wx.StaticBoxSizer(box=self.staticBox2, orient=wx.VERTICAL)
-        gsNumCols = 3
+        gsNumCols = 4
         gsNumRows = 3
         self.prefsGridSizer1 = wx.GridSizer(cols=gsNumCols, hgap=0, rows=gsNumRows, vgap=2)
 
@@ -174,6 +185,13 @@ class PreferencesDialog(wx.Dialog):
         # Color Picker boxSizer
         self.colorPickerSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
 
+        # Mail Prefs boxSizer
+        self.mailPrefsSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
+
+        # Dummy/Empty boxSizer
+        self.dummySizer1 = wx.BoxSizer(orient=wx.HORIZONTAL)
+        self.dummySizer2 = wx.BoxSizer(orient=wx.HORIZONTAL)        
+        
         # viewMode Download boxSizer
         self.viewModeBoxSizer = wx.StaticBoxSizer(box=self.staticBox4, orient=wx.HORIZONTAL)
 
@@ -202,6 +220,9 @@ class PreferencesDialog(wx.Dialog):
         self._init_maxDownloadSizer_Items(self.maxDownloadSizer)
         self._init_fileSortSizer_Items(self.fileSortSizer)
         self._init_colorPickerSizer_Items(self.colorPickerSizer)
+        self._init_mailPrefsSizer_Items(self.mailPrefsSizer)
+        self._init_dummySizer_Items(self.dummySizer1)
+        self._init_dummySizer_Items(self.dummySizer2)        
         self._init_viewModeBoxSizer_Items(self.viewModeBoxSizer)
         self._init_localConfigBoxSizer_Items(self.localConfigBoxSizer)
         self._init_configBoxSizer6_Items(self.configBoxSizer6)
@@ -245,6 +266,9 @@ class PreferencesDialog(wx.Dialog):
         self.cb7.SetValue(globs.autoSwitchToFavoriteNetwork)
         self.cb7.SetToolTip('Automatically switch to favorite network (if set) when entering Sync Mode')
 
+        for cb in [self.cb1,self.cb2,self.cb3,self.cb5,self.cb6,self.cb7]:
+            cb.Bind(wx.EVT_CHECKBOX, lambda evt, temp=globs:  self.OnCheckBox(evt, temp))
+            
         self.staticText7 = wx.StaticText(id=wx.ID_ANY, label='Max // Download:', 
                                          parent=self.panel1, style=0)
 
@@ -253,8 +277,6 @@ class PreferencesDialog(wx.Dialog):
         self.maxDownloadChoice.SetToolTip('Max allowed download in //. (0 = unlimited)')
         self.maxDownloadChoice.SetStringSelection(str(globs.maxDownload))
         self.maxDownloadChoice.Bind(wx.EVT_CHOICE, lambda evt, temp=globs:  self.OnMaxDownloadChoice(evt, temp))
-        
-        
         self.sortTypes = ['Recent First', 'Oldest First']
         self.fileSortTxt = wx.StaticText(label='Sorting Order:', parent=self.panel1, id=wx.ID_ANY)
         self.fileSortChoice = wx.Choice(choices=[v for v in self.sortTypes], 
@@ -267,6 +289,11 @@ class PreferencesDialog(wx.Dialog):
                                         parent=self.panel1, style=0)
         self.colorPickerBtn.SetToolTip('Choose colors of package status')
         self.colorPickerBtn.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnColorPicker(evt, temp))
+
+        self.mailPrefsBtn = wx.Button(id=wx.ID_ANY, label='Mail Preferences',
+                                      parent=self.panel1, style=0)
+        self.mailPrefsBtn.SetToolTip('Configure Mail Preferences')
+        self.mailPrefsBtn.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnMailPrefs(evt, temp))
         
         # viewMode preferences in staticBox4
         self.staticBox4 = wx.StaticBox(id=wx.ID_ANY,
@@ -418,6 +445,10 @@ class PreferencesDialog(wx.Dialog):
         #globs.printGlobals()
 
     #### Events ####
+    def OnCheckBox(self, event, globs):
+        self.btnApply.Enable()
+        event.Skip()
+
     # Event Handler generator for the "Select Location" buttons
     # The <w> parameter is the text widget to update
     def getOnClick(self, w):
@@ -433,6 +464,7 @@ class PreferencesDialog(wx.Dialog):
             if dlg.ShowModal() == wx.ID_OK:
                 w.SetValue(dlg.GetPath())
                 self.needRescan = True
+                self.btnApply.Enable()
             dlg.Destroy()
         return OnClick
 
@@ -441,24 +473,34 @@ class PreferencesDialog(wx.Dialog):
         ret = dlg.ShowModal()
         dlg.Destroy()
         self.staticText6.SetLabel(globs.favoriteNetwork[globs.NET_SSID])
+        self.btnApply.Enable()
         event.Skip()
 
     def OnColorPicker(self, event, globs):
         dlg = ColorPickerDialog.ColorPickerDialog(self, globs)
         if dlg.ShowModal() == wx.ID_OK:
             self.needRescan = True
+            self.btnApply.Enable()
         dlg.Destroy()
 
+    def OnMailPrefs(self, event, globs):
+        dlg = MailPreferencesDialog.MailPreferencesDialog(self, globs)
+        if dlg.ShowModal() == wx.ID_APPLY:
+            self.btnApply.Enable()
+            myprint('Mail Preferences have been updated')
+        dlg.Destroy()
+        
     def OnBtnReset(self, event, globs):
         self._GUIReset(globs)
-        self.btnApply.SetDefault()
+        self.btnApply.Enable()
+#        self.btnApply.SetDefault()
         event.Skip()
 
     def OnBtnCancel(self, event, globs):
         # Restore initial colors
         globs.fileColors = deepcopy(self._tmpPkgColors)
-        self.EndModal(wx.ID_CANCEL)
         self.needRescan = False
+        self.EndModal(wx.ID_CANCEL)
         event.Skip()
 
     def OnBtnApply(self, event, globs):
@@ -467,7 +509,7 @@ class PreferencesDialog(wx.Dialog):
 
         globs.thumbDir = os.path.join(globs.osvmDownloadDir, '.thumbnails')
         if not os.path.isdir(globs.thumbDir):
-            print('Creating:', globs.thumbDir)
+            myprint('Creating:', globs.thumbDir)
             try:
                 os.makedirs(globs.thumbDir, exist_ok=True)
             except OSError as e:
@@ -482,24 +524,30 @@ class PreferencesDialog(wx.Dialog):
         event.Skip()
 
     def SavePrefsOnExit(self, event):
+        self.btnApply.Enable()
         event.Skip()
 
     def AskBeforeCommit(self, event):
+        self.btnApply.Enable()
         event.Skip()
 
     def AskBeforeExit(self, event):
+        self.btnApply.Enable()
         event.Skip()
 
     def OnMaxDownloadChoice(self, event, globs):
         globs.maxDownload = int(self.maxDownloadChoice.GetSelection())
+        self.btnApply.Enable()
         event.Skip()
 
     def OnFileSortChoice(self, event):
         self.needRescan = True
+        self.btnApply.Enable()
         event.Skip()
 
     def OnSsDelayChoice(self, event, globs):
         globs.ssDelay = int(self.ssDelayChoice.GetSelection()) + self.MIN_SS_DELAY
+        self.btnApply.Enable()
         event.Skip()
 
     def OnDownLocTextCtrlText(self, event):
@@ -531,6 +579,14 @@ class PreferencesDialog(wx.Dialog):
         event.Skip()
 
 ########################
+def myprint(*args, **kwargs):
+    """My custom print() function."""
+    # Adding new arguments to the print function signature 
+    # is probably a bad idea.
+    # Instead consider testing if custom argument keywords
+    # are present in kwargs
+    __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
+
 def humanBytes(size):
     power = float(2**10)     # 2**10 = 1024
     n = 0
@@ -557,12 +613,16 @@ class MyFrame(wx.Frame):
 
         self.Show()
 
+    def _savePreferences(self, globs):	# dummy
+        pass
+    
 def main():
     # Create Globals instance
     g = osvmGlobals.myGlobals()
 
     g.system = platform.system()    # Linux or Windows or MacOS (Darwin)
 
+#    g.networkSelector = False
     try:
         import objc # WifiDialog
     except ImportError:
@@ -594,7 +654,7 @@ RSSI:           %s""" % (iname, interface.ssid(), interface.bssid(),interface.tr
         if not g.iface:
             print('No Network Interface')
 
-            # Create DemoFrame frame, passing globals instance as parameter
+    # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
     frame = MyFrame(None, -1, title="Test", globs=g)
     frame.Show()
