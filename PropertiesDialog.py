@@ -193,7 +193,7 @@ def main():
     g.localFileInfos['plus-32.jpg'] = ['plus-32.jpg', 0, 0, '']    
     g.localFilesSorted = sorted(list(g.localFileInfos.items()), key=lambda x: int(x[1][g.F_DATE]), reverse=g.fileSortRecentFirst)
     
-            # Create DemoFrame frame, passing globals instance as parameter
+    # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
     frame = MyFrame(None, -1, title="Test", globs=g)
     frame.Show()

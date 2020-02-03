@@ -7,7 +7,13 @@ import builtins as __builtin__
 import inspect
 import glob
 
-import osvmGlobals
+#import osvmGlobals
+moduleList = ['osvmGlobals']
+
+for m in moduleList:
+    print('Loading: %s' % m)
+    mod = __import__(m, fromlist=[None])
+    globals()[m] = globals().pop('mod')	# Rename module in globals()
 
 ####
 #print(__name__)
@@ -200,6 +206,42 @@ class CleanDownloadDirDialog(wx.Dialog):
 
 
 ####
+def humanBytes(size):
+    power = float(2**10)     # 2**10 = 1024
+    n = 0
+    power_labels = {0 : 'B', 1: 'KB', 2: 'MB', 3: 'GB', 4: 'TB'}
+    while size > power:
+        size = float(size / power)
+        n += 1
+    return '%s %s' % (('%.2f' % size).rstrip('0').rstrip('.'), power_labels[n])
+
+#
+# Get folder size (in bytes) on the disk for files matching suffixes
+# Recurse controls recursion
+# ex: folderSize('/a/b/c', '.jpg'))
+def folderSize(folder, suffixes, recurse):
+    totalSize = 0
+    fileCount = 0
+    for item in os.listdir(folder):
+        itempath = os.path.join(folder, item)
+        if item.lower().endswith(suffixes.lower()) and os.path.isfile(itempath):
+            totalSize += os.path.getsize(itempath)
+            fileCount += 1 # bump file counter
+        elif os.path.isdir(itempath) and recurse:
+            c,s = folderSize(itempath, suffixes, recurse)
+            fileCount += c
+            totalSize += s
+                    
+    return fileCount, totalSize
+        
+def myprint(*args, **kwargs):
+    """My custom print() function."""
+    # Adding new arguments to the print function signature 
+    # is probably a bad idea.
+    # Instead consider testing if custom argument keywords
+    # are present in kwargs
+    __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
+
 class MyFrame(wx.Frame):
     def __init__(self, parent, id, title, globs):
         wx.Frame.__init__(self, parent, id, title)
@@ -226,40 +268,4 @@ def main():
     app.MainLoop()
 
 if __name__ == "__main__":
-    def humanBytes(size):
-        power = float(2**10)     # 2**10 = 1024
-        n = 0
-        power_labels = {0 : 'B', 1: 'KB', 2: 'MB', 3: 'GB', 4: 'TB'}
-        while size > power:
-            size = float(size / power)
-            n += 1
-        return '%s %s' % (('%.2f' % size).rstrip('0').rstrip('.'), power_labels[n])
-
-    #
-    # Get folder size (in bytes) on the disk for files matching suffixes
-    # Recurse controls recursion
-    # ex: folderSize('/a/b/c', '.jpg'))
-    def folderSize(folder, suffixes, recurse):
-        totalSize = 0
-        fileCount = 0
-        for item in os.listdir(folder):
-            itempath = os.path.join(folder, item)
-            if item.lower().endswith(suffixes.lower()) and os.path.isfile(itempath):
-                totalSize += os.path.getsize(itempath)
-                fileCount += 1 # bump file counter
-            elif os.path.isdir(itempath) and recurse:
-                c,s = folderSize(itempath, suffixes, recurse)
-                fileCount += c
-                totalSize += s
-                    
-        return fileCount, totalSize
-        
-    def myprint(*args, **kwargs):
-        """My custom print() function."""
-        # Adding new arguments to the print function signature 
-        # is probably a bad idea.
-        # Instead consider testing if custom argument keywords
-        # are present in kwargs
-        __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
-
     main()

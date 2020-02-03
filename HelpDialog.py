@@ -6,7 +6,14 @@ import sys
 import os
 import inspect
 
-import osvmGlobals
+#import osvmGlobals
+moduleList = ['osvmGlobals']
+
+for m in moduleList:
+    print('Loading: %s' % m)
+    mod = __import__(m, fromlist=[None])
+    globals()[m] = globals().pop('mod')	# Rename module in globals()
+
 ####
 #print(__name__)
 
@@ -66,6 +73,12 @@ class HelpDialog(wx.Dialog):
         event.Skip()
 
 ########################
+def module_path(local_function):
+    ''' returns the module path without the use of __file__.  
+    Requires a function defined locally in the module.
+    from http://stackoverflow.com/questions/729583/getting-file-path-of-imported-module'''
+    return os.path.abspath(inspect.getsourcefile(local_function))
+        
 class MyFrame(wx.Frame):
     def __init__(self, parent, id, title, globs):
         wx.Frame.__init__(self, parent, id, title)
@@ -90,11 +103,5 @@ def main():
     app.MainLoop()
 
 if __name__ == "__main__":
-    def module_path(local_function):
-        ''' returns the module path without the use of __file__.  
-        Requires a function defined locally in the module.
-        from http://stackoverflow.com/questions/729583/getting-file-path-of-imported-module'''
-        return os.path.abspath(inspect.getsourcefile(local_function))
-        
     main()
         

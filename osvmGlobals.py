@@ -65,7 +65,15 @@ class myGlobals():
         self.DEFAULT_THUMB_SCALE_FACTOR = 0.59
         self.DEFAULT_SLIDESHOW_DELAY = 5
         self.DEFAULT_SORT_ORDER = True # Mean More recent first
-
+        self.DEFAULT_SMTP_SERVER = ''
+        self.DEFAULT_SMTP_SERVER_PROTOCOL = 'SMTP'
+        self.DEFAULT_SMTP_SERVER_PORT = 25
+        self.DEFAULT_SMTP_SERVER_USE_AUTH = False
+        self.DEFAULT_SMTP_SERVER_USER_NAME = ''
+        self.DEFAULT_SMTP_SERVER_USER_PASSWD = ''                
+        
+        self.DEFAULT_MAIL_ADDR = None
+        
         # Preferences file option keys
         self.INI_VERSION = 'iniversion'
         self.HTML_ROOT_FILE = 'htmlrootfile'
@@ -86,6 +94,12 @@ class myGlobals():
         self.LAST_CAST_DEVICE_UUID = 'lastcastdeviceuuid'
         self.SORT_ORDER = 'filesortreverse'
         self.FAVORITE_NETWORK = 'favoritenetwork'
+        self.SMTP_SERVER = 'smtpserver'
+        self.SMTP_SERVER_PROTOCOL = 'smtpserverprotocol'
+        self.SMTP_SERVER_PORT = 'smtpserverport'
+        self.SMTP_SERVER_USE_AUTH = 'smtpserveruseauth'
+        self.SMTP_SERVER_USER_NAME = 'smtpserverusername'
+        self.SMTP_SERVER_USER_PASSWD = 'smtpserveruserpasswd'        
 
         # Globals Managed by Preferences / Frame # In osvmDir
         self.htmlRootFile = 'htmlRootFile.html'
@@ -126,7 +140,13 @@ class myGlobals():
         self.knownNetworks = list()
         self.fileSortRecentFirst = self.DEFAULT_SORT_ORDER
         self.installSubPanelsCount = 5
-
+        self.smtpServer = ''
+        self.smtpServerProtocol = ''
+        self.smtpServerPort = 25
+        self.smtpServerUseAuth = False
+        self.smtpServerUserName = ''
+        self.smtpServerUserPasswd = ''
+        
         # List of root directories on the camera
         self.rootDirList = []
         self.rootDirCnt = 0
@@ -181,7 +201,8 @@ class myGlobals():
         [self.FILE_DOWNLOAD,
          self.FILE_DELETE,
          self.FILE_SELECT,
-         self.FILE_UNSELECT,] = [i for i in range(4)]
+         self.FILE_UNSELECT,
+         self.FILE_SHARE] = [i for i in range(5)]
 
         self.FILE_PROPERTIES = -3
         self.FILE_SLIDESHOW = -4
@@ -245,7 +266,6 @@ class myGlobals():
                              ['#DC0A0A', '#FD0C0C', '#EB0B0B', '#FF0D0D'], # red
                              ['#1E64B4', '#2373CF', '#206BC1', '#267DE1']] # steel blue (30, 100, 180)
 
-
         [self.LED_GREY,
          self.LED_GREEN,
          self.LED_ORANGE,
@@ -296,3 +316,9 @@ class myGlobals():
         print('globs.knownNetworks:', self.knownNetworks)
         print('globs.favoriteNetwork:', self.favoriteNetwork)
         print('globs.fileSortRecentFirst:', self.fileSortRecentFirst)
+        print('globs.smtpServer:', self.smtpServer)
+        print('globs.smtpServerProtocol:', self.smtpServerProtocol)
+        print('globs.smtpServerPort:', self.smtpServerPort)
+        print('globs.smtpServerUseAuth:', self.smtpServerUseAuth)
+        print('globs.smtpServerUserName:', self.smtpServerUserName)
+        print('globs.smtpServerUserPasswd:', self.smtpServerUserPasswd)

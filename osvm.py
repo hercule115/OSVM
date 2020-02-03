@@ -91,6 +91,7 @@ moduleList = (
     'HelpDialog', 
     'LedControl', 
     'LogoPanel', 
+    'MailDialog',
     'MediaViewerDialog', 
     'PreferencesDialog', 
     'PropertiesDialog', 
@@ -1046,7 +1047,7 @@ class Preferences():
         newInitFile1 = self._loadInitFile(globs)
         newInitFile2 = self._parseInitFile(globs)
         if newInitFile1 or newInitFile2:
-            dlg = PreferencesDialog(self, globs)
+            dlg = PreferencesDialog.PreferencesDialog(self, globs)
             dlg.ShowModal()
             dlg.Destroy()
             #globs.printGlobals()
@@ -1095,21 +1096,21 @@ class Preferences():
         self.config['Version'] = {globs.INI_VERSION: globs.iniFileVersion}
 
         self.config['Preferences'] = {}
-        self.config['Preferences'][globs.COMPACT_MODE]           = str(globs.DEFAULT_globs.COMPACT_MODE)
-        self.config['Preferences'][globs.ASK_BEFORE_COMMIT]      = str(globs.DEFAULT_globs.ASK_BEFORE_COMMIT)
-        self.config['Preferences'][globs.ASK_BEFORE_EXIT]        = str(globs.DEFAULT_globs.ASK_BEFORE_EXIT)
+        self.config['Preferences'][globs.COMPACT_MODE]           = str(globs.DEFAULT_COMPACT_MODE)
+        self.config['Preferences'][globs.ASK_BEFORE_COMMIT]      = str(globs.DEFAULT_ASK_BEFORE_COMMIT)
+        self.config['Preferences'][globs.ASK_BEFORE_EXIT]        = str(globs.DEFAULT_ASK_BEFORE_EXIT)
         self.config['Preferences'][globs.SAVE_PREFS_ON_EXIT]     = str(globs.DEFAULT_SAVE_PREFERENCES_ON_EXIT)
-        self.config['Preferences'][globs.OVERWRITE_LOCAL_FILES]  = str(globs.DEFAULT_globs.OVERWRITE_LOCAL_FILES)
+        self.config['Preferences'][globs.OVERWRITE_LOCAL_FILES]  = str(globs.DEFAULT_OVERWRITE_LOCAL_FILES)
         self.config['Preferences'][globs.AUTO_SWITCH_TO_CAMERA_NETWORK] = str(globs.AUTO_SWITCH_TO_CAMERA_NETWORK)
         self.config['Preferences'][globs.THUMB_GRID_COLUMNS]     = str(globs.DEFAULT_THUMB_GRID_NUM_COLS)
-        self.config['Preferences'][globs.THUMB_SCALE_FACTOR]     = str(globs.DEFAULT_globs.THUMB_SCALE_FACTOR)
-        self.config['Preferences'][globs.OSVM_DOWNLOAD_DIR]      = globs.DEFAULT_globs.OSVM_DOWNLOAD_DIR
-        self.config['Preferences'][globs.SORT_ORDER]             = str(globs.DEFAULT_globs.SORT_ORDER)
+        self.config['Preferences'][globs.THUMB_SCALE_FACTOR]     = str(globs.DEFAULT_THUMB_SCALE_FACTOR)
+        self.config['Preferences'][globs.OSVM_DOWNLOAD_DIR]      = globs.DEFAULT_OSVM_DOWNLOAD_DIR
+        self.config['Preferences'][globs.SORT_ORDER]             = str(globs.DEFAULT_SORT_ORDER)
 
         self.config['Sync Mode Preferences'] = {}
-        self.config['Sync Mode Preferences'][globs.REM_BASE_DIR]           = globs.DEFAULT_OSVM_globs.REM_BASE_DIR
+        self.config['Sync Mode Preferences'][globs.REM_BASE_DIR] = globs.DEFAULT_OSVM_REM_BASE_DIR
         self.config['Sync Mode Preferences'][globs.OSVM_FILES_DOWNLOAD_URL] = globs.DEFAULT_OSVM_ROOT_URL
-        self.config['Sync Mode Preferences'][globs.MAX_DOWNLOAD]           = str(globs.DEFAULT_globs.MAX_DOWNLOAD)
+        self.config['Sync Mode Preferences'][globs.MAX_DOWNLOAD] = str(globs.DEFAULT_MAX_DOWNLOAD)
 
         self.config['View Mode Preferences'] = {}
         self.config['View Mode Preferences'][globs.SS_DELAY]     = str(globs.DEFAULT_SLIDESHOW_DELAY)
@@ -1117,12 +1118,20 @@ class Preferences():
         self.config['View Mode Preferences'][globs.LAST_CAST_DEVICE_UUID] = ''
 
         self.config['Networks'] = {}
-        self.config['Networks'][globs.FAVORITE_NETWORK] = None,None
+        self.config['Networks'][globs.FAVORITE_NETWORK] = ''',''' #None,None
 
         self.config['Colors'] = {}
         for i in range(len(globs.DEFAULT_FILE_COLORS)):
             self.config['Colors']['color_%d' % (i)] = str(globs.DEFAULT_FILE_COLORS[i][0].GetRGB())
 
+        self.config['Mail Preferences'] = {}
+        self.config['Mail Preferences'][globs.SMTP_SERVER] = globs.DEFAULT_SMTP_SERVER
+        self.config['Mail Preferences'][globs.SMTP_SERVER_PROTOCOL] = globs.DEFAULT_SMTP_SERVER_PROTOCOL
+        self.config['Mail Preferences'][globs.SMTP_SERVER_PORT] = str(globs.DEFAULT_SMTP_SERVER_PORT)
+        self.config['Mail Preferences'][globs.SMTP_SERVER_USE_AUTH] = str(globs.DEFAULT_SMTP_SERVER_USE_AUTH)
+        self.config['Mail Preferences'][globs.SMTP_SERVER_USER_NAME] = globs.DEFAULT_SMTP_SERVER_USER_NAME
+        self.config['Mail Preferences'][globs.SMTP_SERVER_USER_PASSWD] = globs.DEFAULT_SMTP_SERVER_USER_PASSWD
+        
         # Writing our configuration file back to initFile
         with open(globs.initFilePath, 'w') as cfgFile:
             self.config.write(cfgFile)
@@ -1178,7 +1187,18 @@ class Preferences():
                 newcol = wx.Colour()
                 newcol.SetRGB(int(colrgb))
                 globs.fileColors[i][0] = newcol # update globs.fileColors[]
+
+
+            sectionMail = self.config['Mail Preferences']
+            globs.smtpServer           = sectionMail[globs.SMTP_SERVER]
+            globs.smtpServerProtocol   = sectionMail[globs.SMTP_SERVER_PROTOCOL]
+            globs.smtpServerPort       = int(sectionMail[globs.SMTP_SERVER_PORT])
+            globs.smtpServerUseAuth    = str2bool(sectionMail[globs.SMTP_SERVER_USE_AUTH])
+            globs.smtpServerUserName   = sectionMail[globs.SMTP_SERVER_USER_NAME]
+            globs.smtpServerUserPasswd = sectionMail[globs.SMTP_SERVER_USER_PASSWD]
+            
             return False # Parsing OK
+        
         except:
             myprint('Error parsing INI file')
             # Create a new Init file from builtin defaults
@@ -1220,6 +1240,15 @@ class Preferences():
                 newcol = wx.Colour()
                 newcol.SetRGB(int(colrgb))
                 globs.fileColors[i][0] = newcol
+
+            sectionMail = self.config['Mail Preferences']
+            globs.smtpServer           = sectionMail[globs.SMTP_SERVER]
+            globs.smtpServerProtocol   = sectionMail[globs.SMTP_SERVER_PROTOCOL]
+            globs.smtpServerPort       = int(sectionMail[globs.SMTP_SERVER_PORT])
+            globs.smtpServerUseAuth    = str2bool(sectionMail[globs.SMTP_SERVER_USE_AUTH])
+            globs.smtpServerUserName   = sectionMail[globs.SMTP_SERVER_USER_NAME]
+            globs.smtpServerUserPasswd = sectionMail[globs.SMTP_SERVER_USER_PASSWD]
+
             return True # Parsing KO, New file created
 
     def _saveInitFile(self, globs):
@@ -1262,6 +1291,14 @@ class Preferences():
 
         for i in range(len(globs.fileColors)):
             self.config['Colors']['color_%d' % (i)] = str(globs.fileColors[i][0].GetRGB())
+
+        sectionMail = self.config['Mail Preferences']
+        sectionMail[globs.SMTP_SERVER]             = globs.smtpServer
+        sectionMail[globs.SMTP_SERVER_PROTOCOL]    = globs.smtpServerProtocol
+        sectionMail[globs.SMTP_SERVER_PORT]        = str(globs.smtpServerPort)
+        sectionMail[globs.SMTP_SERVER_USE_AUTH]    = str(globs.smtpServerUseAuth)
+        sectionMail[globs.SMTP_SERVER_USER_NAME]   = globs.smtpServerUserName
+        sectionMail[globs.SMTP_SERVER_USER_PASSWD] = globs.smtpServerUserPasswd
 
         # Writing our configuration file back to initFile
         with open(globs.initFilePath, 'w') as cfgFile:
@@ -1340,6 +1377,11 @@ class FileOperationMenu(wx.Menu):
                     menuEntry = [fileName, globs.FILE_SELECT, self.button, filePath]
                     self.popupMenuTitles.append((id, menuEntry)) 
                     id += 1
+                    #XXXX
+                    menuEntry = [fileName, globs.FILE_SHARE, self.button, filePath]
+                    self.popupMenuTitles.append((id, menuEntry)) 
+                    id += 1
+                    #XXXX
             if globs.overwriteLocalFiles:
                 menuEntry = [fileName, globs.FILE_DOWNLOAD, self.button, filePath]
                 self.popupMenuTitles.append((id, menuEntry)) 
@@ -1376,11 +1418,16 @@ class FileOperationMenu(wx.Menu):
                 title = 'Add %s to Download List' % (menuEntry[0])
                 imgFile = 'plus-32.jpg'
             if menuEntry[1] == globs.FILE_SELECT:
-                title = 'Add %s to Playlist' % (menuEntry[0])
+                title = 'Add %s to Play List' % (menuEntry[0])
                 imgFile = 'plus-32.jpg'
             if menuEntry[1] == globs.FILE_UNSELECT:
-                title = 'Remove %s from Playlist' % (menuEntry[0])
+                title = 'Remove %s from Play List' % (menuEntry[0])
                 imgFile = 'moins-32.jpg'
+            #XXXX
+            if menuEntry[1] == globs.FILE_SHARE:
+                title = 'Add %s to Share List' % (menuEntry[0])
+                imgFile = 'plus-32.jpg'
+            #XXXX
             elif menuEntry[1] == globs.FILE_DELETE:
                 title = 'Delete file %s' % (menuEntry[0])
                 imgFile = 'moins-32.jpg'
@@ -1433,6 +1480,8 @@ class FileOperationMenu(wx.Menu):
             self._MenuPropertiesCb(event,globs)
             return
 
+        myprint('fileName=%s what=%d' % (fileName,what))
+        
         if what == globs.FILE_UNSELECT:
             op = [x for x in self.opList if x[globs.OP_FILENAME] == fileName][0]
             self.parent.resetOneButton(fileName)
@@ -1443,8 +1492,7 @@ class FileOperationMenu(wx.Menu):
             wx.CallAfter(self.parent.updateStatusBar, msg)
             return
             
-        # Check if one operation is already pending for this file
-        # and re-use it
+        # Check if one operation is already pending for this file and re-use it
         for op in self.opList:
             if op[globs.OP_FILENAME] == fileName:
                 self._scheduleOperation(op, menuEntry)
@@ -1457,7 +1505,7 @@ class FileOperationMenu(wx.Menu):
                 break
         else:
             msg = 'Max requests reached (%d).' % (globs.MAX_OPERATIONS)
-            print (msg)
+            myprint(msg)
 
      # Clear/Reset a button
     def _resetButton(self, button):
@@ -1491,7 +1539,7 @@ class FileOperationMenu(wx.Menu):
 #        button.SetBackgroundColour(globs.fileColors[globs.FILE_OP_PENDING][0])
 #        button.SetForegroundColour(globs.fileColors[globs.FILE_OP_PENDING][1])
 
-        print("Operation scheduled:",op)
+        myprint("Operation scheduled:",op)
 
 
 ####
@@ -2576,6 +2624,7 @@ class OSVM(wx.Frame):
         self.updateStatusBar(statusBarMsg)
         self.btnCommit.Enable()
         self.btnCancel.Enable()
+        self.btnShare.Enable()
 
         # Sanity check
         # Each entry in thumbButtons[] is of form: [widget, fileName, fgcol, bgcol]
@@ -2588,6 +2637,7 @@ class OSVM(wx.Frame):
                     button.SetBackgroundColour(globs.fileColors[globs.FILE_OP_PENDING][0])
                     button.SetForegroundColour(globs.fileColors[globs.FILE_OP_PENDING][1])
                     self.Refresh()
+        myprint("Operation Scheduled:",op)
 
     winDisabler = None
 
@@ -2831,12 +2881,24 @@ class OSVM(wx.Frame):
 
         parent.Add(10,0, pos=(0, 10)) # Some space after Stop button
 
-        parent.Add(self.btnCancel, pos=(0, 11), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
-        parent.Add(self.btnCommit, pos=(0, 12), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+#        parent.Add(self.btnCancel, pos=(0, 11), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+#        parent.Add(self.btnCommit, pos=(0, 12), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
 
-        parent.Add(10,0, pos=(0, 13))
+        sts9 = wx.BoxSizer(orient=wx.VERTICAL)
+        sts9.AddStretchSpacer(prop=1)
+        sts9.Add(self.btnCancel, 0, border=0, flag=wx.EXPAND)
+        parent.Add(sts9, pos=(0, 11), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+        
+        sts10 = wx.BoxSizer(orient=wx.VERTICAL)
+        sts10.AddStretchSpacer(prop=1)
+        sts10.Add(self.btnCommit, 0, border=0, flag=wx.EXPAND)
+        sts10.AddStretchSpacer(prop=1)
+        sts10.Add(self.btnShare, 0, border=0, flag=wx.EXPAND)
+        parent.Add(sts10, pos=(0, 12), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
 
-        parent.Add(self.btnRescan, pos=(0, 14), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+        parent.Add(10,0, pos=(0, 13)) #13
+
+        parent.Add(self.btnRescan, pos=(0, 14), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0) #14
 
     # Used in globs.compactMode only
     def _init_trafficBoxSizer_Items(self, parent):
@@ -3101,15 +3163,19 @@ class OSVM(wx.Frame):
             self.colorGrid.append(led)
             self.colorGrid.append(wx.StaticText(self.panel1, label=globs.FILE_COLORS_STATUS[i]))
 
-        self.btnCancel = wx.Button(id=wx.ID_CANCEL, label='Cancel All',
-                                   parent=self.panel1, style=0)
+        self.btnCancel = wx.Button(id=wx.ID_CANCEL, label='Cancel All', parent=self.panel1, style=0)
         self.btnCancel.SetToolTip('Cancel all pending requests')
         self.btnCancel.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnCancel(evt,globs))
 
-        self.btnCommit = wx.Button(id=wx.ID_OK, label='Commit',
-                                   parent=self.panel1, style=0)
+        self.btnCommit = wx.Button(id=wx.ID_OK, label='Commit', parent=self.panel1, style=0)
         self.btnCommit.SetToolTip('Commit all pending requests')
         self.btnCommit.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnCommit(evt,temp))
+
+        self.btnShare = wx.Button(id=wx.ID_OK, label='Share', parent=self.panel1, style=0)
+        self.btnShare.SetToolTip('Share selected files')
+        self.btnShare.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnShare(evt,temp))
+        self.btnShare.Disable()
+        
         if not globs.cameraConnected:
             self.btnCancel.Disable()
             self.btnCommit.Disable()
@@ -3386,6 +3452,7 @@ class OSVM(wx.Frame):
                 self.updateStatusBar(statusBarMsg)
                 self.btnCommit.Enable()
                 self.btnCancel.Enable()
+                self.btnShare.Enable()
                 break
 
         self.panel1.Refresh()
@@ -3985,7 +4052,7 @@ class OSVM(wx.Frame):
         return i
 
     def _syncFiles(self, globs, fileType=''):	# fileType could be : JPG, MOV
-        print('Syncing %s files' % (fileType))
+        myprint('Syncing %s files' % (fileType))
         i = 0
         # Browse the list of buttons (remote files) and schedule a request if file matches fileType and date (if requested)
         if self.fromCb.GetValue():	# Check if From date cb is set
@@ -4045,7 +4112,7 @@ class OSVM(wx.Frame):
         return i
 
     def _unSelectFiles(self, globs, fileType=''): # Clear all requests for a given file type (JPG, MOV)
-        print('Must clear all requests for %s' % (fileType))
+        myprint('Must clear all requests for %s' % (fileType))
         i = 0
         for op in self.opList:
             if op[globs.OP_STATUS] and op[globs.OP_FILETYPE] == fileType:
@@ -4055,7 +4122,7 @@ class OSVM(wx.Frame):
         return i
 
     def _selectFilesByDate(self, globs, fileType=''):	# fileType could be : JPG, MOV
-        print('Selecting %s files' % (fileType))
+        myprint('Selecting %s files' % (fileType))
         i = 0
         # Browse the list of buttons and schedule a request if file matches fileType and date (if requested)
         if self.fromCb.GetValue():	# Check if From date cb is set
@@ -4128,6 +4195,20 @@ class OSVM(wx.Frame):
             i += 1
         return i
 
+    def OnBtnShare(self, event, globs):
+        shareList = list()
+        for op in self.opList:
+            if op[globs.OP_STATUS] and op[globs.OP_TYPE] == globs.FILE_SHARE:
+                fileName = op[globs.OP_FILENAME]
+                shareList.append(fileName)
+
+        myprint('Sharing files', shareList)
+        
+        mailDlg = MailDialog.MailDialog(self, globs, attachementlist=shareList)
+        mailDlg.ShowModal()
+        mailDlg.Destroy()
+        event.Skip()
+    
     def OnBtnCommit(self, event, globs):
         pendingOpsCnt = self.pendingOperationsCount()
         if pendingOpsCnt == 0:

@@ -622,7 +622,6 @@ def main():
 
     g.system = platform.system()    # Linux or Windows or MacOS (Darwin)
 
-#    g.networkSelector = False
     try:
         import objc # WifiDialog
     except ImportError:
