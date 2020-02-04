@@ -4205,8 +4205,8 @@ class OSVM(wx.Frame):
         shareList = list()
         for op in self.opList:
             if op[globs.OP_STATUS] and op[globs.OP_TYPE] == globs.FILE_SHARE:
-                fileName = op[globs.OP_FILENAME]
-                shareList.append(fileName)
+                filePath = op[globs.OP_FILEPATH]
+                shareList.append(filePath)
 
         myprint('Sharing files', shareList)
         
