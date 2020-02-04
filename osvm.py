@@ -4210,7 +4210,7 @@ class OSVM(wx.Frame):
 
         myprint('Sharing files', shareList)
         
-        mailDlg = MailDialog.MailDialog(self, globs, attachementlist=shareList)
+        mailDlg = MailDialog.MailDialog(self, globs, attachmentlist=shareList)
         mailDlg.ShowModal()
         mailDlg.Destroy()
         event.Skip()
