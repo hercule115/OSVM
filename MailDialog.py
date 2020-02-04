@@ -101,9 +101,6 @@ class MailDialog(wx.Dialog):
     def __init__(self, parent, globs, attachmentlist):
         self.attachmentList = attachmentlist
 
-        #        self.prioLevel = ['Select Priority...', 'Minor', 'Normal', 'Major']
-        #        self.bugType = ['Select Report Type...', 'Bug', 'Enhancement']
-
         myStyle = wx.DEFAULT_DIALOG_STYLE|wx.TAB_TRAVERSAL|wx.RESIZE_BORDER
         wx.Dialog.__init__(self, None, wx.ID_ANY, 'Compose Mail', style=myStyle)
 
@@ -154,17 +151,9 @@ class MailDialog(wx.Dialog):
         cols = 2
         self.attachmentsGrid = wx.FlexGridSizer(rows, cols, vgap=5, hgap=10)
 
-        #        self.attachmentsChoice = wx.Choice(choices=[v for v in self.attachmentList], 
-        #                                           id=wx.ID_ANY, parent=self.panel1, style=0)
-        #        self.attachmentsChoice.SetToolTip('List of Mail Attachments')
-        #        self.attachmentsChoice.SetStringSelection(self.attachmentList[0] if self.attachmentList else '')
-        #        self.attachmentsChoice.Enable(False)
-        #        self.attachmentsChoice.Bind(wx.EVT_CHOICE, self.OnAttachmentsChoice, id=wx.ID_ANY)
-
         self.attachmentLB = wx.ListBox(choices=[os.path.basename(v) for v in self.attachmentList], parent=self.panel1, id=wx.ID_ANY, style=wx.LB_NEEDED_SB | wx.LB_SINGLE, size=wx.Size(200,-1))
 
         self.attachmentsGrid.Add(wx.StaticText(self.panel1, label='Attachments'), proportion=0, flag=wx.CENTER)
-#        self.attachmentsGrid.Add(self.attachmentsChoice, proportion=1, flag=wx.EXPAND)
         self.attachmentsGrid.Add(self.attachmentLB, proportion=1, flag=wx.EXPAND)
 
         # Buttons to deal with Attachments 
@@ -185,21 +174,6 @@ class MailDialog(wx.Dialog):
         else:
             self.btnRemove.Enable()
             self.btnClear.Enable()
-
-        # Bug/Priority box
-        # self.reportChoice = wx.Choice(id=wx.ID_ANY, name='reportChoice',
-        #                               choices=self.bugType,
-        #                               parent=self.panel1, style=0)
-        # self.reportChoice.SetToolTip(u'Select the type of report')
-        # self.reportChoice.SetStringSelection(self.bugType[0])
-        # self.reportChoice.Bind(wx.EVT_CHOICE, self.OnChoice, id=wx.ID_ANY)
-
-        # self.prioChoice = wx.Choice(id=wx.ID_ANY, name='prioChoice',
-        #                             choices=self.prioLevel,
-        #                             parent=self.panel1, style=0)
-        # self.prioChoice.SetToolTip(u'Select the priority level')
-        # self.prioChoice.SetStringSelection(self.prioLevel[0])
-        # self.prioChoice.Bind(wx.EVT_CHOICE, self.OnChoice, id=wx.ID_ANY)
 
         if globs.smtpServerUseAuth:
             val = '%s | %s(%d), Auth: %s | %s' % (globs.smtpServer,
@@ -272,9 +246,6 @@ class MailDialog(wx.Dialog):
     def _init_infoBoxSizer_Items(self, parent):
         parent.Add(self.smtpConfigInfo, 0, border=5, flag=wx.EXPAND | wx.ALL)
         parent.Add(wx.Size(4, 4), 1, border=0, flag=0)
-#        parent.Add(self.reportChoice, 0, border=5, flag=wx.EXPAND | wx.ALL)
-#        parent.Add(wx.Size(4, 4), 0, border=0, flag=0)
-#        parent.Add(self.prioChoice, 0, border=5, flag=wx.EXPAND | wx.ALL)
 
     def _init_msgBoxSizer_Items(self, parent):
         parent.Add(self.msgTextCtrl, 1, border=0, flag=wx.EXPAND)
@@ -312,17 +283,14 @@ class MailDialog(wx.Dialog):
         val += self.mailHdrVal[3].GetValue() != ''
         val += self.mailHdrVal[5].GetValue() != ''
         val += self.msgTextCtrl.GetValue() != ''
-#        reportChoice = self.reportChoice.GetSelection()
-#        prioChoice   = self.prioChoice.GetSelection()
 
-        if val > 3 : #and reportChoice and prioChoice:
+        if val > 3 :
             self.btnSend.Enable(True)
         else:
             self.btnSend.Enable(False)
 
     ## Events
     def OnBtnSend(self, event, globs):
-
         # Mail Headers
         sender   = self.mailHdrVal[1].GetValue()
         receiver = self.mailHdrVal[3].GetValue()
@@ -331,15 +299,11 @@ class MailDialog(wx.Dialog):
         # Mail Text
         text = self.msgTextCtrl.GetValue()
 
-        # Bug/Priority
-#        reportChoice = self.reportChoice.GetSelection()
-#        prioChoice = self.prioChoice.GetSelection()
-
         # Format mail body
 #        version = '%s: %s\n%s\nPython: %s wxpython: %s' % (globs.myName, globs.myVersion, (platform.platform()), globs.pythonVersion, wx.version())
 #        mailBody = '%s\n\n----\nCategory:%s\nPriority:%s\n%s' % (text, self.bugType[reportChoice], self.prioLevel[prioChoice], version)
 #        mailBody = '%s\n\n%s' % (text, version)
-#        print(mailBody)
+#        myprint(mailBody)
         
         # Build & Send the mail
         smtpParams = dict()
@@ -359,7 +323,6 @@ class MailDialog(wx.Dialog):
         ret = dlg.ShowModal()
         dlg.Destroy()
         if ret == wx.ID_APPLY:
-            myprint('Must reread Preferences from globals')
             if globs.smtpServerUseAuth:
                 val = '%s | %s(%d), Auth: %s | %s' % (globs.smtpServer,
                                                       globs.smtpServerProtocol,
@@ -390,10 +353,10 @@ class MailDialog(wx.Dialog):
     def OnBtnRemove(self, event, globs):
         sel = self.attachmentLB.GetSelection()
         if sel == wx.NOT_FOUND:
-            print('No file selected')
+            myprint('No file selected')
             event.Skip()
             return
-        self.attachmentLB.Delete(sel)
+        self.attachPmentLB.Delete(sel)
         self.attachmentList.remove(self.attachmentList[sel])
         if not self.attachmentLB.GetCount():
             self.btnRemove.Disable()
@@ -422,20 +385,7 @@ class MailDialog(wx.Dialog):
         self._enableSendBtn()
         event.Skip()
         
-    def OnChoice(self, event):
-        self._enableSendBtn()
-        event.Skip()
-
 ########################
-def humanBytes(size):
-    power = float(2**10)     # 2**10 = 1024
-    n = 0
-    power_labels = {0 : 'B', 1: 'KB', 2: 'MB', 3: 'GB', 4: 'TB'}
-    while size > power:
-        size = float(size / power)
-        n += 1
-    return '%s %s' % (('%.2f' % size).rstrip('0').rstrip('.'), power_labels[n])
-
 def myprint(*args, **kwargs):
     """My custom print() function."""
     # Adding new arguments to the print function signature 
