@@ -32,7 +32,7 @@ for m in moduleList:
 #print(__name__)
 
 # Send a MultiPart mail
-def sendMultiPartMail(globs, sender, receiver, subject, textbody, attachments=[], server="localhost", port=25):
+def sendMultiPartMail(smtpParams, sender, receiver, subject, textbody, attachments=[]):
    # Create the enclosing (outer) message
     outer = MIMEMultipart()    
 
@@ -41,9 +41,10 @@ def sendMultiPartMail(globs, sender, receiver, subject, textbody, attachments=[]
     outer['To']      = receiver
     outer.preamble   = 'Files sent by OSVM'
 
-    for fname in attachments:
-        path = os.path.join(globs.osvmDownloadDir, fname)
+    for path in attachments:
+        myprint('Attaching %s' % path)
         if not os.path.isfile(path):
+            myprint('Skipping over %s' % path)
             continue
         
         # Guess the content type based on the file's extension.  Encoding
@@ -72,7 +73,7 @@ def sendMultiPartMail(globs, sender, receiver, subject, textbody, attachments=[]
             # Encode the payload using Base64
             encoders.encode_base64(msg)
         # Set the filename parameter
-        msg.add_header('Content-Disposition', 'attachment', filename=fname)
+        msg.add_header('Content-Disposition', 'attachment', filename=os.path.basename(path))
         outer.attach(msg)
 
     # Attach mail's body
@@ -80,13 +81,14 @@ def sendMultiPartMail(globs, sender, receiver, subject, textbody, attachments=[]
     outer.attach(msg)
 
     # Send the mail
-    myprint('Sending mail via %s:%d' % (server,port))
+    myprint('Sending mail via %s:%d' % (smtpParams['smtpServer'],smtpParams['smtpServerPort']))
     
     wx.BeginBusyCursor(cursor=wx.HOURGLASS_CURSOR)
     try:
-        smtp = smtplib.SMTP_SSL(server, port)
+        smtp = smtplib.SMTP_SSL(smtpParams['smtpServer'],smtpParams['smtpServerPort'])
 #        smtp.set_debuglevel(1)
-        smtp.login(globs.smtpServerUserName, globs.smtpServerUserPasswd)
+        if smtpParams['smtpServerUseAuth']:
+            smtp.login(smtpParams['smtpServerUserName'],smtpParams['smtpServerUserPasswd'])
         smtp.sendmail(sender, receiver, outer.as_string())
         smtp.close()
     except smtplib.SMTPException as e:
@@ -159,7 +161,7 @@ class MailDialog(wx.Dialog):
         #        self.attachmentsChoice.Enable(False)
         #        self.attachmentsChoice.Bind(wx.EVT_CHOICE, self.OnAttachmentsChoice, id=wx.ID_ANY)
 
-        self.attachmentLB = wx.ListBox(choices=[v for v in self.attachementList], parent=self.panel1, id=wx.ID_ANY, style=wx.LB_NEEDED_SB | wx.LB_SINGLE, size=wx.Size(200,-1))
+        self.attachmentLB = wx.ListBox(choices=[os.path.basename(v) for v in self.attachementList], parent=self.panel1, id=wx.ID_ANY, style=wx.LB_NEEDED_SB | wx.LB_SINGLE, size=wx.Size(200,-1))
 
         self.attachmentsGrid.Add(wx.StaticText(self.panel1, label='Attachments'), proportion=0, flag=wx.CENTER)
 #        self.attachmentsGrid.Add(self.attachmentsChoice, proportion=1, flag=wx.EXPAND)
@@ -340,7 +342,15 @@ class MailDialog(wx.Dialog):
 #        print(mailBody)
         
         # Build & Send the mail
-        sendMultiPartMail(globs, sender, receiver, subject, text, self.attachementList, globs.smtpServer, globs.smtpServerPort)
+        smtpParams = dict()
+        smtpParams['smtpServer']           = globs.smtpServer
+        smtpParams['smtpServerPort']       = globs.smtpServerPort
+        smtpParams['smtpServerProtocol']   = globs.smtpServerProtocol
+        smtpParams['smtpServerUseAuth']    = globs.smtpServerUseAuth
+        smtpParams['smtpServerUserName']   = globs.smtpServerUserName
+        smtpParams['smtpServerUserPasswd'] = globs.smtpServerUserPasswd
+
+        sendMultiPartMail(smtpParams, sender, receiver, subject, text, self.attachementList)
         self.Close()
         event.Skip()
 
@@ -441,9 +451,8 @@ class MyFrame(wx.Frame):
         panel = wx.Panel(self)
 
         attachementList = list()
-        attachementList.append('PB102070.JPG')
-        attachementList.append('PB102071.JPG')
-        
+        attachementList.append(os.path.join(globs.osvmDownloadDir,'PB102070.JPG'))
+        attachementList.append(os.path.join(globs.osvmDownloadDir,'PB102071.JPG'))
         dlg = MailDialog(self, globs, attachementlist=attachementList)
         ret = dlg.ShowModal()
         dlg.Destroy()
