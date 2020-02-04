@@ -382,14 +382,13 @@ class MailDialog(wx.Dialog):
             pathname = fileDialog.GetPath()
             basename = os.path.basename(pathname)
             self.attachmentLB.Append(basename)
-            self.attachementList.append(basename)
+            self.attachementList.append(pathname)
             self.btnRemove.Enable()
             self.btnClear.Enable()
         event.Skip()
         
     def OnBtnRemove(self, event, globs):
         sel = self.attachmentLB.GetSelection()
-        print(sel)
         if sel ==wx.NOT_FOUND:
             print('No file selected')
             event.Skip()
