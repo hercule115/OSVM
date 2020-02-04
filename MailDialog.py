@@ -98,8 +98,8 @@ def sendMultiPartMail(smtpParams, sender, receiver, subject, textbody, attachmen
 
 #### MailDialog
 class MailDialog(wx.Dialog):
-    def __init__(self, parent, globs, attachementlist):
-        self.attachementList = attachementlist
+    def __init__(self, parent, globs, attachmentlist):
+        self.attachmentList = attachmentlist
 
         #        self.prioLevel = ['Select Priority...', 'Minor', 'Normal', 'Major']
         #        self.bugType = ['Select Report Type...', 'Bug', 'Enhancement']
@@ -154,14 +154,14 @@ class MailDialog(wx.Dialog):
         cols = 2
         self.attachmentsGrid = wx.FlexGridSizer(rows, cols, vgap=5, hgap=10)
 
-        #        self.attachmentsChoice = wx.Choice(choices=[v for v in self.attachementList], 
+        #        self.attachmentsChoice = wx.Choice(choices=[v for v in self.attachmentList], 
         #                                           id=wx.ID_ANY, parent=self.panel1, style=0)
         #        self.attachmentsChoice.SetToolTip('List of Mail Attachments')
-        #        self.attachmentsChoice.SetStringSelection(self.attachementList[0] if self.attachementList else '')
+        #        self.attachmentsChoice.SetStringSelection(self.attachmentList[0] if self.attachmentList else '')
         #        self.attachmentsChoice.Enable(False)
         #        self.attachmentsChoice.Bind(wx.EVT_CHOICE, self.OnAttachmentsChoice, id=wx.ID_ANY)
 
-        self.attachmentLB = wx.ListBox(choices=[os.path.basename(v) for v in self.attachementList], parent=self.panel1, id=wx.ID_ANY, style=wx.LB_NEEDED_SB | wx.LB_SINGLE, size=wx.Size(200,-1))
+        self.attachmentLB = wx.ListBox(choices=[os.path.basename(v) for v in self.attachmentList], parent=self.panel1, id=wx.ID_ANY, style=wx.LB_NEEDED_SB | wx.LB_SINGLE, size=wx.Size(200,-1))
 
         self.attachmentsGrid.Add(wx.StaticText(self.panel1, label='Attachments'), proportion=0, flag=wx.CENTER)
 #        self.attachmentsGrid.Add(self.attachmentsChoice, proportion=1, flag=wx.EXPAND)
@@ -350,7 +350,7 @@ class MailDialog(wx.Dialog):
         smtpParams['smtpServerUserName']   = globs.smtpServerUserName
         smtpParams['smtpServerUserPasswd'] = globs.smtpServerUserPasswd
 
-        sendMultiPartMail(smtpParams, sender, receiver, subject, text, self.attachementList)
+        sendMultiPartMail(smtpParams, sender, receiver, subject, text, self.attachmentList)
         self.Close()
         event.Skip()
 
@@ -382,19 +382,19 @@ class MailDialog(wx.Dialog):
             pathname = fileDialog.GetPath()
             basename = os.path.basename(pathname)
             self.attachmentLB.Append(basename)
-            self.attachementList.append(pathname)
+            self.attachmentList.append(pathname)
             self.btnRemove.Enable()
             self.btnClear.Enable()
         event.Skip()
         
     def OnBtnRemove(self, event, globs):
         sel = self.attachmentLB.GetSelection()
-        if sel ==wx.NOT_FOUND:
+        if sel == wx.NOT_FOUND:
             print('No file selected')
             event.Skip()
             return
         self.attachmentLB.Delete(sel)
-        self.attachementList.remove(self.attachementList[sel])
+        self.attachmentList.remove(self.attachmentList[sel])
         if not self.attachmentLB.GetCount():
             self.btnRemove.Disable()
             self.btnClear.Disable()
@@ -405,7 +405,7 @@ class MailDialog(wx.Dialog):
 
     def OnBtnClear(self, event, globs):
         self.attachmentLB.Clear()
-        self.attachementList.clear()
+        self.attachmentList.clear()
         self.btnRemove.Disable()
         self.btnClear.Disable()
         event.Skip()
@@ -449,10 +449,10 @@ class MyFrame(wx.Frame):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
 
-        attachementList = list()
-        attachementList.append(os.path.join(globs.osvmDownloadDir,'PB102070.JPG'))
-        attachementList.append(os.path.join(globs.osvmDownloadDir,'PB102071.JPG'))
-        dlg = MailDialog(self, globs, attachementlist=attachementList)
+        attachmentList = list()
+        attachmentList.append(os.path.join(globs.osvmDownloadDir,'PB102070.JPG'))
+        attachmentList.append(os.path.join(globs.osvmDownloadDir,'PB102071.JPG'))
+        dlg = MailDialog(self, globs, attachmentlist=attachmentList)
         ret = dlg.ShowModal()
         dlg.Destroy()
 
