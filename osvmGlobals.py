@@ -8,7 +8,7 @@ class myGlobals():
 
         self.myName     = 'OSVM'
         self.myLongName = 'Olympus Sync & View Manager'
-        self.myVersion  = '2.2.2'
+        self.myVersion  = '2.3.0'
 
         self.disabledModules = list()
         self.pycc = True
