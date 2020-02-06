@@ -199,15 +199,11 @@ class myGlobals():
 
         # Possible operations on a file
         [self.FILE_DOWNLOAD,
-         self.FILE_DELETE,
-         self.FILE_SELECT,
-         self.FILE_UNSELECT,
-         self.FILE_SHARE,
-         self.FILE_UNSHARE] = [i for i in range(6)]
-
+         self.FILE_MARK,
+         self.FILE_UNMARK] = [i for i in range(3)]
+        
         self.FILE_PROPERTIES = -3
-        self.FILE_SLIDESHOW = -4
-        self.OPERATION_NAMES = {self.FILE_DOWNLOAD:'DOWNLOAD', self.FILE_DELETE:'DELETE'}
+        self.FILE_SLIDESHOW  = -4
 
         # Max # of operations to commit in a single click
         self.MAX_OPERATIONS = 2000
