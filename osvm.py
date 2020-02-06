@@ -746,8 +746,6 @@ def deleteLocalFile(pDialog, filePath, globs):
                          universal_newlines=True)
     for line in p.stdout.readlines():
         msg += line.strip()
-#    stdout, stderr = p.communicate()
-#    output = stdout.decode('utf-8').splitlines()
     
     ret = p.wait()
     print('removeCmd =',removeCmd,'ret=',ret,'msg=',msg)
@@ -816,7 +814,6 @@ def serverIpAddr():
 
 ############# CLASSES #########################################################
 class InstallThread(threading.Thread):
-
     def __init__(self, name, dialog, thrLock, queueLock, workQueue):
 
         threading.Thread.__init__(self)
@@ -1039,7 +1036,6 @@ class SlideShowThread(threading.Thread):
 
 #### class Preferences
 class Preferences():
-    
     def __init__(self, globs):
         pass
 
@@ -1187,7 +1183,6 @@ class Preferences():
                 newcol = wx.Colour()
                 newcol.SetRGB(int(colrgb))
                 globs.fileColors[i][0] = newcol # update globs.fileColors[]
-
 
             sectionMail = self.config['Mail Preferences']
             globs.smtpServer           = sectionMail[globs.SMTP_SERVER]
@@ -1368,30 +1363,18 @@ class FileOperationMenu(wx.Menu):
             for op in self.opList:
                 if op[globs.OP_STATUS] and op[globs.OP_FILENAME] == fileName:
                     found = True
-                    if op[globs.OP_TYPE] == globs.FILE_SHARE:
-                        menuEntry = [fileName, globs.FILE_UNSHARE, self.button, filePath]
-                    else:
-                        menuEntry = [fileName, globs.FILE_UNSELECT, self.button, filePath]
+                    menuEntry = [fileName, globs.FILE_UNMARK, self.button, filePath]
                     self.popupMenuTitles.append((id, menuEntry))
                     id += 1
                     break
             if not found:
-                if fileType == 'JPG' or (fileType == 'MOV' and globs.vlcVideoViewer):
-                    menuEntry = [fileName, globs.FILE_SELECT, self.button, filePath]
-                    self.popupMenuTitles.append((id, menuEntry)) 
-                    id += 1
-                    #XXXX
-                    menuEntry = [fileName, globs.FILE_SHARE, self.button, filePath]
-                    self.popupMenuTitles.append((id, menuEntry)) 
-                    id += 1
-                    #XXXX
+                menuEntry = [fileName, globs.FILE_MARK, self.button, filePath]
+                self.popupMenuTitles.append((id, menuEntry)) 
+                id += 1
             if globs.overwriteLocalFiles:
                 menuEntry = [fileName, globs.FILE_DOWNLOAD, self.button, filePath]
                 self.popupMenuTitles.append((id, menuEntry)) 
                 id += 1
-            menuEntry = [fileName, globs.FILE_DELETE, self.button, filePath]
-            self.popupMenuTitles.append((id, menuEntry)) 
-            id += 1
 
         # Fill-in the menu with entries
         for tmp in self.popupMenuTitles:
@@ -1420,22 +1403,11 @@ class FileOperationMenu(wx.Menu):
             if menuEntry[1] == globs.FILE_DOWNLOAD:
                 title = 'Add %s to Download List' % (menuEntry[0])
                 imgFile = 'plus-32.jpg'
-            if menuEntry[1] == globs.FILE_SELECT:
-                title = 'Add %s to Play List' % (menuEntry[0])
+            if menuEntry[1] == globs.FILE_MARK:
+                title = 'Mark %s' % (menuEntry[0])
                 imgFile = 'plus-32.jpg'
-            if menuEntry[1] == globs.FILE_UNSELECT:
-                title = 'Remove %s from Play List' % (menuEntry[0])
-                imgFile = 'moins-32.jpg'
-            #XXXX
-            if menuEntry[1] == globs.FILE_SHARE:
-                title = 'Add %s to Share List' % (menuEntry[0])
-                imgFile = 'plus-32.jpg'
-            if menuEntry[1] == globs.FILE_UNSHARE:
-                title = 'Remove %s from Share List' % (menuEntry[0])
-                imgFile = 'moins-32.jpg'
-            #XXXX
-            elif menuEntry[1] == globs.FILE_DELETE:
-                title = 'Delete file %s' % (menuEntry[0])
+            if menuEntry[1] == globs.FILE_UNMARK:
+                title = 'Unmark %s' % (menuEntry[0])
                 imgFile = 'moins-32.jpg'
 
             menuItem = wx.MenuItem(self.popupMenu, id, title)
@@ -1488,13 +1460,13 @@ class FileOperationMenu(wx.Menu):
 
         myprint('fileName=%s what=%d' % (fileName,what))
         
-        if what == globs.FILE_UNSELECT or what == globs.FILE_UNSHARE:
+        if what == globs.FILE_UNMARK:
             op = [x for x in self.opList if x[globs.OP_FILENAME] == fileName][0]
             self.parent.resetOneButton(fileName)
             self.parent.resetOneRequest(op)
 
             pendingOpsCnt = self.parent.pendingOperationsCount()
-            msg = 'Request successfully cleared. %d request(s) in the queue' % (pendingOpsCnt)
+            msg = 'Request successfully cleared. %d marked file(s)' % (pendingOpsCnt)
             wx.CallAfter(self.parent.updateStatusBar, msg)
             return
             
@@ -1526,14 +1498,14 @@ class FileOperationMenu(wx.Menu):
         button    = menuEntry[2]
         filePath  = menuEntry[3]
 
-        if operation == globs.FILE_DELETE:
-            # Ask confirmation
-            dial = wx.MessageDialog(None, 
-                                    'Do you really want to DELETE file %s ?'% (fileName), 
-                                    'Question', wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
-            ret = dial.ShowModal()
-            if ret == wx.ID_NO:
-                return
+        # if operation == globs.FILE_DELETE:
+        #     # Ask confirmation
+        #     dial = wx.MessageDialog(None, 
+        #                             'Do you really want to DELETE file %s ?'% (fileName), 
+        #                             'Question', wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
+        #     ret = dial.ShowModal()
+        #     if ret == wx.ID_NO:
+        #         return
 
         op[globs.OP_STATUS]   = 1          # Busy
         op[globs.OP_FILENAME] = fileName
@@ -1545,8 +1517,7 @@ class FileOperationMenu(wx.Menu):
 #        button.SetBackgroundColour(globs.fileColors[globs.FILE_OP_PENDING][0])
 #        button.SetForegroundColour(globs.fileColors[globs.FILE_OP_PENDING][1])
 
-        myprint("Operation scheduled:",op)
-
+        myprint(op)
 
 ####
 class OSVMConfigThread(threading.Thread):
@@ -2178,7 +2149,7 @@ class InstallDialog(wx.Dialog):
     # Local methods
     def _runThread(self, globs):
         # Process all DELETE operations first
-        deleteLocalFiles(self, self.opList, globs)
+        #deleteLocalFiles(self, self.opList, globs)
 
         #dumpOperationList("Global Operation List", self.opList)
 
@@ -2447,7 +2418,8 @@ class OSVM(wx.Frame):
                     button.Bind(wx.EVT_BUTTON, self.LaunchViewer)
                 else:
                     button.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnThumbButton(evt,temp))
-            button.Bind(wx.EVT_RIGHT_DOWN, self.OnThumbButtonRightDown)
+#            button.Bind(wx.EVT_RIGHT_DOWN, self.OnThumbButtonRightDown)
+            button.Bind(wx.EVT_RIGHT_DOWN, lambda evt,temp=globs: self.OnThumbButtonRightDown(evt,temp))
 
             remFileSizeString = humanBytes(remFileSize)
 
@@ -2609,13 +2581,13 @@ class OSVM(wx.Frame):
         fileSize   = menuEntry[3]
         fileDate   = menuEntry[4]
 
-        if operation == globs.FILE_DELETE:
-            # Ask confirmation
-            dial = wx.MessageDialog(None, 'Do you really want to DELETE file %s ?'% (fileName), 
-                                    'Question', wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
-            ret = dial.ShowModal()
-            if ret == wx.ID_NO:
-                return
+        # if operation == globs.FILE_DELETE:
+        #     # Ask confirmation
+        #     dial = wx.MessageDialog(None, 'Do you really want to DELETE file %s ?'% (fileName), 
+        #                             'Question', wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
+        #     ret = dial.ShowModal()
+        #     if ret == wx.ID_NO:
+        #         return
 
         op[globs.OP_STATUS]   = 1          			# Busy
         op[globs.OP_FILENAME] = fileName
@@ -2626,12 +2598,10 @@ class OSVM(wx.Frame):
         op[globs.OP_FILEDATE] = fileDate
 
         pendingOpsCnt = self.pendingOperationsCount()
-        statusBarMsg = 'Request successfully scheduled. %d request(s) in the queue' % (pendingOpsCnt)
+        statusBarMsg = 'File successfully marked. %d marked file(s)' % (pendingOpsCnt)
         self.updateStatusBar(statusBarMsg)
-        self.btnCommit.Enable()
-        self.btnCancel.Enable()
-        self.btnShare.Enable()
-
+        self._enableActionButtons(globs)
+        
         # Sanity check
         # Each entry in thumbButtons[] is of form: [widget, fileName, fgcol, bgcol]
         for b in self.thumbButtons:
@@ -2643,7 +2613,7 @@ class OSVM(wx.Frame):
                     button.SetBackgroundColour(globs.fileColors[globs.FILE_OP_PENDING][0])
                     button.SetForegroundColour(globs.fileColors[globs.FILE_OP_PENDING][1])
                     self.Refresh()
-        myprint("Operation Scheduled:",op)
+        myprint(op)
 
     winDisabler = None
 
@@ -2679,8 +2649,8 @@ class OSVM(wx.Frame):
                 self._setOfflineMode()
 
             self.btnRescan.Enable()
-            if globs.cameraConnected:
-                self.btnCommit.Enable()
+            if not globs.viewMode and globs.cameraConnected:
+                self.btnDownload.Enable()
 
             # Enable all pkg buttons
             self.noteBook.Enable()
@@ -2718,7 +2688,7 @@ class OSVM(wx.Frame):
     def pendingOperationsCount(self):
         cnt = 0
         for i in range(len(self.opList)):
-            if self.opList[i][globs.OP_STATUS] and self.opList[i][globs.OP_TYPE] != globs.FILE_SHARE:
+            if self.opList[i][globs.OP_STATUS]:
                 cnt += 1
         return cnt
 
@@ -2830,38 +2800,34 @@ class OSVM(wx.Frame):
 
     def _init_btnGridBagSizer_Items(self, parent):
         sts1 = wx.BoxSizer(orient=wx.VERTICAL)
-        sts1.Add(self.fileTypesTxt, 0, border=0, flag=wx.EXPAND)
+        sts1.Add(self.fileTypesTxt, 0, border=6, flag=wx.EXPAND|wx.BOTTOM)
         sts1.AddStretchSpacer(prop=1)
         sts1.Add(self.fileTypesChoice, 0, border=0, flag=wx.EXPAND)
-        parent.Add(sts1, pos=(0, 0), flag=wx.ALL | wx.EXPAND, border=0)
+        parent.Add(sts1, pos=(0, 0), flag=wx.ALL, border=0)# | wx.EXPAND
 
         sts3 = wx.BoxSizer(orient=wx.VERTICAL)
-#        sts3.AddStretchSpacer(prop=1)
         sts3.Add(self.fromCb, 0, border=0, flag=wx.EXPAND)
         sts3.AddStretchSpacer(prop=1)
         sts3.Add(self.dpc1, 0, border=0, flag=wx.EXPAND)
-#        sts3.AddStretchSpacer(prop=1)
-        parent.Add(sts3, pos=(0, 1), flag=wx.ALL| wx.EXPAND, border=0)
+        parent.Add(sts3, pos=(0, 1), flag=wx.ALL, border=0)#| wx.EXPAND
 
         sts4 = wx.BoxSizer(orient=wx.VERTICAL)
-#        sts4.AddStretchSpacer(prop=1)
         sts4.Add(self.toCb, 0, border=0, flag=wx.EXPAND)
         sts4.AddStretchSpacer(prop=1)
         sts4.Add(self.dpc2, 0, border=0, flag=wx.EXPAND)
         parent.Add(sts4, pos=(0, 2), flag=wx.ALL, border=0)
 
         sts2 = wx.BoxSizer(orient=wx.VERTICAL)
-        sts2.Add(self.fileSortTxt, 0, border=0, flag=wx.EXPAND)
+        sts2.Add(self.fileSortTxt, 0, border=6, flag=wx.EXPAND|wx.BOTTOM)
         sts2.AddStretchSpacer(prop=1)
         sts2.Add(self.fileSortChoice, 0, border=0, flag=wx.EXPAND)
-        parent.Add(sts2, pos=(0, 3), flag=wx.ALL | wx.EXPAND, border=0)
+        parent.Add(sts2, pos=(0, 3), flag=wx.ALL, border=0)# | wx.EXPAND
 
         parent.Add(20,0, pos=(0, 4)) # Some space before Cast button
 
         sts5 = wx.BoxSizer(orient=wx.VERTICAL)
         sts5.AddStretchSpacer(prop=1)
         sts5.Add(self.btnCast, 0, border=0, flag=wx.EXPAND)
-#        sts5.AddStretchSpacer(prop=1)
         parent.Add(sts5, pos=(0, 5), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
         parent.Add(self.castDeviceName, pos=(1, 5), flag=wx.ALL| wx.ALIGN_CENTER, border=0)
 
@@ -2870,25 +2836,22 @@ class OSVM(wx.Frame):
         sts6 = wx.BoxSizer(orient=wx.VERTICAL)
         sts6.AddStretchSpacer(prop=1)
         sts6.Add(self.btnRew, 0, border=0, flag=wx.EXPAND)
-#        sts6.AddStretchSpacer(prop=1)
         parent.Add(sts6, pos=(0, 7), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
 
         sts7 = wx.BoxSizer(orient=wx.VERTICAL)
         sts7.AddStretchSpacer(prop=1)
         sts7.Add(self.btnPlay, 0, border=0, flag=wx.EXPAND)
-#        sts7.AddStretchSpacer(prop=1)
         parent.Add(sts7, pos=(0, 8), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
 
         sts8 = wx.BoxSizer(orient=wx.VERTICAL)
         sts8.AddStretchSpacer(prop=1)
         sts8.Add(self.btnStop, 0, border=0, flag=wx.EXPAND)
-#        sts8.AddStretchSpacer(prop=1)
         parent.Add(sts8, pos=(0, 9), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
 
         parent.Add(10,0, pos=(0, 10)) # Some space after Stop button
 
 #        parent.Add(self.btnCancel, pos=(0, 11), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
-#        parent.Add(self.btnCommit, pos=(0, 12), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+#        parent.Add(self.btnDownload, pos=(0, 12), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
 
         sts9 = wx.BoxSizer(orient=wx.VERTICAL)
         sts9.AddStretchSpacer(prop=1)
@@ -2897,9 +2860,11 @@ class OSVM(wx.Frame):
         
         sts10 = wx.BoxSizer(orient=wx.VERTICAL)
         sts10.AddStretchSpacer(prop=1)
-        sts10.Add(self.btnCommit, 0, border=0, flag=wx.EXPAND)
+        sts10.Add(self.btnDownload, 0, border=0, flag=wx.EXPAND)
         sts10.AddStretchSpacer(prop=1)
         sts10.Add(self.btnShare, 0, border=0, flag=wx.EXPAND)
+        sts10.AddStretchSpacer(prop=1)
+        sts10.Add(self.btnDelete, 0, border=0, flag=wx.EXPAND)
         parent.Add(sts10, pos=(0, 12), flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
 
         parent.Add(10,0, pos=(0, 13)) #13
@@ -3172,19 +3137,24 @@ class OSVM(wx.Frame):
         self.btnCancel = wx.Button(id=wx.ID_CANCEL, label='Cancel All', parent=self.panel1, style=0)
         self.btnCancel.SetToolTip('Cancel all pending requests')
         self.btnCancel.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnCancel(evt,globs))
-
-        self.btnCommit = wx.Button(id=wx.ID_OK, label='Commit', parent=self.panel1, style=0)
-        self.btnCommit.SetToolTip('Commit all pending requests')
-        self.btnCommit.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnCommit(evt,temp))
-
+        self.btnCancel.Disable()
+        
+        self.btnDownload = wx.Button(id=wx.ID_OK, label='Download', parent=self.panel1, style=0)
+        self.btnDownload.SetToolTip('Commit all pending requests')
+        self.btnDownload.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnCommit(evt,temp))
+        self.btnDownload.Disable()
+        
         self.btnShare = wx.Button(id=wx.ID_OK, label='Share', parent=self.panel1, style=0)
         self.btnShare.SetToolTip('Share selected files')
         self.btnShare.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnShare(evt,temp))
         self.btnShare.Disable()
-        
-        if not globs.cameraConnected:
-            self.btnCancel.Disable()
-            self.btnCommit.Disable()
+
+        self.btnDelete = wx.Button(id=wx.ID_OK, label='Delete', parent=self.panel1, style=0)
+        self.btnDelete.SetToolTip('Delete selected files')
+        self.btnDelete.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnDelete(evt,temp))
+        self.btnDelete.Disable()
+
+        self._disableActionButtons()
 
         # The staticBox3 label MUST end with the string 'Page:' (will be updated automagically)
         if globs.viewMode:
@@ -3393,6 +3363,16 @@ class OSVM(wx.Frame):
             color = str(globs.fileColors[i][0].GetAsString(flags=wx.C2S_HTML_SYNTAX))
             self.colorGrid[i*2].SetState(globs, color)
 
+    def _disableActionButtons(self):
+        for b in [self.btnCancel, self.btnDownload, self.btnShare, self.btnDelete]:
+            b.Disable()
+
+    def _enableActionButtons(self, globs):
+        for b in [self.btnCancel, self.btnDownload, self.btnShare, self.btnDelete]:
+            b.Enable()
+        if globs.viewMode:
+            self.btnDownload.Disable()
+            
     #### Events ####
     def OnEraseBackground(self, evt):
         """ Add a picture to the background """
@@ -3430,7 +3410,7 @@ class OSVM(wx.Frame):
         dlg.Destroy()
         event.Skip()
         
-    def OnThumbButtonRightDown(self, event):
+    def OnThumbButtonRightDown(self, event, globs):
         button = event.GetEventObject()
 
         # Retrieve the button in self.thumbButtons
@@ -3454,11 +3434,9 @@ class OSVM(wx.Frame):
                 entry[0].SetBackgroundColour(globs.fileColors[globs.FILE_OP_PENDING][0])
                 entry[0].SetForegroundColour(globs.fileColors[globs.FILE_OP_PENDING][1])
                 pendingOpsCnt = self.pendingOperationsCount()
-                statusBarMsg = 'Request successfully scheduled. %d request(s) in the queue' % (pendingOpsCnt)
+                statusBarMsg = 'File successfully marked. %d file(s) marked' % (pendingOpsCnt)
                 self.updateStatusBar(statusBarMsg)
-                self.btnCommit.Enable()
-                self.btnCancel.Enable()
-                self.btnShare.Enable()
+                self._enableActionButtons(globs)
                 break
 
         self.panel1.Refresh()
@@ -3914,7 +3892,7 @@ class OSVM(wx.Frame):
             # Build a list of selected files
             self.mediaFileList = list()
             for i in range(len(self.opList)):
-                if self.opList[i][globs.OP_STATUS] and self.opList[i][globs.OP_TYPE] == globs.FILE_SELECT:
+                if self.opList[i][globs.OP_STATUS] and self.opList[i][globs.OP_TYPE] == globs.FILE_MARK:
                     fileName = self.opList[i][globs.OP_FILENAME]
                     self.mediaFileList.append([fileName]) # a tuple
             myprint('%d files selected' % len(self.mediaFileList))
@@ -3942,7 +3920,7 @@ class OSVM(wx.Frame):
                 else:
                     cnt = self._unSyncFiles(globs, 'JPG')
                     cnt += self._unSyncFiles(globs, 'MOV')
-                print('%d selected files have been cleared' % (cnt))
+                myprint('%d selected files have been cleared' % (cnt))
                 self.Refresh()
                 button.Enable()
             else:
@@ -4169,16 +4147,16 @@ class OSVM(wx.Frame):
                 else:
                     continue
 
-            e = [button, fileName, globs.FILE_SELECT, -1, -1]
+            e = [button, fileName, globs.FILE_MARK, -1, -1]
             op = [x for x in self.opList if not x[globs.OP_STATUS]][0] # First free slot
             self._scheduleOperation(op, e)
             i += 1
         return i
 
     def selectFilesByPosition(self, globs, fileType='', position=0):	# fileType could be : JPG, MOV
-        # Loop thru opList[]: Clear all slots marked as SELECTED
+        # Loop thru opList[]: Clear all slots marked as MARK
         for op in self.opList:
-            if op[globs.OP_STATUS] and op[globs.OP_TYPE] == globs.FILE_SELECT:
+            if op[globs.OP_STATUS] and op[globs.OP_TYPE] == globs.FILE_MARK:
                 fileName = op[globs.OP_FILENAME]
                 self.resetOneButton(fileName)
                 self.resetOneRequest(op)
@@ -4190,7 +4168,7 @@ class OSVM(wx.Frame):
                 continue
 
             button = [x[0] for x in self.thumbButtons if x[1] == fileName]
-            e = [button, fileName, globs.FILE_SELECT, -1, -1]
+            e = [button, fileName, globs.FILE_MARK, -1, -1]
             try:
                 op = [x for x in self.opList if not x[globs.OP_STATUS]][0] # First free slot
             except:
@@ -4204,7 +4182,7 @@ class OSVM(wx.Frame):
     def OnBtnShare(self, event, globs):
         shareList = list()
         for op in self.opList:
-            if op[globs.OP_STATUS] and op[globs.OP_TYPE] == globs.FILE_SHARE:
+            if op[globs.OP_STATUS]:
                 filePath = op[globs.OP_FILEPATH]
                 shareList.append(filePath)
 
@@ -4213,9 +4191,48 @@ class OSVM(wx.Frame):
         mailDlg = MailDialog.MailDialog(self, globs, attachmentlist=shareList)
         mailDlg.ShowModal()
         mailDlg.Destroy()
+        # Clear all marked files
+        cnt = self._unSelectFiles(globs,'JPG')
+        cnt += self._unSelectFiles(globs,'MOV')
+        # Clear action buttons
+        self._disableActionButtons()
+        self.Refresh()
         event.Skip()
-    
-    def OnBtnCommit(self, event, globs):
+
+    def OnBtnDelete(self, event, globs):
+        #if globs.askBeforeCommit:
+        msg = 'Do you really want to DELETE marked files(s) ?'
+        dial = wx.MessageDialog(None, msg, 'Delete Files',
+                                wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
+        ret = dial.ShowModal()
+        if ret == wx.ID_NO:
+            # Allow user action
+            msg = ''
+            self._setMode(globs.MODE_ENABLED, msg)
+            event.Skip()
+            return
+
+        needRefresh = False
+        for op in self.opList:
+            if op[globs.OP_STATUS]:
+                filePath = op[globs.OP_FILEPATH]
+                try:
+                    os.remove(filePath)
+                except OSError as error:
+                    myprint('Failed to delete %s: %s' % (filePath,error))
+                else:
+                    myprint('%s successfully deleted' % filePath)
+                    needRefresh = True
+        if needRefresh:
+            globs.localFilesCnt = localFilesInfo(globs.osvmDownloadDir, globs)
+            myprint('%d local files on this host' % globs.localFilesCnt)
+
+            # Update list of files on the GUI
+            self._updateThumbnailPanel()
+        self._disableActionButtons()
+        event.Skip()
+        
+    def OnBtnDownload(self, event, globs):
         pendingOpsCnt = self.pendingOperationsCount()
         if pendingOpsCnt == 0:
             return
@@ -4226,7 +4243,7 @@ class OSVM(wx.Frame):
 
         if globs.askBeforeCommit:
             msg = 'Do you really want to proceed with pending request(s) ?'
-            dial = wx.MessageDialog(None, msg, 'Commit Operations',
+            dial = wx.MessageDialog(None, msg, 'Download Files',
                                     wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
             ret = dial.ShowModal()
             if ret == wx.ID_NO:
@@ -4271,7 +4288,7 @@ class OSVM(wx.Frame):
         # If some files have been installed, rescan/update list
         # Detect local files on the host
         globs.localFilesCnt = localFilesInfo(globs.osvmDownloadDir, globs)
-        print('OnBtnCommit(): %d local files on this host' % globs.localFilesCnt)
+        myprint('%d local files on this host' % globs.localFilesCnt)
 
         # Update list of files on the GUI
         self._updateThumbnailPanel()
@@ -4310,6 +4327,8 @@ class OSVM(wx.Frame):
         # Reset file selection check boxes
         for cb in [self.fromCb,self.toCb]:
             cb.SetValue(False)
+
+        self._disableActionButtons()
 
     def OnStatusBar1Update(self, event):
         if 0:
