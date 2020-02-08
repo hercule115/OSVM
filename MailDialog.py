@@ -88,13 +88,33 @@ def sendMultiPartMail(smtpParams, sender, receiver, subject, textbody, attachmen
         smtp = smtplib.SMTP_SSL(smtpParams['smtpServer'],smtpParams['smtpServerPort'])
 #        smtp.set_debuglevel(1)
         if smtpParams['smtpServerUseAuth']:
-            smtp.login(smtpParams['smtpServerUserName'],smtpParams['smtpServerUserPasswd'])
-        smtp.sendmail(sender, receiver, outer.as_string())
-        smtp.close()
+            try:
+                smtp.login(smtpParams['smtpServerUserName'],smtpParams['smtpServerUserPasswd'])
+            except (smtplib.SMTPHeloError, smtplib.SMTPAuthenticationError) as e:
+                myprint('smtp.login Error: {0}'.format(e))
+                msg = 'Error while connecting to the SMTP Server. Check your Credentials'
+                dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
+                dlg.ShowModal()
+                wx.EndBusyCursor()
+                return(-1)
+        try:
+            smtp.sendmail(sender, receiver, outer.as_string())
+        except:
+            msg = 'Error while sending mail. Check Mail Parameters'
+            myprint(msg)
+            dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            wx.EndBusyCursor()
+            return(-1)
     except smtplib.SMTPException as e:
         msg = "Error: %s" % ("{0}".format(e.strerror))
         myprint(msg)
-    wx.EndBusyCursor()
+        wx.EndBusyCursor()
+        return(-1)
+
+    wx.EndBusyCursor()                    
+    smtp.quit()
+    return(0)
 
 #### MailDialog
 class MailDialog(wx.Dialog):
@@ -314,8 +334,8 @@ class MailDialog(wx.Dialog):
         smtpParams['smtpServerUserName']   = globs.smtpServerUserName
         smtpParams['smtpServerUserPasswd'] = globs.smtpServerUserPasswd
 
-        sendMultiPartMail(smtpParams, sender, receiver, subject, text, self.attachmentList)
-        self.Close()
+        if not sendMultiPartMail(smtpParams, sender, receiver, subject, text, self.attachmentList):
+            self.Close()
         event.Skip()
 
     def OnBtnPrefs(self, event, globs):
@@ -356,7 +376,7 @@ class MailDialog(wx.Dialog):
             myprint('No file selected')
             event.Skip()
             return
-        self.attachPmentLB.Delete(sel)
+        self.attachmentLB.Delete(sel)
         self.attachmentList.remove(self.attachmentList[sel])
         if not self.attachmentLB.GetCount():
             self.btnRemove.Disable()
