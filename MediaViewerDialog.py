@@ -5,6 +5,7 @@ import sys
 import os
 import builtins as __builtin__
 import inspect
+import time
 
 #import osvmGlobals
 moduleList = ['osvmGlobals']
