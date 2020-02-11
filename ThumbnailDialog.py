@@ -91,13 +91,13 @@ class ThumbnailDialog(wx.Dialog):
         event.Skip()
 
 ####
-    def myprint(*args, **kwargs):
-        """My custom print() function."""
-        # Adding new arguments to the print function signature 
-        # is probably a bad idea.
-        # Instead consider testing if custom argument keywords
-        # are present in kwargs
-        __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
+def myprint(*args, **kwargs):
+    """My custom print() function."""
+    # Adding new arguments to the print function signature 
+    # is probably a bad idea.
+    # Instead consider testing if custom argument keywords
+    # are present in kwargs
+    __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
 
 class MyFrame(wx.Frame):
     def __init__(self, parent, id, title):

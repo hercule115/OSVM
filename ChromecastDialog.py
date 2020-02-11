@@ -16,7 +16,6 @@ for k,v in moduleList.items():
 ####
 #print(__name__)
 
-
 #### ChromecastDialog
 class ChromecastDialog(wx.Dialog):
     """

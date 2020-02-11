@@ -608,14 +608,6 @@ def touch(path):
     with open(path, 'a'):
         os.utime(path, None)
 
-# def deleteLocalFiles(pDialog, opList, globs):
-#     for op in opList:
-#         # If this operation is not used or not 'DELETE', skip it
-#         if not op[globs.OP_STATUS] or op[globs.OP_TYPE] != globs.FILE_DELETE:
-#             continue
-#         filePath = op[globs.OP_FILEPATH]
-#         (ret, msg) = deleteLocalFile(pDialog, filePath, globs)
-
 def downloadFile(op, pDialog):
     fileName   = op[globs.OP_FILENAME]
     localFile  = op[globs.OP_FILEPATH]
@@ -773,7 +765,7 @@ def setBusyCursor(state):
         wx.EndBusyCursor()
 
 # Dump object attributes
-def dump(obj):
+def dumpAttrs(obj):
     for attr in dir(obj):
         print("obj.%s = %s" % (attr, getattr(obj, attr)))
 
@@ -793,7 +785,7 @@ def startHTTPServer():
         stdout=null,
         stderr=null,
         )
-    print("Initializing HTTP Server on port %s" % globs.SERVER_HTTP_PORT) 
+    myprint('Initializing HTTP Server on port %s' % globs.SERVER_HTTP_PORT) 
     time.sleep(1)
     return p
 
@@ -1049,13 +1041,13 @@ class Preferences():
         try:
             options = config.options(section)
         except:
-                print("exception on option: %s" % options)
+                myprint('exception on option: %s' % options)
                 return dict1
         for opt in options:
             try:
                 dict1[opt] = config.get(section, opt)
                 if dict1[opt] == -1:
-                    myprint("skip: %s" % opt)
+                    myprint('skipping: %s' % opt)
             except:
                 myprint("Got exception: %s" % opt)
                 dict1[opt] = None
@@ -1239,7 +1231,7 @@ class Preferences():
             return True # Parsing KO, New file created
 
     def _saveInitFile(self):
-        myprint("Saving preference file:", globs.initFilePath)
+        myprint("Saving preference file:%s" % globs.initFilePath)
 
         # lets update the config file
         self.config['Version'] = {globs.INI_VERSION: globs.iniFileVersion}

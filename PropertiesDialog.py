@@ -123,7 +123,6 @@ class PropertiesDialog(wx.Dialog):
     def _init_buttonsBoxSizer_Items(self, parent):
         parent.Add(self.btnCopyPath, 1, border=0, flag=wx.ALIGN_LEFT)
         parent.AddStretchSpacer(prop=1)
-        #parent.Add(0, 4, border=0, flag=wx.EXPAND)
         parent.Add(self.btnClose, 1, border=0, flag=wx.ALIGN_RIGHT)
 
     def _init_sizers(self):

@@ -7,7 +7,6 @@ import builtins as __builtin__
 import inspect
 import time
 import platform
-import subprocess
 
 # Import the email modules we'll need
 from email.message import EmailMessage
@@ -21,14 +20,8 @@ from email import encoders
 import mimetypes # To guess file type
 import smtplib	# actual sending function
 
-# moduleList = ['osvmGlobals', 'MailPreferencesDialog']
-
-# for m in moduleList:
-#     print('Loading: %s' % m)
-#     mod = __import__(m, fromlist=[None])
-#     globals()[m] = globals().pop('mod')	# Rename module in globals()
-
-moduleList = {'osvmGlobals':'globs', 'MailPreferencesDialog':'MailPreferencesDialog'}
+moduleList = {'osvmGlobals':'globs',
+              'MailPreferencesDialog':'MailPreferencesDialog'}
 
 for k,v in moduleList.items():
     print('Loading: %s as %s' % (k,v))
@@ -426,8 +419,6 @@ class MyFrame(wx.Frame):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
 
-        myprint(globs.smtpServerPort)
-        
         attachmentList = list()
         attachmentList.append(os.path.join(globs.osvmDownloadDir,'PB102070.JPG'))
         attachmentList.append(os.path.join(globs.osvmDownloadDir,'PB102071.JPG'))
@@ -438,8 +429,7 @@ class MyFrame(wx.Frame):
         self.Show()
 
 def main():
-    # Create Globals instance
-    #globs = osvmGlobals.myGlobals()
+    # Init Globals instance
     globs.system = platform.system()		# Linux or Windows or MacOS (Darwin)
     globs.pythonVersion = (sys.version).split()[0]	# 2.x or 3.x ?
 

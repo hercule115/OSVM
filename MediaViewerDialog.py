@@ -183,7 +183,7 @@ class MediaViewerDialog(wx.Dialog):
         # Skip over non JPG files
         suffix = self.imgFilePath.rsplit('.')[-1:][0]
         while suffix != 'JPG' and suffix != 'jpg':
-            print('Skipping over',self.imgFilePath)
+            myprint('Skipping over %s' % self.imgFilePath)
             self.imgIdx = (self.imgIdx + 1) % len(self.listToUse)
             self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx][globs.F_NAME])
             suffix = self.imgFilePath.rsplit('.')[-1:][0]
@@ -324,7 +324,7 @@ class MediaViewerDialog(wx.Dialog):
 
         for e in self.listToUse: # each entry is a list containing filename as first field
             v = os.path.join(self.videoDirName, e[globs.F_NAME])
-            print('videoOnBtnPlay(): Playing %s' % v)
+            myprint('Playing %s' % v)
             self.mediaIsFinished = False
 
             # Create a VLC Player instance
@@ -441,11 +441,11 @@ class MediaViewerDialog(wx.Dialog):
             self._videoPlayerStopped(True)
 
     def _videoPlayerStopped(self, evt):
-        print('_videoPlayerStopped(): Player stopped')
+        myprint('Player stopped')
         self.playerIsStopped = True
 
     def _videoMediaFinished(self, evt):
-        print('_videoMediaFinished(): End of Media reached')
+        myprint('End of Media reached')
         time.sleep(2)
         self.mediaIsFinished = True
         self.vlcPlayer.release()

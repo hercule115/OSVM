@@ -5,7 +5,7 @@ from os.path import expanduser
 
 myName     = 'OSVM'
 myLongName = 'Olympus Sync & View Manager'
-myVersion  = '2.3.0'
+myVersion  = '2.4.0'
 
 disabledModules = list()
 pycc = True
@@ -68,10 +68,9 @@ DEFAULT_SMTP_SERVER_PORT = 25
 DEFAULT_SMTP_SERVER_USE_AUTH = False
 DEFAULT_SMTP_SERVER_USER_NAME = ''
 DEFAULT_SMTP_SERVER_USER_PASSWD = ''                
-
 DEFAULT_MAIL_ADDR = None
 
-# Preferences file option keys
+# Preferences file option keys in ini file
 INI_VERSION = 'iniversion'
 HTML_ROOT_FILE = 'htmlrootfile'
 COMPACT_MODE = 'compactmode'

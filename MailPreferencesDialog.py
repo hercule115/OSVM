@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import wx
-import wx.lib.scrolledpanel as scrolled
 
 import sys
 import os
@@ -8,7 +7,6 @@ import builtins as __builtin__
 import inspect
 import time
 import platform
-import subprocess
 
 moduleList = {'osvmGlobals':'globs'}
 
@@ -178,40 +176,24 @@ class MailPreferencesDialog(wx.Dialog):
 
     ## Events
     def OnServerTC(self, event):
-        # v = self.serverTC.GetValue()
-        # if not v:
-        #     self.btnApply.Disable()
-        # else:
-        #     self.btnApply.Enable()
         event.Skip()
         
     def OnRadioButton(self, event):
         for i in range(1,len(self.fields)):	# Loop thru all radio buttons
-            if self.fields[i][0].GetValue():	# Check if radio button is selected
-                self.fields[i][1].Enable()	# Enable associated text field for input
-            else:
-                self.fields[i][1].Disable()                
+            # Enable associated text field for input
+            self.fields[i][1].Enable( self.fields[i][0].GetValue())
         event.Skip()
 
     def OnUseAuthCB(self, event):
         if self.useAuthCB.GetValue():
             self.authPrefs['Username'][1].Enable()
             self.authPrefs['Password'][1].Enable()
-            # if self.authPrefs['Username'][1].GetValue() == '' and self.authPrefs['Password'][1].GetValue() == '':
-            #     self.btnApply.Disable()
-            # else:
-            #     self.btnApply.Enable()
         else:
             self.authPrefs['Username'][1].Disable()
             self.authPrefs['Password'][1].Disable()
-#            self.btnApply.Enable()
         event.Skip()
 
     def OnAuthTC(self, event):
-        # if self.authPrefs['Username'][1].GetValue() or self.authPrefs['Password'][1].GetValue():
-        #     self.btnApply.Enable()
-        # else:
-        #     self.btnApply.Disable()
         event.Skip()
 
     def OnBtnApply(self, event):
@@ -248,8 +230,6 @@ class MailPreferencesDialog(wx.Dialog):
 
     def OnBtnReset(self, event):
         self._GUIReset()
-#        self.btnApply.SetDefault()
-#        self.btnApply.Disable()
         event.Skip()
 
     def _GUIReset(self):
