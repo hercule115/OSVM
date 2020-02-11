@@ -8,12 +8,15 @@ import inspect
 from copy import deepcopy
 import platform
 
-moduleList = ['osvmGlobals', 'ColorPickerDialog', 'MailPreferencesDialog', 'WifiDialog']
+moduleList = {'osvmGlobals':'globs',
+              'ColorPickerDialog':'ColorPickerDialog',
+              'MailPreferencesDialog':'MailPreferencesDialog',
+              'WifiDialog':'WifiDialog'}
 
-for m in moduleList:
-    print('Loading: %s' % m)
-    mod = __import__(m, fromlist=[None])
-    globals()[m] = globals().pop('mod')	# Rename module in globals()
+for k,v in moduleList.items():
+    print('Loading: %s as %s' % (k,v))
+    mod = __import__(k, fromlist=[None])
+    globals()[v] = globals().pop('mod')	# Rename module in globals()
 
 ####
 #print(__name__)
@@ -29,7 +32,7 @@ class PreferencesDialog(wx.Dialog):
     tmpOsvmDownloadDir = ''
     tmpOsvmPkgFtpUrl = ''
     
-    def __init__(self, parent, globs):
+    def __init__(self, parent):
         
         """
         Initialize the preferences dialog box
@@ -43,7 +46,7 @@ class PreferencesDialog(wx.Dialog):
         myStyle = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.TAB_TRAVERSAL
         wx.Dialog.__init__(self, None, wx.ID_ANY, '%s - Preferences' % globs.myLongName, style=myStyle)
 
-        self._initialize(globs)
+        self._initialize()
 
         self.panel1.SetSizerAndFit(self.topBoxSizer)
         self.SetClientSize(self.topBoxSizer.GetSize())
@@ -239,7 +242,7 @@ class PreferencesDialog(wx.Dialog):
     """
     Create and layout the widgets in the dialog
     """
-    def _initialize(self, globs):
+    def _initialize(self):
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self,
                                size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
 
@@ -267,7 +270,7 @@ class PreferencesDialog(wx.Dialog):
         self.cb7.SetToolTip('Automatically switch to favorite network (if set) when entering Sync Mode')
 
         for cb in [self.cb1,self.cb2,self.cb3,self.cb5,self.cb6,self.cb7]:
-            cb.Bind(wx.EVT_CHECKBOX, lambda evt, temp=globs:  self.OnCheckBox(evt, temp))
+            cb.Bind(wx.EVT_CHECKBOX, lambda evt:  self.OnCheckBox(evt))
             
         self.staticText7 = wx.StaticText(id=wx.ID_ANY, label='Max // Download:', 
                                          parent=self.panel1, style=0)
@@ -276,7 +279,7 @@ class PreferencesDialog(wx.Dialog):
                                            id=wx.ID_ANY, parent=self.panel1, style=0)
         self.maxDownloadChoice.SetToolTip('Max allowed download in //. (0 = unlimited)')
         self.maxDownloadChoice.SetStringSelection(str(globs.maxDownload))
-        self.maxDownloadChoice.Bind(wx.EVT_CHOICE, lambda evt, temp=globs:  self.OnMaxDownloadChoice(evt, temp))
+        self.maxDownloadChoice.Bind(wx.EVT_CHOICE, lambda evt:  self.OnMaxDownloadChoice(evt))
         self.sortTypes = ['Recent First', 'Oldest First']
         self.fileSortTxt = wx.StaticText(label='Sorting Order:', parent=self.panel1, id=wx.ID_ANY)
         self.fileSortChoice = wx.Choice(choices=[v for v in self.sortTypes], 
@@ -288,12 +291,12 @@ class PreferencesDialog(wx.Dialog):
         self.colorPickerBtn = wx.Button(id=wx.ID_ANY, label='Color Chooser',
                                         parent=self.panel1, style=0)
         self.colorPickerBtn.SetToolTip('Choose colors of package status')
-        self.colorPickerBtn.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnColorPicker(evt, temp))
+        self.colorPickerBtn.Bind(wx.EVT_BUTTON, lambda evt: self.OnColorPicker(evt))
 
         self.mailPrefsBtn = wx.Button(id=wx.ID_ANY, label='Mail Preferences',
                                       parent=self.panel1, style=0)
         self.mailPrefsBtn.SetToolTip('Configure Mail Preferences')
-        self.mailPrefsBtn.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnMailPrefs(evt, temp))
+        self.mailPrefsBtn.Bind(wx.EVT_BUTTON, lambda evt: self.OnMailPrefs(evt))
         
         # viewMode preferences in staticBox4
         self.staticBox4 = wx.StaticBox(id=wx.ID_ANY,
@@ -307,7 +310,7 @@ class PreferencesDialog(wx.Dialog):
                                            id=wx.ID_ANY, parent=self.panel1, style=0)
         self.ssDelayChoice.SetToolTip('Delay interval')
         self.ssDelayChoice.SetStringSelection(str(globs.ssDelay))
-        self.ssDelayChoice.Bind(wx.EVT_CHOICE, lambda evt, temp=globs: self.OnSsDelayChoice(evt, temp))
+        self.ssDelayChoice.Bind(wx.EVT_CHOICE, lambda evt: self.OnSsDelayChoice(evt))
 
         # Configuration
         self.staticBox1 = wx.StaticBox(id=wx.ID_ANY,
@@ -375,22 +378,22 @@ class PreferencesDialog(wx.Dialog):
         self.favoriteNetwork = wx.Button(id=wx.ID_ANY, label='Select Favorite Camera AP',
                                         parent=self.panel1, style=0)
         self.favoriteNetwork.SetToolTip('Choose favorite camera access point')
-        self.favoriteNetwork.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnFavoriteCamera(evt, temp))
+        self.favoriteNetwork.Bind(wx.EVT_BUTTON, lambda evt: self.OnFavoriteCamera(evt))
 
         self.staticText6 = wx.StaticText(id=wx.ID_ANY, label=globs.favoriteNetwork[globs.NET_SSID], parent=self.panel1, style=0)
         #### Bottom buttons
         self.btnCancel = wx.Button(id=wx.ID_CANCEL, label='Cancel', parent=self.panel1, style=0)
         self.btnCancel.SetToolTip('Discard changes')
-        self.btnCancel.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnCancel(evt, temp))
+        self.btnCancel.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnCancel(evt))
         
         self.btnReset = wx.Button(id=wx.ID_DEFAULT, label='Default', parent=self.panel1, style=0)
         self.btnReset.SetToolTip('Reset to factory defaults')
-        self.btnReset.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnReset(evt, temp))
+        self.btnReset.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnReset(evt))
 
         self.btnApply = wx.Button(id=wx.ID_APPLY, label='Apply', parent=self.panel1, style=0)
         self.btnApply.SetToolTip('Apply changes to current session')
         self.btnApply.SetDefault()
-        self.btnApply.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnApply(evt, temp))
+        self.btnApply.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnApply(evt))
 
         url = str(self.cameraUrlTextCtrl.GetValue())
         if not url.startswith('http'):
@@ -409,7 +412,7 @@ class PreferencesDialog(wx.Dialog):
         return self.needRescan
 
     # Reset Preference Dialog to Default values
-    def _GUIReset(self, globs):
+    def _GUIReset(self):
         self.cb1.SetValue(globs.DEFAULT_COMPACT_MODE)
         self.cb2.SetValue(globs.DEFAULT_ASK_BEFORE_COMMIT)
         self.cb3.SetValue(globs.DEFAULT_SAVE_PREFERENCES_ON_EXIT)
@@ -426,7 +429,7 @@ class PreferencesDialog(wx.Dialog):
         self.tmpOsvmDownloadDir = globs.DEFAULT_OSVM_DOWNLOAD_DIR
         self.tmpOsvmPkgFtpUrl   = globs.DEFAULT_OSVM_ROOT_URL
 
-    def _updateGlobalsFromGUI(self, globs):
+    def _updateGlobalsFromGUI(self):
         globs.compactMode           = self.cb1.GetValue()
         globs.askBeforeCommit       = self.cb2.GetValue()
         globs.savePreferencesOnExit = self.cb3.GetValue()
@@ -445,7 +448,7 @@ class PreferencesDialog(wx.Dialog):
         #globs.printGlobals()
 
     #### Events ####
-    def OnCheckBox(self, event, globs):
+    def OnCheckBox(self, event):
         self.btnApply.Enable()
         event.Skip()
 
@@ -468,44 +471,44 @@ class PreferencesDialog(wx.Dialog):
             dlg.Destroy()
         return OnClick
 
-    def OnFavoriteCamera(self, event, globs):
-        dlg = WifiDialog.WifiDialog(self, globs)
+    def OnFavoriteCamera(self, event):
+        dlg = WifiDialog.WifiDialog(self)
         ret = dlg.ShowModal()
         dlg.Destroy()
         self.staticText6.SetLabel(globs.favoriteNetwork[globs.NET_SSID])
         self.btnApply.Enable()
         event.Skip()
 
-    def OnColorPicker(self, event, globs):
-        dlg = ColorPickerDialog.ColorPickerDialog(self, globs)
+    def OnColorPicker(self, event):
+        dlg = ColorPickerDialog.ColorPickerDialog(self)
         if dlg.ShowModal() == wx.ID_OK:
             self.needRescan = True
             self.btnApply.Enable()
         dlg.Destroy()
 
-    def OnMailPrefs(self, event, globs):
-        dlg = MailPreferencesDialog.MailPreferencesDialog(self, globs)
+    def OnMailPrefs(self, event):
+        dlg = MailPreferencesDialog.MailPreferencesDialog(self)
         if dlg.ShowModal() == wx.ID_APPLY:
             self.btnApply.Enable()
             myprint('Mail Preferences have been updated')
         dlg.Destroy()
         
-    def OnBtnReset(self, event, globs):
-        self._GUIReset(globs)
+    def OnBtnReset(self, event):
+        self._GUIReset()
         self.btnApply.Enable()
 #        self.btnApply.SetDefault()
         event.Skip()
 
-    def OnBtnCancel(self, event, globs):
+    def OnBtnCancel(self, event):
         # Restore initial colors
         globs.fileColors = deepcopy(self._tmpPkgColors)
         self.needRescan = False
         self.EndModal(wx.ID_CANCEL)
         event.Skip()
 
-    def OnBtnApply(self, event, globs):
-        self._updateGlobalsFromGUI(globs)
-        self.parent._savePreferences(globs)
+    def OnBtnApply(self, event):
+        self._updateGlobalsFromGUI()
+        self.parent._savePreferences()
 
         globs.thumbDir = os.path.join(globs.osvmDownloadDir, '.thumbnails')
         if not os.path.isdir(globs.thumbDir):
@@ -535,7 +538,7 @@ class PreferencesDialog(wx.Dialog):
         self.btnApply.Enable()
         event.Skip()
 
-    def OnMaxDownloadChoice(self, event, globs):
+    def OnMaxDownloadChoice(self, event):
         globs.maxDownload = int(self.maxDownloadChoice.GetSelection())
         self.btnApply.Enable()
         event.Skip()
@@ -545,7 +548,7 @@ class PreferencesDialog(wx.Dialog):
         self.btnApply.Enable()
         event.Skip()
 
-    def OnSsDelayChoice(self, event, globs):
+    def OnSsDelayChoice(self, event):
         globs.ssDelay = int(self.ssDelayChoice.GetSelection()) + self.MIN_SS_DELAY
         self.btnApply.Enable()
         event.Skip()
@@ -604,36 +607,34 @@ def diskUsage(path):
     return (humanBytes(total), humanBytes(used), humanBytes(free))
 
 class MyFrame(wx.Frame):
-    def __init__(self, parent, id, title, globs):
+    def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
-        dlg = PreferencesDialog(self, globs)
+        dlg = PreferencesDialog(self)
         ret = dlg.ShowModal()
         dlg.Destroy()
 
         self.Show()
 
-    def _savePreferences(self, globs):	# dummy
+    def _savePreferences(self):	# dummy
         pass
     
 def main():
-    # Create Globals instance
-    g = osvmGlobals.myGlobals()
-
-    g.system = platform.system()    # Linux or Windows or MacOS (Darwin)
+    # Init Globals instance
+    globs.system = platform.system()    # Linux or Windows or MacOS (Darwin)
 
     try:
         import objc # WifiDialog
     except ImportError:
         msg = 'Objc module not installed. Disabling Network Selector'
         print(msg)
-        g.networkSelector = False
-        g.disabledModules.append(('Objc',msg))
+        globs.networkSelector = False
+        globs.disabledModules.append(('Objc',msg))
     else:
-        g.networkSelector = True
+        globs.networkSelector = True
     
     # Init network (Mac only!!!)
-    if g.system == 'Darwin' and g.networkSelector:
+    if globs.system == 'Darwin' and globs.networkSelector:
         objc.loadBundle('CoreWLAN',
                         bundle_path='/System/Library/Frameworks/CoreWLAN.framework',
                         module_globals=globals())
@@ -649,13 +650,13 @@ Transmit Power: %s
 RSSI:           %s""" % (iname, interface.ssid(), interface.bssid(),interface.transmitRate(),
                          interface.transmitPower(), interface.rssi()))
 
-        g.iface = CWInterface.interface()
-        if not g.iface:
+        globs.iface = CWInterface.interface()
+        if not globs.iface:
             print('No Network Interface')
 
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
-    frame = MyFrame(None, -1, title="Test", globs=g)
+    frame = MyFrame(None, -1, title="Test")
     frame.Show()
     app.MainLoop()
 

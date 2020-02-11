@@ -7,13 +7,12 @@ import builtins as __builtin__
 import inspect
 import time
 
-#import osvmGlobals
-moduleList = ['osvmGlobals']
+moduleList = {'osvmGlobals':'globs'}
 
-for m in moduleList:
-    print('Loading: %s' % m)
-    mod = __import__(m, fromlist=[None])
-    globals()[m] = globals().pop('mod')	# Rename module in globals()
+for k,v in moduleList.items():
+    print('Loading: %s as %s' % (k,v))
+    mod = __import__(k, fromlist=[None])
+    globals()[v] = globals().pop('mod')	# Rename module in globals()
 
 try:
     import vlc # MediaViewer
@@ -29,7 +28,7 @@ else:
 
 ### class MediaViewer
 class MediaViewerDialog(wx.Dialog):
-    def __init__(self, parent, mediaFileListOrPath, globs):
+    def __init__(self, parent, mediaFileListOrPath):
         wx.Dialog.__init__(self, None, wx.ID_ANY, title="Media Viewer")
 
         self.mediaFileListOrPath = mediaFileListOrPath
@@ -43,10 +42,10 @@ class MediaViewerDialog(wx.Dialog):
         suffix = fileName.split('.')[1]
 
         if suffix == 'JPG' or suffix == 'jpg':
-            self.imageViewer(globs)
+            self.imageViewer()
         else:
             if globs.vlcVideoViewer:
-                self.videoViewer(globs)
+                self.videoViewer()
             else:
                 self.Destroy()#???????
                 return
@@ -62,7 +61,7 @@ class MediaViewerDialog(wx.Dialog):
         wx.PostEvent(self.btnPlay, evt)
 
     ######### Image Viewer ##########
-    def imageViewer(self, globs):
+    def imageViewer(self):
         myprint('Launching imageViewer')
         self.imageFileListOrPath = self.mediaFileListOrPath
 
@@ -74,11 +73,11 @@ class MediaViewerDialog(wx.Dialog):
         self.Bind(wx.EVT_TIMER, self._imageNext, self.slideTimer)
 
         self.gaugeTimer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, lambda evt,temp=globs: self._gaugeTimerHandler(evt,temp), self.gaugeTimer)
+        self.Bind(wx.EVT_TIMER, lambda evt: self._gaugeTimerHandler(evt), self.gaugeTimer)
 
         self.SetTitle("Image Viewer")
 
-        self._imageInitialize(globs)
+        self._imageInitialize()
 
         if type(self.imageFileListOrPath).__name__ == 'list': # List of files
             self.listToUse = self.imageFileListOrPath	# Set list to use
@@ -95,7 +94,7 @@ class MediaViewerDialog(wx.Dialog):
             self.listToUse = [globs.localFilesSorted[self.imgIdx]]            # Set list to use
             self._imageLoad(self.imageFileListOrPath)
         
-    def _imageInitialize(self, globs):
+    def _imageInitialize(self):
         """
         Layout the widgets on the panel
         """
@@ -116,16 +115,16 @@ class MediaViewerDialog(wx.Dialog):
 
         self.btnPrev = wx.Button(label='Prev', parent=self, style=0)
         self.btnPrev.SetToolTip('Load previous Image')
-        self.btnPrev.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.imageOnBtnPrev(evt,temp))
+        self.btnPrev.Bind(wx.EVT_BUTTON, lambda evt: self.imageOnBtnPrev(evt))
 
         self.btnPlay = wx.Button(label='Play', parent=self, style=0)
         self.btnPlay.SetToolTip('Start the Slideshow')
         #        self.btnPlay.Bind(wx.EVT_BUTTON, self.imageOnBtnPlay)
-        self.btnPlay.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.imageOnBtnPlay(evt, temp))
+        self.btnPlay.Bind(wx.EVT_BUTTON, lambda evt: self.imageOnBtnPlay(evt))
             
         self.btnNext = wx.Button(label='Next', parent=self, style=0)
         self.btnNext.SetToolTip('Load Next Image')
-        self.btnNext.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.imageOnBtnNext(evt,temp))
+        self.btnNext.Bind(wx.EVT_BUTTON, lambda evt: self.imageOnBtnNext(evt))
 
         if self.singleFile:
             for b in [self.btnPrev,self.btnPlay,self.btnNext]:
@@ -177,7 +176,7 @@ class MediaViewerDialog(wx.Dialog):
         self.SetTitle(imageFileName)
         self.Refresh()
         
-    def imageOnBtnNext(self, event, globs):
+    def imageOnBtnNext(self, event):
         self.imgIdx = (self.imgIdx + 1) % len(self.listToUse)
         self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx][globs.F_NAME])
 
@@ -191,7 +190,7 @@ class MediaViewerDialog(wx.Dialog):
 
         self._imageLoad(self.imgFilePath)
         
-    def imageOnBtnPrev(self, event, globs):
+    def imageOnBtnPrev(self, event):
         self.imgIdx = self.imgIdx - 1
         if self.imgIdx < 0:
             self.imgIdx = len(self.listToUse) - 1
@@ -210,11 +209,11 @@ class MediaViewerDialog(wx.Dialog):
         self.ssDelayGauge.SetValue(self.gaugeRange)
         self.gaugeRemaining = self.gaugeRange
 
-    def _gaugeTimerHandler(self, event, globs):
+    def _gaugeTimerHandler(self, event):
         self.gaugeRemaining -= globs.TIMER5_FREQ # milli
         self.ssDelayGauge.SetValue(self.gaugeRemaining)
         
-    def imageOnBtnPlay(self, event, globs):
+    def imageOnBtnPlay(self, event):
         if len(self.listToUse) == 1: # Single file, nothing to do
             return
 
@@ -235,7 +234,7 @@ class MediaViewerDialog(wx.Dialog):
         self.EndModal(wx.ID_OK)
 
     ######### Video Viewer ##########
-    def videoViewer(self, globs):
+    def videoViewer(self):
         myprint('Launching videoViewer')
         self.videoFileListOrPath = self.mediaFileListOrPath
         self.videoDirName = globs.osvmDownloadDir
@@ -253,7 +252,7 @@ class MediaViewerDialog(wx.Dialog):
         self.vlcInstance = vlc.Instance()
         self.mediaIsFinished = False
 
-        self._videoInitialize(globs)
+        self._videoInitialize()
 
     def _videoSetWindow(self, player):
         # set the window id where to render VLC's video output
@@ -265,7 +264,7 @@ class MediaViewerDialog(wx.Dialog):
         elif sys.platform == "darwin": # for MacOS
             player.set_nsobject(handle)
 
-    def _videoInitialize(self, globs):
+    def _videoInitialize(self):
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
 
         self.mainSizer       = wx.BoxSizer(wx.VERTICAL)
@@ -288,7 +287,7 @@ class MediaViewerDialog(wx.Dialog):
 
         self.btnPlay = wx.Button(self, label='Play')
         #        self.Bind(wx.EVT_BUTTON, self.videoOnBtnPlay, self.btnPlay)
-        self.btnPlay.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.videoOnBtnPlay(evt,temp))
+        self.btnPlay.Bind(wx.EVT_BUTTON, lambda evt: self.videoOnBtnPlay(evt))
 
         self.btnVolume = wx.Button(self, label='Mute')
         self.Bind(wx.EVT_BUTTON, self.videoOnBtnVolume, self.btnVolume)
@@ -320,7 +319,7 @@ class MediaViewerDialog(wx.Dialog):
         self.mainSizer.Add(self.timeSliderSizer, flag=wx.EXPAND, border=0)
         self.mainSizer.Add(self.btnSizer, 1, flag=wx.EXPAND)
 
-    def videoOnBtnPlay(self, event, globs):
+    def videoOnBtnPlay(self, event):
         button = event.GetEventObject()
 
         for e in self.listToUse: # each entry is a list containing filename as first field
@@ -462,31 +461,29 @@ def myprint(*args, **kwargs):
     __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
 
 class MyFrame(wx.Frame):
-    def __init__(self, parent, id, title, globs):
+    def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
         filePath = os.path.join( os.getcwd(), 'images', 'plus-32.jpg')
-        dlg = MediaViewerDialog(self, filePath, globs)
+        dlg = MediaViewerDialog(self, filePath)
         ret = dlg.ShowModal()
         dlg.Destroy()
 
         self.Show()
 
 def main():
-    # Create Globals instance
-    g = osvmGlobals.myGlobals()
-
-    g.vlcVideoViewer = vlcVideoViewer
-    if not g.vlcVideoViewer:
-        g.disabledModules.append(('VLC',msg))
+    # Init Globals instance
+    globs.vlcVideoViewer = vlcVideoViewer
+    if not globs.vlcVideoViewer:
+        globs.disabledModules.append(('VLC',msg))
 
     # Create a list of image files containing a single file
-    g.localFileInfos['plus-32.jpg'] = ['plus-32.jpg', 0, 0, '']    
-    g.localFilesSorted = sorted(list(g.localFileInfos.items()), key=lambda x: int(x[1][g.F_DATE]), reverse=g.fileSortRecentFirst)
+    globs.localFileInfos['plus-32.jpg'] = ['plus-32.jpg', 0, 0, '']    
+    globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst)
     
             # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
-    frame = MyFrame(None, -1, title="Test", globs=g)
+    frame = MyFrame(None, -1, title="Test")
     frame.Show()
     app.MainLoop()
 

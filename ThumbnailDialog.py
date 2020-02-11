@@ -7,13 +7,12 @@ import builtins as __builtin__
 import inspect
 import glob
 
-#import osvmGlobals
-moduleList = ['osvmGlobals']
+# moduleList = {'osvmGlobals':'globs'}
 
-for m in moduleList:
-    print('Loading: %s' % m)
-    mod = __import__(m, fromlist=[None])
-    globals()[m] = globals().pop('mod')	# Rename module in globals()
+# for k,v in moduleList.items():
+#     print('Loading: %s as %s' % (k,v))
+#     mod = __import__(k, fromlist=[None])
+#     globals()[v] = globals().pop('mod')	# Rename module in globals()
 
 ####
 #print(__name__)
@@ -23,7 +22,7 @@ class ThumbnailDialog(wx.Dialog):
     """
     Creates and displays a dialog to show a thumbnail
     """
-    def __init__(self, parent, thumbnail, globs):
+    def __init__(self, parent, thumbnail):
         """
         Initialize the dialog box
         """
@@ -92,28 +91,6 @@ class ThumbnailDialog(wx.Dialog):
         event.Skip()
 
 ####
-class MyFrame(wx.Frame):
-    def __init__(self, parent, id, title, globs):
-        wx.Frame.__init__(self, parent, id, title)
-        panel = wx.Panel(self)
-        thumbnail = os.path.join( os.getcwd(), 'images', 'plus-32.jpg')
-        dlg = ThumbnailDialog(self, thumbnail=thumbnail, globs=globs)
-        ret = dlg.ShowModal()
-        dlg.Destroy()
-
-        self.Show()
-        
-def main():
-    # Create Globals instance
-    g = osvmGlobals.myGlobals()
-
-    # Create DemoFrame frame, passing globals instance as parameter
-    app = wx.App(False)
-    frame = MyFrame(None, -1, title="Test", globs=g)
-    frame.Show()
-    app.MainLoop()
-
-if __name__ == "__main__":
     def myprint(*args, **kwargs):
         """My custom print() function."""
         # Adding new arguments to the print function signature 
@@ -122,4 +99,23 @@ if __name__ == "__main__":
         # are present in kwargs
         __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
 
+class MyFrame(wx.Frame):
+    def __init__(self, parent, id, title):
+        wx.Frame.__init__(self, parent, id, title)
+        panel = wx.Panel(self)
+        thumbnail = os.path.join( os.getcwd(), 'images', 'plus-32.jpg')
+        dlg = ThumbnailDialog(self, thumbnail=thumbnail)
+        ret = dlg.ShowModal()
+        dlg.Destroy()
+
+        self.Show()
+        
+def main():
+    # Create DemoFrame frame, passing globals instance as parameter
+    app = wx.App(False)
+    frame = MyFrame(None, -1, title="Test")
+    frame.Show()
+    app.MainLoop()
+
+if __name__ == "__main__":
     main()

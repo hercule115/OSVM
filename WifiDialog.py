@@ -7,14 +7,15 @@ import inspect
 import sys
 import platform
 
-#import simpleQRScanner
-#import osvmGlobals
-moduleList = ['osvmGlobals', 'simpleQRScanner']
+moduleList = {'osvmGlobals':'globs',
+              'simpleQRScanner':'simpleQRScanner'}
 
-for m in moduleList:
-    print('Loading: %s' % m)
-    mod = __import__(m, fromlist=[None])
-    globals()[m] = globals().pop('mod')	# Rename module in globals()
+for k,v in moduleList.items():
+    print('Loading: %s as %s' % (k,v))
+    mod = __import__(k, fromlist=[None])
+    globals()[v] = globals().pop('mod')	# Rename module in globals()
+
+    moduleList = ['osvmGlobals', 'simpleQRScanner']
 
 ####
 #print(__name__)
@@ -23,7 +24,7 @@ class WifiDialog(wx.Dialog):
     """
     Creates and displays a dialog to select the WIFI network to connect
     """
-    def __init__(self, parent, globs):
+    def __init__(self, parent):
         """
         Initialize the preferences dialog box
         """
@@ -36,11 +37,11 @@ class WifiDialog(wx.Dialog):
         self.favoriteCbList = list()
 
         # Build allNetworks list
-        error = scanForNetworks(globs)
+        error = scanForNetworks()
         if error:
             print(error)
 
-        self._initialize(globs)
+        self._initialize()
 
         self.panel2.SetSizer(self.gsNet)
         self.panel2.SetAutoLayout(True)
@@ -50,7 +51,7 @@ class WifiDialog(wx.Dialog):
         self.SetClientSize(self.topBoxSizer.GetSize())
         self.Centre()
 
-    def _initialize(self, globs):
+    def _initialize(self):
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
         self.panel2 = scrolled.ScrolledPanel(parent=self.panel1, id=wx.ID_ANY, size=(680,200), style=wx.TAB_TRAVERSAL)
 
@@ -102,13 +103,13 @@ class WifiDialog(wx.Dialog):
             # Known Network checkbox
             knownCb = wx.CheckBox(self.panel2, label='')
             knownCb.SetValue(self.netProps[i][len(self.netProps[0])-2])
-            knownCb.Bind(wx.EVT_CHECKBOX, lambda evt, temp=globs: self.OnKnownCb(evt, temp))
+            knownCb.Bind(wx.EVT_CHECKBOX, lambda evt: self.OnKnownCb(evt))
             self.onerowfields.append(knownCb)
             # Favorite Network checkbox
             favoriteCb = wx.CheckBox(self.panel2, label='')
             favoriteCb.SetValue(self.netProps[i][len(self.netProps[0])-1])
             #            favoriteCb.Bind(wx.EVT_CHECKBOX, self.OnFavoriteCb)
-            favoriteCb.Bind(wx.EVT_CHECKBOX, lambda evt, temp=globs: self.OnFavoriteCb(evt, temp))
+            favoriteCb.Bind(wx.EVT_CHECKBOX, lambda evt: self.OnFavoriteCb(evt))
             self.onerowfields.append(favoriteCb)
             self.favoriteCbList.append(favoriteCb)
             # Create directory entry. key=(SSID,BSSID)
@@ -132,7 +133,7 @@ class WifiDialog(wx.Dialog):
         self.btnScanQR = wx.Button(id=wx.ID_ANY, label='Scan QR Code', parent=self.panel1, style=0)
         self.btnScanQR.SetToolTip('Scan QR Code from Camera')
 #        self.btnScanQR.Bind(wx.EVT_BUTTON, self.OnBtnScanQR)
-        self.btnScanQR.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnScanQR(evt, temp))
+        self.btnScanQR.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnScanQR(evt))
             
         # Cancel button
         self.btnCancel = wx.Button(id=wx.ID_CANCEL, parent=self.panel1, style=0)
@@ -143,12 +144,12 @@ class WifiDialog(wx.Dialog):
         self.btnOK = wx.Button(id=wx.ID_OK, parent=self.panel1, style=0)
         self.btnOK.SetToolTip('Close this Dialog and Proceed')
 #        self.btnOK.Bind(wx.EVT_BUTTON, self.OnBtnOK)
-        self.btnOK.Bind(wx.EVT_BUTTON,  lambda evt, temp=globs: self.OnBtnOK(evt, temp))
+        self.btnOK.Bind(wx.EVT_BUTTON,  lambda evt: self.OnBtnOK(evt))
         self.btnOK.SetDefault()
 
         self.timer = wx.Timer(self)
 #        self.Bind(wx.EVT_TIMER, self.OnTimer, self.timer)
-        self.timer.Bind(wx.EVT_TIMER, lambda evt, temp=globs: self.OnTimer(evt, temp))
+        self.timer.Bind(wx.EVT_TIMER, lambda evt: self.OnTimer(evt))
         self.timer.Start(5000)
 
         self._init_sizers()
@@ -190,7 +191,7 @@ class WifiDialog(wx.Dialog):
                 self.netkey = k
         event.Skip()
 
-    def OnFavoriteCb(self, event, globs):
+    def OnFavoriteCb(self, event):
         cb = event.GetEventObject()
         self.timer.Stop()
 
@@ -220,7 +221,7 @@ class WifiDialog(wx.Dialog):
         self.timer.Start(5000)
         event.Skip()
 
-    def OnKnownCb(self, event, globs):
+    def OnKnownCb(self, event):
         cb = event.GetEventObject()
         self.timer.Stop()
 
@@ -234,7 +235,7 @@ class WifiDialog(wx.Dialog):
 
         if cb.GetValue():
             # Popup a dialog to ask for this known network password
-            dlg = PasswordDialog(net=net, globs=globs)
+            dlg = PasswordDialog(net=net)
             ret = dlg.ShowModal()
             if ret == wx.ID_CANCEL:
                 cb.SetValue(False)
@@ -247,12 +248,12 @@ class WifiDialog(wx.Dialog):
                                    'Question', wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
             ret = dlg.ShowModal()
             if ret == wx.ID_YES:
-                delKnownNetwork(net[globs.NET_SSID], net[globs.NET_BSSID], globs)
+                delKnownNetwork(net[globs.NET_SSID], net[globs.NET_BSSID])
 
         self.timer.Start(5000)
         event.Skip()
 
-    def OnBtnOK(self, event, globs):
+    def OnBtnOK(self, event):
         for i in range(1, len(self.fields)): # Skip header
             onerowfields = self.fields[i]
             btn = onerowfields[0]
@@ -304,21 +305,21 @@ class WifiDialog(wx.Dialog):
                 else:
                     print(error)
                     # Remove entry from knownNetworks
-                    delKnownNetwork(params[globs.NET_SSID], params[globs.NET_BSSID], globs)
+                    delKnownNetwork(params[globs.NET_SSID], params[globs.NET_BSSID])
                     # Known password is invalid, Ask for a new password
-                    dlg = PasswordDialog(net=self.net, globs=globs)
+                    dlg = PasswordDialog(net=self.net)
                     ret = dlg.ShowModal()
                     dlg.Destroy()
                     return
 
         # Unknown network/password
-        dlg = PasswordDialog(net=self.net, globs=globs)
+        dlg = PasswordDialog(net=self.net)
         ret = dlg.ShowModal()
         dlg.Destroy()
         self.EndModal(wx.ID_OK)
         event.Skip()
 
-    def OnBtnScanQR(self, event, globs):
+    def OnBtnScanQR(self, event):
         myprint('Launching QR Scanner')
         dlg = simpleQRScanner.ShowCapture(self, -1, globs.tmpDir)
         ret = dlg.ShowModal()
@@ -341,7 +342,7 @@ class WifiDialog(wx.Dialog):
                     break
             #print(net)
 	    # Add scanned network to knownNetworks
-            addKnownNetwork(scannedSSID,net[globs.NET_BSSID],scannedPasswd,globs)
+            addKnownNetwork(scannedSSID,net[globs.NET_BSSID],scannedPasswd)
             # Simulate a radiobutton press to select the scanned network
             evt = wx.PyCommandEvent(wx.EVT_RADIOBUTTON.typeId, onerowfields[0].GetId())
             evt.SetEventObject(onerowfields[0])
@@ -352,8 +353,8 @@ class WifiDialog(wx.Dialog):
         self.EndModal(wx.ID_CANCEL)
         event.Skip()
 
-    def OnTimer(self, event, globs):
-        error = scanForNetworks(globs)
+    def OnTimer(self, event):
+        error = scanForNetworks()
         if error:
             print(error)
             return
@@ -454,7 +455,7 @@ class WifiDialog(wx.Dialog):
 #
 # Scan for networks, update the allNetworks list
 #
-def scanForNetworks(globs):
+def scanForNetworks():
     setBusyCursor(True)
     networks, error = globs.iface.scanForNetworksWithName_error_(None, None)
     setBusyCursor(False)
@@ -483,7 +484,7 @@ def scanForNetworks(globs):
 #
 # Update the knownNetworks global list if needed
 #
-def addKnownNetwork(ssid, bssid, password, globs):
+def addKnownNetwork(ssid, bssid, password):
     v = '%s,%s,%s' % (ssid,bssid,password)
     myprint('Adding %s' % v)
 
@@ -498,14 +499,14 @@ def addKnownNetwork(ssid, bssid, password, globs):
 # 
 # Remove a network from knownNetworks
 #
-def delKnownNetwork(ssid, bssid, globs):
+def delKnownNetwork(ssid, bssid):
     sub = '%s,%s' % (ssid,bssid)
     myprint('Removing %s' % sub)
     e = [s for s in globs.knownNetworks if sub in s]
     globs.knownNetworks.remove(e[0])
     myprint('Removed %s' % e)
 
-def switchToFavoriteNetwork(globs):
+def switchToFavoriteNetwork():
     if globs.iface.ssid() == globs.favoriteNetwork[globs.NET_SSID] and globs.iface.bssid() == globs.favoriteNetwork[globs.NET_BSSID]:
         # Nothing to do
         return 0
@@ -513,7 +514,7 @@ def switchToFavoriteNetwork(globs):
     myprint('Switching to favorite network:', globs.favoriteNetwork)
 
     # Update network list
-    error = scanForNetworks(globs)
+    error = scanForNetworks()
     if error:
         myprint(error)
         return -1
@@ -547,19 +548,19 @@ class PasswordDialog(wx.Dialog):
     """
     Creates and displays a dialog to enter a password
     """
-    def __init__(self, net, globs):
+    def __init__(self, net):
         self.net = net
 
         myStyle = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.TAB_TRAVERSAL
         wx.Dialog.__init__(self, None, wx.ID_ANY, 'Network Password', style=myStyle)
 
-        self._initialize(globs)
+        self._initialize()
 
         self.panel1.SetSizerAndFit(self.topBoxSizer)
         self.SetClientSize(self.topBoxSizer.GetSize())
         self.Centre()
 
-    def _initialize(self, globs):
+    def _initialize(self):
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
 
         self.wintitle = wx.StaticText(self.panel1)
@@ -605,14 +606,14 @@ class PasswordDialog(wx.Dialog):
         self.btnOK = wx.Button(id=wx.ID_OK, parent=self.panel1, style=0)
         self.btnOK.SetToolTip('Save changes')
 #        self.btnOK.Bind(wx.EVT_BUTTON, self.OnBtnOK)
-        self.btnOK.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnOK(evt, temp))
+        self.btnOK.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnOK(evt))
 
         # Connect button
         self.btnConnect = wx.Button(id=wx.ID_ANY, label='Connect', 
                                     parent=self.panel1, style=0)
         self.btnConnect.SetToolTip('Connect to this network')
 #        self.btnConnect.Bind(wx.EVT_BUTTON, self.OnBtnConnect)
-        self.btnConnect.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnConnect(evt, temp))
+        self.btnConnect.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnConnect(evt))
 
         self._init_sizers()
 
@@ -686,17 +687,17 @@ class PasswordDialog(wx.Dialog):
     def OnBtnCancel(self, event):
         self.EndModal(wx.ID_CANCEL)
 
-    def OnBtnOK(self, event, globs):
+    def OnBtnOK(self, event):
         if self.cb2.GetValue():
             passwd = self.passwdShowTC.GetValue()
         else:
             passwd = self.passwdHideTC.GetValue()
         myprint(self.net,'password:', passwd)
-        addKnownNetwork(self.net[globs.NET_SSID],self.net[globs.NET_BSSID],passwd,globs)
+        addKnownNetwork(self.net[globs.NET_SSID],self.net[globs.NET_BSSID],passwd)
         self.EndModal(wx.ID_OK)
         event.Skip()
 
-    def OnBtnConnect(self, event, globs):
+    def OnBtnConnect(self, event):
         if self.cb2.GetValue():
             passwd = self.passwdShowTC.GetValue()
         else:
@@ -708,41 +709,56 @@ class PasswordDialog(wx.Dialog):
             print('success')
             if self.cb1.GetValue(): # Must save network entry
                 print('Must save Network Entry:',self.net[globs.NET_SSID],self.net[globs.NET_BSSID],passwd)
-                addKnownNetwork(self.net[globs.NET_SSID],self.net[globs.NET_BSSID],passwd,globs)
+                addKnownNetwork(self.net[globs.NET_SSID],self.net[globs.NET_BSSID],passwd)
             self.EndModal(wx.ID_OK)
             event.Skip()
         else:
             print(error)
 
 ################################################
+#
+# Set/unset busy cursor (from thread)
+#
+def setBusyCursor(state):
+    if state:
+        wx.BeginBusyCursor(cursor=wx.HOURGLASS_CURSOR)
+    else:
+        wx.EndBusyCursor()
+
+def myprint(*args, **kwargs):
+    """My custom print() function."""
+    # Adding new arguments to the print function signature 
+    # is probably a bad idea.
+    # Instead consider testing if custom argument keywords
+    # are present in kwargs
+    __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
+
 class MyFrame(wx.Frame):
-    def __init__(self, parent, id, title, globs):
+    def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
-        dlg = WifiDialog(self, globs)
+        dlg = WifiDialog(self)
         ret = dlg.ShowModal()
         dlg.Destroy()
 
         self.Show()
 
 def main():
-    # Create Globals instance
-    g = osvmGlobals.myGlobals()
-
-    g.system = platform.system()    # Linux or Windows or MacOS (Darwin)
+    # Init Globals instance
+    globs.system = platform.system()    # Linux or Windows or MacOS (Darwin)
 
     try:
         import objc # WifiDialog
     except ImportError:
         msg = 'Objc module not installed. Disabling Network Selector'
         print(msg)
-        g.networkSelector = False
-        g.disabledModules.append(('Objc',msg))
+        globs.networkSelector = False
+        globs.disabledModules.append(('Objc',msg))
     else:
-        g.networkSelector = True
+        globs.networkSelector = True
     
     # Init network (Mac only!!!)
-    if g.system == 'Darwin' and g.networkSelector:
+    if globs.system == 'Darwin' and globs.networkSelector:
         objc.loadBundle('CoreWLAN',
                         bundle_path='/System/Library/Frameworks/CoreWLAN.framework',
                         module_globals=globals())
@@ -758,32 +774,15 @@ Transmit Power: %s
 RSSI:           %s""" % (iname, interface.ssid(), interface.bssid(),interface.transmitRate(),
                          interface.transmitPower(), interface.rssi()))
 
-        g.iface = CWInterface.interface()
-        if not g.iface:
+        globs.iface = CWInterface.interface()
+        if not globs.iface:
             print('No Network Interface')
     
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
-    frame = MyFrame(None, -1, title="Test", globs=g)
+    frame = MyFrame(None, -1, title="Test")
     frame.Show()
     app.MainLoop()
 
 if __name__ == "__main__":
-    #
-    # Set/unset busy cursor (from thread)
-    #
-    def setBusyCursor(state):
-        if state:
-            wx.BeginBusyCursor(cursor=wx.HOURGLASS_CURSOR)
-        else:
-            wx.EndBusyCursor()
-
-    def myprint(*args, **kwargs):
-        """My custom print() function."""
-        # Adding new arguments to the print function signature 
-        # is probably a bad idea.
-        # Instead consider testing if custom argument keywords
-        # are present in kwargs
-        __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
-
     main()

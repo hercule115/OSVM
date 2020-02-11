@@ -9,12 +9,12 @@ import time
 import platform
 import subprocess
 
-moduleList = ['osvmGlobals']
+moduleList = {'osvmGlobals':'globs'}
 
-for m in moduleList:
-    print('Loading: %s' % m)
-    mod = __import__(m, fromlist=[None])
-    globals()[m] = globals().pop('mod')	# Rename module in globals()
+for k,v in moduleList.items():
+    print('Loading: %s as %s' % (k,v))
+    mod = __import__(k, fromlist=[None])
+    globals()[v] = globals().pop('mod')	# Rename module in globals()
 
 ####
 #print(__name__)
@@ -24,7 +24,7 @@ class PropertiesDialog(wx.Dialog):
     """
     Creates and displays a Package Properties dialog.
     """
-    def __init__(self, parent, fileName, globs):
+    def __init__(self, parent, fileName):
         """
         Initialize the Properties dialog box
         """
@@ -33,7 +33,7 @@ class PropertiesDialog(wx.Dialog):
 
         myStyle = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.TAB_TRAVERSAL
         wx.Dialog.__init__(self, None, wx.ID_ANY, 'File Properties: %s' % (self.fileName), style=myStyle)
-        self._initialize(globs)
+        self._initialize()
 
         self.panel1.SetSizerAndFit(self.topBoxSizer)
         self.SetClientSize(self.topBoxSizer.GetSize())
@@ -42,13 +42,13 @@ class PropertiesDialog(wx.Dialog):
     """
     Create and layout the widgets in the dialog
     """
-    def _initialize(self, globs):
+    def _initialize(self):
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
 
         # Copy Path button
         self.btnCopyPath = wx.Button(label='Copy Path', id=wx.ID_ANY, parent=self.panel1, style=0)
         self.btnCopyPath.SetToolTip('Copy the absolute pathname of the file in the clipboard')
-        self.btnCopyPath.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnCopyPath(evt,temp))
+        self.btnCopyPath.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnCopyPath(evt))
 
         # Close button
         self.btnClose = wx.Button(id=wx.ID_CLOSE, parent=self.panel1, style=0)
@@ -138,7 +138,7 @@ class PropertiesDialog(wx.Dialog):
         self._init_buttonsBoxSizer_Items(self.buttonsBoxSizer)
 
     ## Events
-    def OnBtnCopyPath(self, event, globs):
+    def OnBtnCopyPath(self, event):
         if globs.system == 'Darwin':
             data = os.path.join(globs.osvmDownloadDir, str(self.fileName)).replace(" ", "\\ ")
             subprocess.run("pbcopy", universal_newlines=True, input=data)
@@ -166,7 +166,7 @@ def myprint(*args, **kwargs):
     __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
 
 class MyFrame(wx.Frame):
-    def __init__(self, parent, id, title, globs):
+    def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
 
@@ -177,25 +177,24 @@ class MyFrame(wx.Frame):
         fileDate = i.st_mtime # in seconds
         globs.localFileInfos[fileName] = [fileName,fileSize,fileDate,filePath]
         
-        dlg = PropertiesDialog(self, fileName, globs)
+        dlg = PropertiesDialog(self, fileName)
         ret = dlg.ShowModal()
         dlg.Destroy()
 
         self.Show()
 
 def main():
-    # Create Globals instance
-    g = osvmGlobals.myGlobals()
-    g.system = platform.system()		# Linux or Windows or MacOS (Darwin)
-    g.viewMode = True
+    # Init Globals instance
+    globs.system = platform.system()		# Linux or Windows or MacOS (Darwin)
+    globs.viewMode = True
     
     # Create a list of image files containing a single file
-    g.localFileInfos['plus-32.jpg'] = ['plus-32.jpg', 0, 0, '']    
-    g.localFilesSorted = sorted(list(g.localFileInfos.items()), key=lambda x: int(x[1][g.F_DATE]), reverse=g.fileSortRecentFirst)
+    globs.localFileInfos['plus-32.jpg'] = ['plus-32.jpg', 0, 0, '']    
+    globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst)
     
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
-    frame = MyFrame(None, -1, title="Test", globs=g)
+    frame = MyFrame(None, -1, title="Test")
     frame.Show()
     app.MainLoop()
 

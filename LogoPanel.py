@@ -6,13 +6,12 @@ import os
 import builtins as __builtin__
 import inspect
 
-#import osvmGlobals
-moduleList = ['osvmGlobals']
+moduleList = {'osvmGlobals':'globs'}
 
-for m in moduleList:
-    print('Loading: %s' % m)
-    mod = __import__(m, fromlist=[None])
-    globals()[m] = globals().pop('mod')	# Rename module in globals()
+for k,v in moduleList.items():
+    print('Loading: %s as %s' % (k,v))
+    mod = __import__(k, fromlist=[None])
+    globals()[v] = globals().pop('mod')	# Rename module in globals()
 
 ####
 #print(__name__)
@@ -20,10 +19,9 @@ for m in moduleList:
 ####
 # From A. Gavana FlatNoteBook Demo
 class LogoPanel(wx.Panel):
-    def __init__(self, parent, id=-1, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.CLIP_CHILDREN, globs=osvmGlobals.myGlobals):
-
+    def __init__(self, parent, id=-1, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.CLIP_CHILDREN):
         wx.Panel.__init__(self, parent, id, pos, size, style)
-        print(globs.imgDir)
+
         self.SetBackgroundColour(wx.WHITE)
         imgpath = os.path.join(globs.imgDir, 'sad-smiley.png')
         self.bmp = wx.Bitmap(wx.Image(imgpath, wx.BITMAP_TYPE_PNG))
@@ -104,22 +102,19 @@ def myprint(*args, **kwargs):
     __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
 
 class MyFrame(wx.Frame):
-    def __init__(self, parent, id, title, globs):
+    def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
-        print(globs)
-        panel = LogoPanel(self, globs=globs)
 
+        panel = LogoPanel(self)
         self.Show()
         
 def main():
-    # Create Globals instance
-    g = osvmGlobals.myGlobals()
-    
-    g.imgDir = os.path.join(os.getcwd(), 'images')
+    # Initialize Globals instance
+    globs.imgDir = os.path.join(os.getcwd(), 'images')
     
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
-    frame = MyFrame(None, -1, title="Test", globs=g)
+    frame = MyFrame(None, -1, title="Test")
     frame.Show()
     app.MainLoop()
 

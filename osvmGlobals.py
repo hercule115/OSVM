@@ -3,319 +3,316 @@ import os
 import platform
 from os.path import expanduser
 
-class myGlobals():
-    def __init__(self):
+myName     = 'OSVM'
+myLongName = 'Olympus Sync & View Manager'
+myVersion  = '2.3.0'
 
-        self.myName     = 'OSVM'
-        self.myLongName = 'Olympus Sync & View Manager'
-        self.myVersion  = '2.3.0'
+disabledModules = list()
+pycc = True
+vlcVideoViewer = True
+networkSelector = True
 
-        self.disabledModules = list()
-        self.pycc = True
-        self.vlcVideoViewer = True
-        self.networkSelector = True
+CWSecurityModes = {
+    0: '',
+    1: 'WEP',
+    2: 'WPA Personal',
+    3: 'WPA Personal Mixed',
+    4: 'WPA2 Personal',
+    5: 'Personal',
+    6: 'Dynamic WEP',
+    7: 'WPA Enterprise',
+    8: 'WPA Enterprise Mixed',
+    9: 'WPA2 Enterprise',
+    10: 'Enterprise',
+}
 
-        self.CWSecurityModes = {
-            0: '',
-            1: 'WEP',
-            2: 'WPA Personal',
-            3: 'WPA Personal Mixed',
-            4: 'WPA2 Personal',
-            5: 'Personal',
-            6: 'Dynamic WEP',
-            7: 'WPA Enterprise',
-            8: 'WPA Enterprise Mixed',
-            9: 'WPA2 Enterprise',
-            10: 'Enterprise',
-            }
+SERVER_HTTP_PORT = '8124'
 
-        self.SERVER_HTTP_PORT = '8124'
+modPath         = None
+system          = None
+hostarch        = None
+imgDir          = None
+thumbDir        = None
+tmpDir          = None
+initFilePath    = None
+logFilePath     = None
+helpPath        = None
+pythonBits      = None
+pythonVersion   = None
 
-        self.modPath         = None
-        self.system          = None
-        self.hostarch        = None
-        self.imgDir          = None
-        self.thumbDir        = None
-        self.tmpDir          = None
-        self.initFilePath    = None
-        self.logFilePath     = None
-        self.helpPath        = None
-        self.pythonBits      = None
-        self.pythonVersion   = None
+# Constants
+osvmDir         = '.osvm'		# In home directory
+initFile        = 'osvm.ini'	# In osvmDir
+initFileBk      = 'osvm.ini.bk'	# In osvmDir
+logFile         = 'osvm-log.txt'	# In osvmDir
+iniFileVersion  = '1'
 
-        # Constants
-        self.osvmDir         = '.osvm'		# In home directory
-        self.initFile        = 'osvm.ini'	# In osvmDir
-        self.initFileBk      = 'osvm.ini.bk'	# In osvmDir
-        self.logFile         = 'osvm-log.txt'	# In osvmDir
-        self.iniFileVersion  = '1'
+# Default values for 'Reset Preferences'
+DEFAULT_COMPACT_MODE = False
+DEFAULT_ASK_BEFORE_COMMIT = True
+DEFAULT_ASK_BEFORE_EXIT = True
+DEFAULT_SAVE_PREFERENCES_ON_EXIT = True
+DEFAULT_MAX_DOWNLOAD = 1
+DEFAULT_OVERWRITE_LOCAL_FILES = False
+DEFAULT_AUTO_SWITCH_TO_CAMERA_NETWORK = False
+DEFAULT_OSVM_ROOT_URL  = 'http://192.168.0.10:80'
+DEFAULT_OSVM_REM_BASE_DIR = '/DCIM'
+DEFAULT_OSVM_DOWNLOAD_DIR = os.path.join(expanduser("~"), osvmDir, 'download')
+DEFAULT_THUMB_GRID_NUM_COLS = 10
+DEFAULT_THUMB_SCALE_FACTOR = 0.59
+DEFAULT_SLIDESHOW_DELAY = 5
+DEFAULT_SORT_ORDER = True # Mean More recent first
+DEFAULT_SMTP_SERVER = ''
+DEFAULT_SMTP_SERVER_PROTOCOL = 'SMTP'
+DEFAULT_SMTP_SERVER_PORT = 25
+DEFAULT_SMTP_SERVER_USE_AUTH = False
+DEFAULT_SMTP_SERVER_USER_NAME = ''
+DEFAULT_SMTP_SERVER_USER_PASSWD = ''                
 
-        # Default values for 'Reset Preferences'
-        self.DEFAULT_COMPACT_MODE = False
-        self.DEFAULT_ASK_BEFORE_COMMIT = True
-        self.DEFAULT_ASK_BEFORE_EXIT = True
-        self.DEFAULT_SAVE_PREFERENCES_ON_EXIT = True
-        self.DEFAULT_MAX_DOWNLOAD = 1
-        self.DEFAULT_OVERWRITE_LOCAL_FILES = False
-        self.DEFAULT_AUTO_SWITCH_TO_CAMERA_NETWORK = False
-        self.DEFAULT_OSVM_ROOT_URL  = 'http://192.168.0.10:80'
-        self.DEFAULT_OSVM_REM_BASE_DIR = '/DCIM'
-        self.DEFAULT_OSVM_DOWNLOAD_DIR = os.path.join(expanduser("~"), self.osvmDir, 'download')
-        self.DEFAULT_THUMB_GRID_NUM_COLS = 10
-        self.DEFAULT_THUMB_SCALE_FACTOR = 0.59
-        self.DEFAULT_SLIDESHOW_DELAY = 5
-        self.DEFAULT_SORT_ORDER = True # Mean More recent first
-        self.DEFAULT_SMTP_SERVER = ''
-        self.DEFAULT_SMTP_SERVER_PROTOCOL = 'SMTP'
-        self.DEFAULT_SMTP_SERVER_PORT = 25
-        self.DEFAULT_SMTP_SERVER_USE_AUTH = False
-        self.DEFAULT_SMTP_SERVER_USER_NAME = ''
-        self.DEFAULT_SMTP_SERVER_USER_PASSWD = ''                
-        
-        self.DEFAULT_MAIL_ADDR = None
-        
-        # Preferences file option keys
-        self.INI_VERSION = 'iniversion'
-        self.HTML_ROOT_FILE = 'htmlrootfile'
-        self.COMPACT_MODE = 'compactmode'
-        self.ASK_BEFORE_COMMIT = 'askbeforecommit'
-        self.ASK_BEFORE_EXIT = 'askbeforeexit'
-        self.SAVE_PREFS_ON_EXIT = 'savepreferencesonexit'
-        self.THUMB_GRID_COLUMNS = 'thumbnailgridcolumns'
-        self.THUMB_SCALE_FACTOR = 'thumbnailscalefactor'
-        self.OSVM_DOWNLOAD_DIR = 'osvmdownloaddir'
-        self.OSVM_FILES_DOWNLOAD_URL = 'osvmrooturl'
-        self.REM_BASE_DIR = "rembasedir"
-        self.MAX_DOWNLOAD = 'maxdownload'
-        self.OVERWRITE_LOCAL_FILES = 'overwritelocalfiles'
-        self.AUTO_SWITCH_TO_CAMERA_NETWORK = 'autoswitchtocameranetwork'
-        self.SS_DELAY = 'slideshowdelay'
-        self.LAST_CAST_DEVICE_NAME = 'lastcastdevicename'
-        self.LAST_CAST_DEVICE_UUID = 'lastcastdeviceuuid'
-        self.SORT_ORDER = 'filesortreverse'
-        self.FAVORITE_NETWORK = 'favoritenetwork'
-        self.SMTP_SERVER = 'smtpserver'
-        self.SMTP_SERVER_PROTOCOL = 'smtpserverprotocol'
-        self.SMTP_SERVER_PORT = 'smtpserverport'
-        self.SMTP_SERVER_USE_AUTH = 'smtpserveruseauth'
-        self.SMTP_SERVER_USER_NAME = 'smtpserverusername'
-        self.SMTP_SERVER_USER_PASSWD = 'smtpserveruserpasswd'        
+DEFAULT_MAIL_ADDR = None
 
-        # Globals Managed by Preferences / Frame # In osvmDir
-        self.htmlRootFile = 'htmlRootFile.html'
-        self.htmlDirFile  = 'htmlDirFile.html'
+# Preferences file option keys
+INI_VERSION = 'iniversion'
+HTML_ROOT_FILE = 'htmlrootfile'
+COMPACT_MODE = 'compactmode'
+ASK_BEFORE_COMMIT = 'askbeforecommit'
+ASK_BEFORE_EXIT = 'askbeforeexit'
+SAVE_PREFS_ON_EXIT = 'savepreferencesonexit'
+THUMB_GRID_COLUMNS = 'thumbnailgridcolumns'
+THUMB_SCALE_FACTOR = 'thumbnailscalefactor'
+OSVM_DOWNLOAD_DIR = 'osvmdownloaddir'
+OSVM_FILES_DOWNLOAD_URL = 'osvmrooturl'
+REM_BASE_DIR = "rembasedir"
+MAX_DOWNLOAD = 'maxdownload'
+OVERWRITE_LOCAL_FILES = 'overwritelocalfiles'
+AUTO_SWITCH_TO_CAMERA_NETWORK = 'autoswitchtocameranetwork'
+SS_DELAY = 'slideshowdelay'
+LAST_CAST_DEVICE_NAME = 'lastcastdevicename'
+LAST_CAST_DEVICE_UUID = 'lastcastdeviceuuid'
+SORT_ORDER = 'filesortreverse'
+FAVORITE_NETWORK = 'favoritenetwork'
+SMTP_SERVER = 'smtpserver'
+SMTP_SERVER_PROTOCOL = 'smtpserverprotocol'
+SMTP_SERVER_PORT = 'smtpserverport'
+SMTP_SERVER_USE_AUTH = 'smtpserveruseauth'
+SMTP_SERVER_USER_NAME = 'smtpserverusername'
+SMTP_SERVER_USER_PASSWD = 'smtpserveruserpasswd'        
 
-        self.online = True
-        self.askBeforeCommit = True
-        self.askBeforeExit = True
-        self.savePreferencesOnExit = True
-        self.thumbnailGridColumns = self.DEFAULT_THUMB_GRID_NUM_COLS
-        self.thumbnailGridRows = 3
-        self.thumbnailScaleFactor = self.DEFAULT_THUMB_SCALE_FACTOR
-        self.osvmDownloadDir = self.DEFAULT_OSVM_DOWNLOAD_DIR
-        self.osvmFilesDownloadUrl = ''
-        self.maxDownload = self.DEFAULT_MAX_DOWNLOAD
-        self.overwriteLocalFiles = False
-        self.autoSwitchToFavoriteNetwork = False
-        self.rootUrl = self.DEFAULT_OSVM_ROOT_URL
-        self.remBaseDir = self.DEFAULT_OSVM_REM_BASE_DIR
-        self.ssDelay = self.DEFAULT_SLIDESHOW_DELAY
-        self.favoriteNetwork = ('','')  # Favorite Network, e.g. Camera
-        self.viewMode = False
-        self.autoViewMode = False
-        self.autoSyncMode = False
-        self.compactMode = False
-        self.noPanel = False	# Skip loading of thumbnail panels
-        self.useExternalViewer = False
-        self.httpServer = None
-        self.castMediaCtrl = None
-        self.slideShowNextIdx = 0
-        self.chromecasts = list() # List of available chromecast devices
-        self.castDevice = None # Selected chromecast
-        self.lastCastDeviceName = None
-        self.lastCastDeviceUuid = None
-        self.serverAddr = '0.0.0.0'
-        self.iface = None
-        self.allNetWorks = list() # List of all available networks
-        self.knownNetworks = list()
-        self.fileSortRecentFirst = self.DEFAULT_SORT_ORDER
-        self.installSubPanelsCount = 5
-        self.smtpServer = ''
-        self.smtpServerProtocol = ''
-        self.smtpServerPort = 25
-        self.smtpServerUseAuth = False
-        self.smtpServerUserName = ''
-        self.smtpServerUserPasswd = ''
-        
-        # List of root directories on the camera
-        self.rootDirList = []
-        self.rootDirCnt = 0
+# Globals Managed by Preferences / Frame # In osvmDir
+htmlRootFile = 'htmlRootFile.html'
+htmlDirFile  = 'htmlDirFile.html'
 
-        # Oldest and newest date of remote files on the camera
-        self.remOldestDate = ''
-        self.remNewestDate = ''
+online = True
+askBeforeCommit = True
+askBeforeExit = True
+savePreferencesOnExit = True
+thumbnailGridColumns = DEFAULT_THUMB_GRID_NUM_COLS
+thumbnailGridRows = 3
+thumbnailScaleFactor = DEFAULT_THUMB_SCALE_FACTOR
+osvmDownloadDir = DEFAULT_OSVM_DOWNLOAD_DIR
+osvmFilesDownloadUrl = ''
+maxDownload = DEFAULT_MAX_DOWNLOAD
+overwriteLocalFiles = False
+autoSwitchToFavoriteNetwork = False
+rootUrl = DEFAULT_OSVM_ROOT_URL
+remBaseDir = DEFAULT_OSVM_REM_BASE_DIR
+ssDelay = DEFAULT_SLIDESHOW_DELAY
+favoriteNetwork = ('','')  # Favorite Network, e.g. Camera
+viewMode = False
+autoViewMode = False
+autoSyncMode = False
+compactMode = False
+noPanel = False	# Skip loading of thumbnail panels
+useExternalViewer = False
+httpServer = None
+castMediaCtrl = None
+slideShowNextIdx = 0
+chromecasts = list() # List of available chromecast devices
+castDevice = None # Selected chromecast
+lastCastDeviceName = None
+lastCastDeviceUuid = None
+serverAddr = '0.0.0.0'
+iface = None
+allNetWorks = list() # List of all available networks
+knownNetworks = list()
+fileSortRecentFirst = DEFAULT_SORT_ORDER
+installSubPanelsCount = 5
+smtpServer = ''
+smtpServerProtocol = ''
+smtpServerPort = 25
+smtpServerUseAuth = False
+smtpServerUserName = ''
+smtpServerUserPasswd = ''
 
-        # Dict containing informations on the files available at remote/camera
-        self.availRemoteFiles = {}
+# List of root directories on the camera
+rootDirList = []
+rootDirCnt = 0
 
-        # Common indexes to availRemoteFiles and localFileInfos.
-        [self.F_NAME, # common
-         self.F_SIZE, # common
-         self.F_DATE, # common
-         self.F_PATH,
-         self.F_DIRNAME,
-         self.F_ATTR,
-         self.F_DATEINSECS,
-         self.F_TIME,
-         self.F_THUMBURL] = [i for i in range(9)]
+# Oldest and newest date of remote files on the camera
+remOldestDate = ''
+remNewestDate = ''
 
-        self.availRemoteFilesCnt =  0
-        self.availRemoteFilesSorted = {}	# Sorted copy of the dict above
+# Dict containing informations on the files available at remote/camera
+availRemoteFiles = {}
 
-        # File Status
-        [self.FILE_NOT_INSTALLED,
-         self.FILE_INSTALLED,
-         self.FILE_OP_PENDING] = [i for i in range(3)]
+# Common indexes to availRemoteFiles and localFileInfos.
+[F_NAME, # common
+ F_SIZE, # common
+ F_DATE, # common
+ F_PATH,
+ F_DIRNAME,
+ F_ATTR,
+ F_DATEINSECS,
+ F_TIME,
+ F_THUMBURL] = [i for i in range(9)]
 
-        # Colors to use for package buttons (bg,fg). 
-        # Will be updated at run-time with other colors
-        # Order must match "Package Status" e.g.:
-        # - Remote File (NOT_INSTALLED)
-        # - Local File  (INSTALLED)
-        # - Request pending (OP_PENDING)
-        self.fileColors = [[0,0],[wx.GREEN,wx.WHITE],[0,0]]
-        self.FILE_COLORS_STATUS = ["Remote File", "Local File", "Request pending"]
-        self.DEFAULT_FILE_COLORS = []
+availRemoteFilesCnt =  0
+availRemoteFilesSorted = {}	# Sorted copy of the dict above
 
-        # Dictionary of local files
-        # key: fileName, value: [fileName, fileSize, fileDate, filePath]
-        self.localFileInfos = {}
-        [self.FINFO_NAME,
-         self.FINFO_SIZE,
-         self.FINFO_DATE,
-         self.FINFO_PATH] = [i for i in range(4)]
-        self.localFilesCnt = 0
-        self.localFilesSorted = {}	# Sorted copy of the dict above
+# File Status
+[FILE_NOT_INSTALLED,
+ FILE_INSTALLED,
+ FILE_OP_PENDING] = [i for i in range(3)]
 
-        # Possible operations on a file
-        [self.FILE_DOWNLOAD,
-         self.FILE_MARK,
-         self.FILE_UNMARK] = [i for i in range(3)]
-        
-        self.FILE_PROPERTIES = -3
-        self.FILE_SLIDESHOW  = -4
+# Colors to use for package buttons (bg,fg). 
+# Will be updated at run-time with other colors
+# Order must match "Package Status" e.g.:
+# - Remote File (NOT_INSTALLED)
+# - Local File  (INSTALLED)
+# - Request pending (OP_PENDING)
+fileColors = [[0,0],[wx.GREEN,wx.WHITE],[0,0]]
+FILE_COLORS_STATUS = ["Remote File", "Local File", "Request pending"]
+DEFAULT_FILE_COLORS = []
 
-        # Max # of operations to commit in a single click
-        self.MAX_OPERATIONS = 2000
+# Dictionary of local files
+# key: fileName, value: [fileName, fileSize, fileDate, filePath]
+localFileInfos = {}
+[FINFO_NAME,
+ FINFO_SIZE,
+ FINFO_DATE,
+ FINFO_PATH] = [i for i in range(4)]
+localFilesCnt = 0
+localFilesSorted = {}	# Sorted copy of the dict above
 
-        # opList fields index
-        [self.OP_STATUS,     # status (busy=1/free=0)
-         self.OP_FILENAME,   # remote file name (camera)
-         self.OP_FILETYPE,	# JPG, MOV,...
-         self.OP_TYPE,       # FILE_DOWNLOAD = 1  FILE_DELETE = 2
-         self.OP_FILEPATH,   # full pathname of local file for download
-         self.OP_SIZE,       # (size in bytes, block count)
-         self.OP_FILEDATE,	# remote file date
-         self.OP_REMURL,     # full remote url to download
-         self.OP_INWGT,      # list of all assoc. widgets in InstallDialog frame
-         self.OP_INCOUNT,    # current block counter for this op
-         self.OP_INSTEP,     # Installation step
-         self.OP_INLEDCOL,   # Installation LED color
-         self.OP_INLEDSTATE, # Installation LED state: ON/BLINK/OFF
-         self.OP_INTH,       # Installation thread
-         self.OP_INTICKS,    # Installation elapsed time
-         self.OP_LASTIDX] = [i for i in range(16)]    # Last index (must be last field)
+# Possible operations on a file
+[FILE_DOWNLOAD,
+ FILE_MARK,
+ FILE_UNMARK] = [i for i in range(3)]
 
-        # Execution Mode
-        self.MODE_DISABLED = 0
-        self.MODE_ENABLED  = 1
+FILE_PROPERTIES = -3
+FILE_SLIDESHOW  = -4
 
-        # Urllib read block size
-        self.URLLIB_READ_BLKSIZE = 8192
+# Max # of operations to commit in a single click
+MAX_OPERATIONS = 2000
 
-        # Install Dialog constants
-        [self.INST_GAUGE,
-         self.INST_ELAPTXT,
-         self.INST_ELAPCNT,
-         self.INST_REMTXT,
-         self.INST_REMCNT,
-         self.INST_STBOX,
-         self.INST_OPBOXSZ,
-         self.INST_GRDSZ,
-         self.INST_LEDBOXSZ,
-         self.INST_LEDLIST,
-         self.INST_GKBOXSZ,
-         self.INST_KEYTXT] = [i for i in range(12)]
+# opList fields index
+[OP_STATUS,	# status (busy=1/free=0)
+ OP_FILENAME,	# remote file name (camera)
+ OP_FILETYPE,	# JPG, MOV,...
+ OP_TYPE,		# FILE_DOWNLOAD = 0  FILE_MARK = 1,...
+ OP_FILEPATH,	# full pathname of local file for download
+ OP_SIZE,		# (size in bytes, block count)
+ OP_FILEDATE,	# remote file date
+ OP_REMURL,	# full remote url to download
+ OP_INWGT,		# list of all assoc. widgets in InstallDialog frame
+ OP_INCOUNT,	# current block counter for this op
+ OP_INSTEP,	# Installation step
+ OP_INLEDCOL,	# Installation LED color
+ OP_INLEDSTATE,	# Installation LED state: ON/BLINK/OFF
+ OP_INTH,		# Installation thread
+ OP_INTICKS,	# Installation elapsed time
+ OP_LASTIDX] = [i for i in range(16)]    # LASTIDX must be last field
 
-        self.TIMER1_FREQ  = 1000.0 # milliseconds
-        self.TICK_PER_SEC = 1000 / self.TIMER1_FREQ
+# Execution Mode
+MODE_DISABLED = 0
+MODE_ENABLED  = 1
 
-        self.TIMER2_FREQ = 200 # milliseconds
-        self.TIMER3_FREQ = 200 # milliseconds
-        self.TIMER4_FREQ = 100 # milliseconds
-        self.TIMER5_FREQ = 50 # milliseconds
-        self.TIMER6_FREQ = 300 # milliseconds
+# Urllib read block size
+URLLIB_READ_BLKSIZE = 8192
 
-        # LEDs colours
-        self.LEDS_COLOURS = [['#929292', '#A8A8A8', '#9C9C9C', '#B7B7B7'], # grey
-                             ['#0ADC0A', '#0CFD0C', '#0BEB0B', '#0DFF0D'], # green
-                             ['#FAC800', '#FFE600', '#FFD600', '#FFFA00'], # yellow
-                             ['#DC0A0A', '#FD0C0C', '#EB0B0B', '#FF0D0D'], # red
-                             ['#1E64B4', '#2373CF', '#206BC1', '#267DE1']] # steel blue (30, 100, 180)
+# Install Dialog constants
+[INST_GAUGE,
+ INST_ELAPTXT,
+ INST_ELAPCNT,
+ INST_REMTXT,
+ INST_REMCNT,
+ INST_STBOX,
+ INST_OPBOXSZ,
+ INST_GRDSZ,
+ INST_LEDBOXSZ,
+ INST_LEDLIST,
+ INST_GKBOXSZ,
+ INST_KEYTXT] = [i for i in range(12)]
 
-        [self.LED_GREY,
-         self.LED_GREEN,
-         self.LED_ORANGE,
-         self.LED_RED,
-         self.LED_BLUE] = [i for i in range(5)]
+TIMER1_FREQ  = 1000.0 # milliseconds
+TICK_PER_SEC = 1000 / TIMER1_FREQ
 
-        [self.LED_OFF,
-         self.LED_BLINK,
-         self.LED_ON] = [i for i in range(3)]
+TIMER2_FREQ = 200 # milliseconds
+TIMER3_FREQ = 200 # milliseconds
+TIMER4_FREQ = 100 # milliseconds
+TIMER5_FREQ =  50 # milliseconds
+TIMER6_FREQ = 300 # milliseconds
 
-        # File Types to view/sync
-        self.FILETYPES = ['None', 'JPG', 'MOV', 'ALL']
-        self.FILETYPES_NOVLC = ['', 'JPG']
+# LEDs colours
+LEDS_COLOURS = [['#929292', '#A8A8A8', '#9C9C9C', '#B7B7B7'], # grey
+                     ['#0ADC0A', '#0CFD0C', '#0BEB0B', '#0DFF0D'], # green
+                     ['#FAC800', '#FFE600', '#FFD600', '#FFFA00'], # yellow
+                     ['#DC0A0A', '#FD0C0C', '#EB0B0B', '#FF0D0D'], # red
+                     ['#1E64B4', '#2373CF', '#206BC1', '#267DE1']] # steel blue (30, 100, 180)
 
-        # File types to clean. For each type, a counter is provided (see folderSize())
-        self.CLEAN_FILETYPES = { 'JPG':0, 'MOV':0 }
+[LED_GREY,
+ LED_GREEN,
+ LED_ORANGE,
+ LED_RED,
+ LED_BLUE] = [i for i in range(5)]
 
-        # Wifi networks parameters (scanForNetworks())
-        [self.NET_SSID,
-         self.NET_BSSID,
-         self.NET_PASSWD,
-         self.NET_RSSI,
-         self.NET_CHANNEL,
-         self.NET_SECURITY,
-         self.NET_KNOWN,
-         self.NET_FAVORITE,
-         self.NET_NET] = [i for i in range(9)]
+[LED_OFF,
+ LED_BLINK,
+ LED_ON] = [i for i in range(3)]
 
-        self.cameraConnected = False
+# File Types to view/sync
+FILETYPES = ['None', 'JPG', 'MOV', 'ALL']
+FILETYPES_NOVLC = ['', 'JPG']
 
-        self.ID_CONNECT_ERROR = 400
+# File types to clean. For each type, a counter is provided (see folderSize())
+CLEAN_FILETYPES = { 'JPG':0, 'MOV':0 }
 
-    def printGlobals(self):
-        print('globs.compactMode: %s' % self.compactMode)
-        print('globs.askBeforeCommit: %s' % self.askBeforeCommit)
-        print('globs.askBeforeExit: %s' % self.askBeforeExit)
-        print('globs.overwriteLocalFiles: %s' % self.overwriteLocalFiles)
-        print('globs.autoSwitchToFavoriteNetwork: %s' % self.autoSwitchToFavoriteNetwork)
-        print('globs.cameraConnected: %s' % self.cameraConnected)
-        print('globs.maxDownload: %s' % self.maxDownload)
-        print('globs.localFilesCnt: %s' % self.localFilesCnt)
-        print('globs.availRemoteFilesCnt: %s' % self.availRemoteFilesCnt)
-        print('globs.savePreferencesOnExit: %s' % self.savePreferencesOnExit)
-        print('globs.osvmDownloadDir: %s' % self.osvmDownloadDir)
-        print('globs.osvmFilesDownloadUrl: %s' % self.osvmFilesDownloadUrl)
-        print('globs.fileColors:', self.fileColors)
-        print('globs.ssDelay:', self.ssDelay)
-        print('globs.knownNetworks:', self.knownNetworks)
-        print('globs.favoriteNetwork:', self.favoriteNetwork)
-        print('globs.fileSortRecentFirst:', self.fileSortRecentFirst)
-        print('globs.smtpServer:', self.smtpServer)
-        print('globs.smtpServerProtocol:', self.smtpServerProtocol)
-        print('globs.smtpServerPort:', self.smtpServerPort)
-        print('globs.smtpServerUseAuth:', self.smtpServerUseAuth)
-        print('globs.smtpServerUserName:', self.smtpServerUserName)
-        print('globs.smtpServerUserPasswd:', self.smtpServerUserPasswd)
+# Wifi networks parameters (scanForNetworks())
+[NET_SSID,
+ NET_BSSID,
+ NET_PASSWD,
+ NET_RSSI,
+ NET_CHANNEL,
+ NET_SECURITY,
+ NET_KNOWN,
+ NET_FAVORITE,
+ NET_NET] = [i for i in range(9)]
+
+cameraConnected = False
+
+ID_CONNECT_ERROR = 400
+
+def printGlobals():
+    print('globs.compactMode: %s' % compactMode)
+    print('globs.askBeforeCommit: %s' % askBeforeCommit)
+    print('globs.askBeforeExit: %s' % askBeforeExit)
+    print('globs.overwriteLocalFiles: %s' % overwriteLocalFiles)
+    print('globs.autoSwitchToFavoriteNetwork: %s' % autoSwitchToFavoriteNetwork)
+    print('globs.cameraConnected: %s' % cameraConnected)
+    print('globs.maxDownload: %s' % maxDownload)
+    print('globs.localFilesCnt: %s' % localFilesCnt)
+    print('globs.availRemoteFilesCnt: %s' % availRemoteFilesCnt)
+    print('globs.savePreferencesOnExit: %s' % savePreferencesOnExit)
+    print('globs.osvmDownloadDir: %s' % osvmDownloadDir)
+    print('globs.osvmFilesDownloadUrl: %s' % osvmFilesDownloadUrl)
+    print('globs.fileColors:', fileColors)
+    print('globs.ssDelay:', ssDelay)
+    print('globs.knownNetworks:', knownNetworks)
+    print('globs.favoriteNetwork:', favoriteNetwork)
+    print('globs.fileSortRecentFirst:', fileSortRecentFirst)
+    print('globs.smtpServer:', smtpServer)
+    print('globs.smtpServerProtocol:', smtpServerProtocol)
+    print('globs.smtpServerPort:', smtpServerPort)
+    print('globs.smtpServerUseAuth:', smtpServerUseAuth)
+    print('globs.smtpServerUserName:', smtpServerUserName)
+    print('globs.smtpServerUserPasswd:', smtpServerUserPasswd)

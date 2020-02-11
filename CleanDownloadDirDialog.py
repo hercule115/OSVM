@@ -7,13 +7,12 @@ import builtins as __builtin__
 import inspect
 import glob
 
-#import osvmGlobals
-moduleList = ['osvmGlobals']
+moduleList = {'osvmGlobals':'globs'}
 
-for m in moduleList:
-    print('Loading: %s' % m)
-    mod = __import__(m, fromlist=[None])
-    globals()[m] = globals().pop('mod')	# Rename module in globals()
+for k,v in moduleList.items():
+    print('Loading: %s as %s' % (k,v))
+    mod = __import__(k, fromlist=[None])
+    globals()[v] = globals().pop('mod')	# Rename module in globals()
 
 ####
 #print(__name__)
@@ -24,7 +23,7 @@ class CleanDownloadDirDialog(wx.Dialog):
     Creates and displays a dialog that allows the user to
     selectively clean the download directory
     """
-    def __init__(self, parent, download, globs):
+    def __init__(self, parent, download):
         self.parent = parent
         self.downloadDir = download
 
@@ -34,13 +33,13 @@ class CleanDownloadDirDialog(wx.Dialog):
         wx.Dialog.__init__(self, None, wx.ID_ANY, 'Select Files To Clean', style=myStyle)
 
         # Initialize the Dialog
-        self._initialize(globs)
+        self._initialize()
 
         self.panel1.SetSizerAndFit(self.topBoxSizer)
         self.SetClientSize(self.topBoxSizer.GetSize())
         self.Centre()
 
-    def _initialize(self, globs):
+    def _initialize(self):
         """
         Create and layout the widgets in the dialog
         """
@@ -79,7 +78,7 @@ class CleanDownloadDirDialog(wx.Dialog):
         for k in globs.CLEAN_FILETYPES.keys():
             w0 = wx.CheckBox(self.panel1, label=k)
             w0.SetValue(False)
-            w0.Bind(wx.EVT_CHECKBOX, lambda evt, temp=globs: self.OnFileType(evt, temp))
+            w0.Bind(wx.EVT_CHECKBOX, lambda evt: self.OnFileType(evt))
             
             globs.CLEAN_FILETYPES[k], s = folderSize(self.downloadDir, k, True) 
             size = humanBytes(s)
@@ -132,7 +131,7 @@ class CleanDownloadDirDialog(wx.Dialog):
 
         self.btnApply = wx.Button(id=wx.ID_APPLY, parent=self.panel1, style=0)
         self.btnApply.SetToolTip('Apply changes')
-        self.btnApply.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnApply(evt,temp))
+        self.btnApply.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnApply(evt))
 
         # Put all buttons in a BoxSizer
         self.bottombs = wx.BoxSizer(orient=wx.HORIZONTAL)
@@ -145,7 +144,7 @@ class CleanDownloadDirDialog(wx.Dialog):
         self.topBoxSizer.Add(4, 4, 1, border=0, flag=wx.EXPAND)
         self.topBoxSizer.Add(self.bottombs, 0, border=10, flag=wx.ALL | wx.ALIGN_RIGHT)
 
-    def OnFileType(self, event, globs):
+    def OnFileType(self, event):
         w0 = event.GetEventObject() # Checkbox widget
         item = [x for x in self.itemList if x[0] == w0]
         w1   = item[0][1]    # StaticText widget
@@ -193,7 +192,7 @@ class CleanDownloadDirDialog(wx.Dialog):
         self.EndModal(wx.ID_CANCEL)
         event.Skip()
 
-    def OnBtnApply(self, event, globs):
+    def OnBtnApply(self, event):
         i = 1 # Skip header
         for k in globs.CLEAN_FILETYPES.keys():
             if self.itemList[i][0].GetValue():  # wx.Checkbox
@@ -243,27 +242,25 @@ def myprint(*args, **kwargs):
     __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
 
 class MyFrame(wx.Frame):
-    def __init__(self, parent, id, title, globs):
+    def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
-        dlg = CleanDownloadDirDialog(self, download=globs.downloadDir, globs=globs)
+        dlg = CleanDownloadDirDialog(self, download=globs.downloadDir)
         ret = dlg.ShowModal()
         dlg.Destroy()
 
         self.Show()
         
 def main():
-    # Create Globals instance
-    g = osvmGlobals.myGlobals()
-
-    g.downloadDir = '/Users/didier/SynologyDrive/Photo/Olympus TG4'
-#    g.downloadDir = '.'
-    g.thumbDir = os.path.join(g.downloadDir, '.thumbnails')
-#    g.thumbDir = ('.')
+    # Init Globals instance
+    globs.downloadDir = '/Users/didier/SynologyDrive/Photo/Olympus TG4'
+#    globs.downloadDir = '.'
+    globs.thumbDir = os.path.join(globs.downloadDir, '.thumbnails')
+#    globs.thumbDir = ('.')
         
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
-    frame = MyFrame(None, -1, title="Test", globs=g)
+    frame = MyFrame(None, -1, title="Test")
     frame.Show()
     app.MainLoop()
 

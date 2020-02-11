@@ -10,23 +10,23 @@ import time
 import platform
 import subprocess
 
-moduleList = ['osvmGlobals']
+moduleList = {'osvmGlobals':'globs'}
 
-for m in moduleList:
-    print('Loading: %s' % m)
-    mod = __import__(m, fromlist=[None])
-    globals()[m] = globals().pop('mod')	# Rename module in globals()
+for k,v in moduleList.items():
+    print('Loading: %s as %s' % (k,v))
+    mod = __import__(k, fromlist=[None])
+    globals()[v] = globals().pop('mod')	# Rename module in globals()
 
 ####
 #print(__name__)
 
 #### MailPreferencesDialog
 class MailPreferencesDialog(wx.Dialog):
-    def __init__(self, parent, globs):
+    def __init__(self, parent):
         myStyle = wx.DEFAULT_DIALOG_STYLE|wx.TAB_TRAVERSAL|wx.RESIZE_BORDER
         wx.Dialog.__init__(self, None, wx.ID_ANY, 'Mail Preferences', style=myStyle)
 
-        self._initialize(globs)
+        self._initialize()
 
         self.panel1.SetSizerAndFit(self.topBS)
         self.SetClientSize(self.topBS.GetSize())
@@ -35,7 +35,7 @@ class MailPreferencesDialog(wx.Dialog):
     """
     Create and layout the widgets in the dialog
     """
-    def _initialize(self, globs):
+    def _initialize(self):
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self,
                                size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
 
@@ -84,7 +84,7 @@ class MailPreferencesDialog(wx.Dialog):
         
         self.useAuthCB = wx.CheckBox(self.panel1, id=wx.ID_ANY)#, style=wx.ALIGN_LEFT) #label='Use Authentication',
         self.useAuthCB.SetLabelMarkup("<span foreground='blue'>%s</span>" % 'Use Authentication')        
-        self.useAuthCB.Bind(wx.EVT_CHECKBOX, lambda evt,temp=globs: self.OnUseAuthCB(evt,temp))
+        self.useAuthCB.Bind(wx.EVT_CHECKBOX, lambda evt: self.OnUseAuthCB(evt))
         self.useAuthCB.SetValue(globs.smtpServerUseAuth)
         self.useAuthCB.SetToolTip('Use Authentication to Connect to the SMTP Server')
 
@@ -106,14 +106,14 @@ class MailPreferencesDialog(wx.Dialog):
         # Bottom buttons
         self.btnReset = wx.Button(id=wx.ID_DEFAULT, label='Default', parent=self.panel1, style=0)
         self.btnReset.SetToolTip('Reset to factory defaults')
-        self.btnReset.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnReset(evt, temp))
+        self.btnReset.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnReset(evt))
         
         self.btnCancel = wx.Button(label='Cancel', id=wx.ID_ANY, parent=self.panel1, style=0)
         self.btnCancel.Bind(wx.EVT_BUTTON, self.OnBtnCancel)
 
         self.btnApply = wx.Button(id=wx.ID_APPLY, parent=self.panel1, style=0)
         self.btnApply.SetToolTip(u'Apply modifications and Close')
-        self.btnApply.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnApply(evt,temp))
+        self.btnApply.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnApply(evt))
 
         self._init_sizers()
 
@@ -193,7 +193,7 @@ class MailPreferencesDialog(wx.Dialog):
                 self.fields[i][1].Disable()                
         event.Skip()
 
-    def OnUseAuthCB(self, event, globs):
+    def OnUseAuthCB(self, event):
         if self.useAuthCB.GetValue():
             self.authPrefs['Username'][1].Enable()
             self.authPrefs['Password'][1].Enable()
@@ -214,7 +214,7 @@ class MailPreferencesDialog(wx.Dialog):
         #     self.btnApply.Disable()
         event.Skip()
 
-    def OnBtnApply(self, event, globs):
+    def OnBtnApply(self, event):
         globs.smtpServer = self.serverTC.GetValue()
         for i in range(1,len(self.fields)):	# Loop thru all radio buttons
             if self.fields[i][0].GetValue():	# Check if radio button is selected
@@ -246,13 +246,13 @@ class MailPreferencesDialog(wx.Dialog):
         self.EndModal(wx.ID_CANCEL)
         event.Skip()
 
-    def OnBtnReset(self, event, globs):
-        self._GUIReset(globs)
+    def OnBtnReset(self, event):
+        self._GUIReset()
 #        self.btnApply.SetDefault()
 #        self.btnApply.Disable()
         event.Skip()
 
-    def _GUIReset(self, globs):
+    def _GUIReset(self):
         self.serverTC.SetValue(globs.DEFAULT_SMTP_SERVER)
         
         for i in range(1,len(self.fields)):	# Loop thru all radio buttons
@@ -281,32 +281,31 @@ def myprint(*args, **kwargs):
     __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
 
 class MyFrame(wx.Frame):
-    def __init__(self, parent, id, title, globs):
+    def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
 
-        dlg = MailPreferencesDialog(self, globs)
+        dlg = MailPreferencesDialog(self)
         ret = dlg.ShowModal()
         dlg.Destroy()
 
         self.Show()
 
 def main():
-    # Create Globals instance
-    g = osvmGlobals.myGlobals()
-    g.system = platform.system()		# Linux or Windows or MacOS (Darwin)
-    g.pythonVersion = (sys.version).split()[0]	# 2.x or 3.x ?
+    # Init Globals instance
+    globs.system = platform.system()		# Linux or Windows or MacOS (Darwin)
+    globs.pythonVersion = (sys.version).split()[0]	# 2.x or 3.x ?
 
-    g.smtpServer = 'smtp.gmail.com'
-    g.smtpServerProtocol = 'SMTP'
-    g.smtpServerPort = 25
-    g.smtpServerUseAuth = True
-    g.smtpServerUserName   = 'dspoirot@gmail.com'
-    g.smtpServerUserPasswd = 'foobar'
+    globs.smtpServer 		= 'smtp.gmail.com'
+    globs.smtpServerProtocol	= 'SMTP'
+    globs.smtpServerPort	= 25
+    globs.smtpServerUseAuth	= True
+    globs.smtpServerUserName	= 'dspoirot@gmail.com'
+    globs.smtpServerUserPasswd	= 'foobar'
     
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
-    frame = MyFrame(None, -1, title="Test", globs=g)
+    frame = MyFrame(None, -1, title="Test")
     frame.Show()
     app.MainLoop()
 

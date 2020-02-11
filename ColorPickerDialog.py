@@ -4,13 +4,12 @@ import wx
 import sys
 import math
 
-#import osvmGlobals
-moduleList = ['osvmGlobals']
+moduleList = {'osvmGlobals':'globs'}
 
-for m in moduleList:
-    print('Loading: %s' % m)
-    mod = __import__(m, fromlist=[None])
-    globals()[m] = globals().pop('mod')	# Rename module in globals()
+for k,v in moduleList.items():
+    print('Loading: %s as %s' % (k,v))
+    mod = __import__(k, fromlist=[None])
+    globals()[v] = globals().pop('mod')	# Rename module in globals()
 
 ####
 #print(__name__)
@@ -23,7 +22,7 @@ class ColorPickerDialog(wx.Dialog):
 #    global fileColors
 #    global FILE_COLORS_STATUS
 
-    def __init__(self, parent, globs):
+    def __init__(self, parent):
         """
         Initialize the dialog box
         """
@@ -31,13 +30,13 @@ class ColorPickerDialog(wx.Dialog):
         myStyle = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.TAB_TRAVERSAL
         wx.Dialog.__init__(self, None, wx.ID_ANY, '%s - Choose your colors' % globs.myName, style=myStyle)
 
-        self._initialize(globs)
+        self._initialize()
 
         self.panel1.SetSizerAndFit(self.topBoxSizer)
         self.SetClientSize(self.topBoxSizer.GetSize())
         self.Centre()
 
-    def _initialize(self, globs):
+    def _initialize(self):
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self,
                                size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
 
@@ -52,7 +51,7 @@ class ColorPickerDialog(wx.Dialog):
 
         self.btnOK = wx.Button(id=wx.ID_ANY, label='OK', parent=self.panel1, style=0)
         self.btnOK.SetToolTip('Exit this Dialog')
-        self.btnOK.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnOK(evt, temp))
+        self.btnOK.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnOK(evt))
         self.btnOK.Disable()
 
         self._cols = []
@@ -83,9 +82,9 @@ class ColorPickerDialog(wx.Dialog):
             # Store [sizer, colorpicker] for this color
             self._cols.append([sbs, cp])
 
-        self._init_sizers(globs)
+        self._init_sizers()
 
-    def _init_sizers(self, globs):
+    def _init_sizers(self):
         self.topBoxSizer = wx.BoxSizer(orient=wx.VERTICAL)
 
         # GridSizer containing all the possible colors to tweak
@@ -126,7 +125,7 @@ class ColorPickerDialog(wx.Dialog):
         self.EndModal(wx.ID_CANCEL)
         event.Skip()
 
-    def OnBtnOK(self, event, globs):
+    def OnBtnOK(self, event):
         i = 0
         for e in self._cols:
             color = e[1].GetColour()
@@ -137,22 +136,19 @@ class ColorPickerDialog(wx.Dialog):
 
         
 class MyFrame(wx.Frame):
-    def __init__(self, parent, id, title, globs):
+    def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
-        dlg = ColorPickerDialog(self, globs)
+        dlg = ColorPickerDialog(self)
         ret = dlg.ShowModal()
         dlg.Destroy()
 
         self.Show()
 
 def main():
-    # Create Globals instance
-    g = globs.myGlobals()
-
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
-    frame = MyFrame(None, -1, title="Test", globs=g)
+    frame = MyFrame(None, -1, title="Test")
     frame.Show()
     app.MainLoop()
 

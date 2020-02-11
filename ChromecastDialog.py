@@ -6,13 +6,12 @@ import os
 import builtins as __builtin__
 import inspect
 
-#import osvmGlobals
-moduleList = ['osvmGlobals']
+moduleList = {'osvmGlobals':'globs'}
 
-for m in moduleList:
-    print('Loading: %s' % m)
-    mod = __import__(m, fromlist=[None])
-    globals()[m] = globals().pop('mod')	# Rename module in globals()
+for k,v in moduleList.items():
+    print('Loading: %s as %s' % (k,v))
+    mod = __import__(k, fromlist=[None])
+    globals()[v] = globals().pop('mod')	# Rename module in globals()
 
 ####
 #print(__name__)
@@ -23,20 +22,20 @@ class ChromecastDialog(wx.Dialog):
     """
     Creates and displays a dialog to select the Chromecast to use.
     """
-    def __init__(self, globs):
+    def __init__(self):
         """
         Initialize the preferences dialog box
         """
         myStyle = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.TAB_TRAVERSAL
         wx.Dialog.__init__(self, None, wx.ID_ANY, '%s - Chromecast Selector' % globs.myLongName, style=myStyle)
 
-        self._initialize(globs)
+        self._initialize()
 
         self.panel1.SetSizerAndFit(self.topBoxSizer)
         self.SetClientSize(self.topBoxSizer.GetSize())
         self.Centre()
 
-    def _initialize(self, globs):
+    def _initialize(self):
         self.cc = globs.chromecasts
 
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
@@ -77,8 +76,7 @@ class ChromecastDialog(wx.Dialog):
             if (globs.castDevice and self.ccProps[i][0] == globs.castDevice.name) or (found and found == i) :
                 btn.SetValue(True)
 
-#            btn.Bind(wx.EVT_RADIOBUTTON, self.OnRadioButton)
-            btn.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnRadioButton(evt, temp))
+            btn.Bind(wx.EVT_BUTTON, lambda evt: self.OnRadioButton(evt))
             self.fields.append(btn)
 
             for j in range(1,len(self.ccProps[0])):
@@ -96,8 +94,7 @@ class ChromecastDialog(wx.Dialog):
         # Close button
         self.btnClose = wx.Button(id=wx.ID_CLOSE, parent=self.panel1, style=0)
         self.btnClose.SetToolTip('Close this Dialog')
-#        self.btnClose.Bind(wx.EVT_BUTTON, self.OnBtnClose)
-        self.btnClose.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnClose(evt, temp))
+        self.btnClose.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnClose(evt))
         self.btnClose.SetDefault()
 
         self._init_sizers()
@@ -128,7 +125,7 @@ class ChromecastDialog(wx.Dialog):
         self._init_bottomBoxSizer_Items(self.bottomBoxSizer)
 
     ## Events
-    def OnRadioButton(self, event, globs):
+    def OnRadioButton(self, event):
         button = event.GetEventObject()
         #        print('Casting to: %s' % button.GetLabel())
         globs.castDevice = None
@@ -141,7 +138,7 @@ class ChromecastDialog(wx.Dialog):
                 myprint('Using Cast Device:',globs.castDevice)
         event.Skip()
 
-    def OnBtnClose(self, event, globs):
+    def OnBtnClose(self, event):
         for i in range(4,len(self.fields)-1,4):
             btn = self.fields[i]
             if btn.GetValue() == True:
@@ -160,7 +157,7 @@ class ChromecastDialog(wx.Dialog):
 
 
 ########################
-def initPyChromecast(globs):
+def initPyChromecast():
     myprint('Looking for Chromecast devices...')
     globs.chromecasts = pychromecast.get_chromecasts(tries=3) 
     if not globs.chromecasts:
@@ -178,7 +175,7 @@ def initPyChromecast(globs):
         print(x.model_name)
         print(x.device.manufacturer)
     
-    dlg = ChromecastDialog(globs)
+    dlg = ChromecastDialog()
     ret = dlg.ShowModal()
     dlg.Destroy()
     if not globs.castDevice:
@@ -191,7 +188,6 @@ def initPyChromecast(globs):
     mc = globs.castDevice.media_controller 
     return mc
 
-
 ########################
 def myprint(*args, **kwargs):
     """My custom print() function."""
@@ -202,11 +198,11 @@ def myprint(*args, **kwargs):
     __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
 
 class MyFrame(wx.Frame):
-    def __init__(self, parent, id, title, globs):
+    def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
 
-        initPyChromecast(globs)        
+        initPyChromecast()
 
 try:
     import pychromecast
@@ -218,16 +214,14 @@ else:
     pycc = True
         
 def main():
-    # Create Globals instance
-    g = osvmGlobals.myGlobals()
-
+    # Init Globals instance
     if not pycc:
-        g.disabledModules.append(('PyChromecast',msg))
-        g.pycc = False
+        globs.disabledModules.append(('PyChromecast',msg))
+        globs.pycc = False
         
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
-    frame = MyFrame(None, -1, title="Test", globs=g)
+    frame = MyFrame(None, -1, title="Test")
     frame.Show()
     app.MainLoop()
 

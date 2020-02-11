@@ -6,13 +6,12 @@ import os
 import builtins as __builtin__
 import inspect
 
-#import osvmGlobals
-moduleList = ['osvmGlobals']
+moduleList = {'osvmGlobals':'globs'}
 
-for m in moduleList:
-    print('Loading: %s' % m)
-    mod = __import__(m, fromlist=[None])
-    globals()[m] = globals().pop('mod')	# Rename module in globals()
+for k,v in moduleList.items():
+    print('Loading: %s as %s' % (k,v))
+    mod = __import__(k, fromlist=[None])
+    globals()[v] = globals().pop('mod')	# Rename module in globals()
 
 ####
 #print(__name__)
@@ -21,15 +20,15 @@ class ColorLED(wx.Control):
     """
     Creates a LED widget. State is controlled by SetState()/GetState() methods
     """
-    def __init__(self, parent, globs, color, id=-1, style=wx.NO_BORDER):
+    def __init__(self, parent, color, id=-1, style=wx.NO_BORDER):
         size = (17, 17)
         wx.Control.__init__(self, parent, id, size, (-1,-1), style)
         self.MinSize = size
         self._color = color
-        self.SetState(globs, color)
+        self.SetState(color)
         self.Bind(wx.EVT_PAINT, self.OnPaint, self)
         
-    def SetState(self, globs, color):
+    def SetState(self, color):
         self._color = color
         ascii_led_header = (
             '/* XPM */\n',
@@ -89,7 +88,7 @@ def myprint(*args, **kwargs):
     __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
 
 class MyFrame(wx.Frame):
-    def __init__(self, parent, id, title, globs):
+    def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
 
@@ -105,23 +104,23 @@ class MyFrame(wx.Frame):
         self.ledsColours = [GREEN,ORANGE,RED]
         self.ledsColoursLen = len(self.ledsColours)
         
-        led = ColorLED(panel, globs, RED)
+        led = ColorLED(panel, RED)
         gbs.Add(led, pos=(0,0), flag=wx.ALL | wx.EXPAND, border=5)
-        led = ColorLED(panel, globs, GREEN)
+        led = ColorLED(panel, GREEN)
         gbs.Add(led, pos=(0,1), flag=wx.ALL | wx.EXPAND, border=5)
-        led = ColorLED(panel, globs, ORANGE)
+        led = ColorLED(panel, ORANGE)
         gbs.Add(led, pos=(0,2), flag=wx.ALL | wx.EXPAND, border=5)
 
-        self.led0 = ColorLED(panel, globs, GREEN)
-        self.led1 = ColorLED(panel, globs, ORANGE)
-        self.led2 = ColorLED(panel, globs, RED)
+        self.led0 = ColorLED(panel, GREEN)
+        self.led1 = ColorLED(panel, ORANGE)
+        self.led2 = ColorLED(panel, RED)
         gbs.Add(self.led0, pos=(1,0), flag=wx.ALL | wx.EXPAND, border=5)
         gbs.Add(self.led1, pos=(1,1), flag=wx.ALL | wx.EXPAND, border=5)
         gbs.Add(self.led2, pos=(1,2), flag=wx.ALL | wx.EXPAND, border=5)
 
         self.idx = 0
         self.timer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, lambda evt,temp=globs: self.OnTimer(evt,temp), self.timer)
+        self.Bind(wx.EVT_TIMER, lambda evt: self.OnTimer(evt), self.timer)
         self.timer.Start(globs.TIMER6_FREQ)
         
         panel.SetSizerAndFit(topBoxSizer)
@@ -130,24 +129,22 @@ class MyFrame(wx.Frame):
             
         self.Show()
 
-    def OnTimer(self, event, globs):
-        self.led0.SetState(globs, self.ledsColours[self.idx%self.ledsColoursLen])
+    def OnTimer(self, event):
+        self.led0.SetState(self.ledsColours[self.idx%self.ledsColoursLen])
         self.idx += 1
-        self.led1.SetState(globs, self.ledsColours[self.idx%self.ledsColoursLen])
+        self.led1.SetState(self.ledsColours[self.idx%self.ledsColoursLen])
         self.idx += 1
-        self.led2.SetState(globs, self.ledsColours[self.idx%self.ledsColoursLen])
+        self.led2.SetState(self.ledsColours[self.idx%self.ledsColoursLen])
         self.idx += 2
 
 def main():
-    # Create Globals instance
-    g = osvmGlobals.myGlobals()
-    g.tmpDir = '/tmp'
-
+    # Init Globals instance
+    globs.tmpDir = '/tmp'
     
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
 
-    frame = MyFrame(None, -1, title="Test", globs=g)
+    frame = MyFrame(None, -1, title="Test")
     frame.Show()
     app.MainLoop()
 

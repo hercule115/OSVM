@@ -9,13 +9,12 @@ import inspect
 import time
 import datetime
 
-#import osvmGlobals
-moduleList = ['osvmGlobals']
+moduleList = {'osvmGlobals':'globs'}
 
-for m in moduleList:
-    print('Loading: %s' % m)
-    mod = __import__(m, fromlist=[None])
-    globals()[m] = globals().pop('mod')	# Rename module in globals()
+for k,v in moduleList.items():
+    print('Loading: %s as %s' % (k,v))
+    mod = __import__(k, fromlist=[None])
+    globals()[v] = globals().pop('mod')	# Rename module in globals()
 
 ####
 #print(__name__)
@@ -25,7 +24,7 @@ class DateDialog(wx.Dialog):
     """
     Creates and displays a dialog to select a date
     """
-    def __init__(self, parent,fromdate, todate, globs):
+    def __init__(self, parent,fromdate, todate):
         myStyle = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.TAB_TRAVERSAL
         wx.Dialog.__init__(self, None, wx.ID_ANY, 'Date Selector', style=myStyle)
 
@@ -121,7 +120,7 @@ def myprint(*args, **kwargs):
     __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
 
 class MyFrame(wx.Frame):
-    def __init__(self, parent, id, title, globs):
+    def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
 
@@ -129,21 +128,19 @@ class MyFrame(wx.Frame):
         remNewestDate = today.strftime("%m/%d/%Y")
         remOldestDate = '01/01/1970'
 
-        dlg = DateDialog(self, remOldestDate, remNewestDate, globs)
+        dlg = DateDialog(self, remOldestDate, remNewestDate)
         ret = dlg.ShowModal()
         dlg.Destroy()
 
         self.Show()
 
 def main():
-    # Create Globals instance
-    g = osvmGlobals.myGlobals()
-
-    g.viewMode = True
+    # Init Globals instance
+    #globs.viewMode = True
     
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
-    frame = MyFrame(None, -1, title="Test", globs=g)
+    frame = MyFrame(None, -1, title="Test")
     frame.Show()
     app.MainLoop()
 

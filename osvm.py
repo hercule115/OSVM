@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 # Create Globals instance
-import osvmGlobals
-globs = osvmGlobals.myGlobals()
+import osvmGlobals as globs
 
 import wx.lib.platebtn as platebtn
 
@@ -80,8 +79,6 @@ import socket
 import datetime
 import glob
 import ctypes
-
-#import simpleQRScanner
 
 # Local modules
 moduleList = (
@@ -260,7 +257,7 @@ def diskUsage(path):
     used = (st.f_blocks - st.f_bfree) * st.f_frsize
     return (humanBytes(total), humanBytes(used), humanBytes(free))
 
-def cleanup(globs):
+def cleanup():
     myprint('Removing temporary files')
     if os.path.exists(globs.htmlRootFile):
         try:
@@ -279,8 +276,8 @@ def getTmpFile():
     f = tempfile.NamedTemporaryFile(delete=False)
     return f.name
 
-def dumpOperationList(title, oplist, globs):
-    optype = ["NOT USED", "DOWNLOAD", "DELETE"]
+def dumpOperationList(title, oplist):
+    optype = ["NOT USED", "DOWNLOAD", "MARK", "UNMARK"]
     opstep = ["DOWNLOAD", "EXTRACT", "INSTALL"]
     i = 0
     print('**** Dump: %s ****' % title)
@@ -293,12 +290,10 @@ def dumpOperationList(title, oplist, globs):
             print('         File Date: %s' % getHumanDate(op[globs.OP_FILEDATE]))
             print('      Request Type: %s' % optype[op[globs.OP_TYPE]])
 
-            if op[globs.OP_TYPE] != globs.FILE_DELETE:
+            if op[globs.OP_TYPE] == globs.FILE_DOWNLOAD:
                 print('      Local filename: %s' % op[globs.OP_FILEPATH])
                 print('     Remote File URL: %s' % op[globs.OP_REMURL])
                 print('    Remote File Size: %d/%d' % (op[globs.OP_SIZE][0],op[globs.OP_SIZE][1]))
-
-            if op[globs.OP_TYPE] != globs.FILE_DELETE:
                 print('    Current Transfer Block Counter: %d' % op[globs.OP_INCOUNT])
                 print('    Current Installation Step: %s' % opstep[op[globs.OP_INSTEP]])
 
@@ -362,7 +357,7 @@ def listLocalFiles(dir, hidden=False, relative=True):
 # - value: list of info for this file
 #
 # Return # entry in the dictionary
-def localFilesInfo(dirName, globs):
+def localFilesInfo(dirName):
     myprint('dirName=%s globs.cameraConnected=%s' % (dirName, globs.cameraConnected))
     globs.localFileInfos = {}
     fileList = listLocalFiles(dirName, hidden=False)
@@ -413,7 +408,7 @@ def localFilesInfo(dirName, globs):
     globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst) #True)
     return i
 
-def downloadThumbnail(e, globs):
+def downloadThumbnail(e):
     uri       = e[globs.F_THUMBURL]
     thumbFile = e[globs.F_NAME]
     thumbSize = e[globs.F_SIZE]
@@ -454,7 +449,7 @@ def downloadThumbnail(e, globs):
             myprint(msg)
             return -1
 
-def getRootDirInfo(rootDir, uri, globs): # XXX
+def getRootDirInfo(rootDir, uri):
     if globs.cameraConnected:
         myprint("Downloading from network: %s" % (uri))
         try:
@@ -518,7 +513,7 @@ def getRootDirInfo(rootDir, uri, globs): # XXX
 #        print("Found remote file: %s size %d created %s %s %d" % (e[1][globs.F_NAME],e[1][globs.F_SIZE],getHumanDate(e[1][globs.F_DATE]),getHumanTime(e[1][globs.F_TIME]),int(e[1][globs.F_DATEINSECS])))
     return i
 
-def htmlRoot(globs): # XXX
+def htmlRoot(): # XXX
     if globs.cameraConnected:
         myprint("Downloading from network: %s" % (globs.rootUrl))
         try:
@@ -570,18 +565,18 @@ def htmlRoot(globs): # XXX
     return len(globs.rootDirList)
 
 def clearDirectory(dir):
-    print('Deleting:',dir)
+    myprint('Deleting:',dir)
     if not os.path.isdir(dir):
         return
     shutil.rmtree(dir)
 
-def updateFileDicts(globs):
+def updateFileDicts():
     # Reset camera status. Will be updated if connection fails
     globs.cameraConnected = True
 
     # Download the root HTML from the camera
     relRootUrl = '%s%s' % (globs.osvmFilesDownloadUrl, globs.remBaseDir)
-    globs.rootDirCnt =  htmlRoot(globs)
+    globs.rootDirCnt =  htmlRoot()
     myprint('%d root directories available for download' % (globs.rootDirCnt))
     if globs.rootDirCnt <= 0:
         globs.availRemoteFilesCnt = 0
@@ -596,13 +591,13 @@ def updateFileDicts(globs):
             myprint('%d remote files available' % globs.availRemoteFilesCnt)
 
             for e in sorted(globs.availRemoteFiles.values()):
-                ret = downloadThumbnail(e, globs)
+                ret = downloadThumbnail(e)
                 if ret:
                     myprint ("Error while downloading thumbnail.")
                     break
 
     # Detect local files
-    globs.localFilesCnt = localFilesInfo(globs.osvmDownloadDir, globs)
+    globs.localFilesCnt = localFilesInfo(globs.osvmDownloadDir)
     myprint('%d local files, %d remote files' % (globs.localFilesCnt, globs.availRemoteFilesCnt))
     return globs.localFilesCnt,globs.availRemoteFilesCnt
 
@@ -613,15 +608,15 @@ def touch(path):
     with open(path, 'a'):
         os.utime(path, None)
 
-def deleteLocalFiles(pDialog, opList, globs):
-    for op in opList:
-        # If this operation is not used or not 'DELETE', skip it
-        if not op[globs.OP_STATUS] or op[globs.OP_TYPE] != globs.FILE_DELETE:
-            continue
-        filePath = op[globs.OP_FILEPATH]
-        (ret, msg) = deleteLocalFile(pDialog, filePath, globs)
+# def deleteLocalFiles(pDialog, opList, globs):
+#     for op in opList:
+#         # If this operation is not used or not 'DELETE', skip it
+#         if not op[globs.OP_STATUS] or op[globs.OP_TYPE] != globs.FILE_DELETE:
+#             continue
+#         filePath = op[globs.OP_FILEPATH]
+#         (ret, msg) = deleteLocalFile(pDialog, filePath, globs)
 
-def downloadFile(op, pDialog, globs):
+def downloadFile(op, pDialog):
     fileName   = op[globs.OP_FILENAME]
     localFile  = op[globs.OP_FILEPATH]
     remoteFile = op[globs.OP_REMURL]
@@ -697,7 +692,7 @@ def downloadFile(op, pDialog, globs):
         if not chunk: 
             # End of transfer
             myprint('%s: End of transfer detected' % thr.name)
-            wx.CallAfter(pDialog.updateCounter, op, globs, 1)
+            wx.CallAfter(pDialog.updateCounter, op, 1)
             break
         out.write(chunk)
         op[globs.OP_INCOUNT] += 1
@@ -734,7 +729,7 @@ def downloadFile(op, pDialog, globs):
     return (ret, '')
 
 # Delete local files if needed
-def deleteLocalFile(pDialog, filePath, globs):
+def deleteLocalFile(pDialog, filePath):
     ret = 0    # error counter
     msg = 'Removing local file %s\n' % (filePath)
     wx.CallAfter(pDialog.installError, 0, msg)
@@ -751,14 +746,14 @@ def deleteLocalFile(pDialog, filePath, globs):
     print('removeCmd =',removeCmd,'ret=',ret,'msg=',msg)
     if not ret:
         msg = "File %s successfully removed\n" % (filePath)
-        globs.localFilesCnt = localFilesInfo(globs.osvmDownloadDir, globs)
+        globs.localFilesCnt = localFilesInfo(globs.osvmDownloadDir)
 
     wx.CallAfter(pDialog.installError, ret, msg)
     return (ret, msg)
 
 # Return the background and foreground colors to paint a widget associated 
 # to the given file
-def fileColor(fileName, globs):
+def fileColor(fileName):
     color = globs.fileColors[globs.FILE_NOT_INSTALLED]    # Default color
     try:
         e = globs.localFileInfos[fileName]
@@ -789,7 +784,7 @@ def checkUrl(url):
     resp = conn.getresponse()
     return resp.status < 400
 
-def startHTTPServer(globs):
+def startHTTPServer():
     null = open('/dev/null', 'w')
 
     p = subprocess.Popen(
@@ -888,7 +883,7 @@ class InstallThread(threading.Thread):
 
             # step 0. Download file from camera
             wx.CallAfter(self._pDialog.startStep, op, 0, self._workQueue.qsize())
-            (ret, msg) = downloadFile(op=op, pDialog=self._pDialog, globs=globs)
+            (ret, msg) = downloadFile(op=op, pDialog=self._pDialog)
             print('%s: downloadFile() ret=%d msg=%s' % (self._name, ret, msg))
             if ret < 0:
                 if ret != -2:
@@ -918,14 +913,13 @@ class MainInstallThread(threading.Thread):
         self._stopper = threading.Event()
 
         self._downloadDir = globs.osvmDownloadDir
-
-        print ('%s: Started' % self._name)
+        myprint ('Started')
 
     def stopIt(self):
-        print('%s: Stopping children threads' % self._name)
+        myprint('Stopping child threads')
         for thr in self._threads:
             if thr.isAlive():
-                print('%s: Stopping thread: %s' % (self._name, thr.name))
+                myprint('Stopping thread: %s' % (thr.name))
                 thr.stopIt()
                 thr.raiseException()
                 thr.join()
@@ -934,26 +928,25 @@ class MainInstallThread(threading.Thread):
         return self._stopper.isSet()
 
     def run(self):
-        print('%s: Running, Waiting for Lock' % self._name)
+        myprint('Running, Waiting for Lock')
         self._thrLock.acquire() # will block until the 'InstallDialog' starts
-        print('%s: Lock acquired' % self._name)
+        myprint('Lock acquired')
 
         # Clear list of threads
         self._threads = list()
 
         # Fill the queue with pending operations
         for op in self._parent.opList:
-            if op[globs.OP_STATUS] and op[globs.OP_TYPE] != globs.FILE_DELETE:
+            if op[globs.OP_STATUS]:
                 self._workQueue.put(op)
 
-        print('%s: workQueue size: %d, globs.maxDownload: %d' % (self._name, self._workQueue.qsize(),globs.maxDownload))
+        myprint('workQueue size: %d, globs.maxDownload: %d' % (self._workQueue.qsize(),globs.maxDownload))
 
         # Exit if nothing to do
         if not self._workQueue.qsize():
             wx.CallAfter(self._parent.finish, '')
             self._thrLock.release()
             return
-            #continue
 
         # Create new install threads
         for i in range(globs.maxDownload):
@@ -961,23 +954,22 @@ class MainInstallThread(threading.Thread):
             thr = InstallThread(tName, self._parent, self._thrLock, self._queueLock, self._workQueue)
             # Start the new thread in background
             thr.setDaemon(True)
-            print('%s: Starting thread %s' % (self._name, tName))
+            myprint('Starting thread %s' % (tName))
             thr.start()
             # Add the thread to the thread list
             self._threads.append(thr)
 
         # Wait for all threads to complete
-        print('%s:' % self._name, self._threads)
         for t in self._threads:
             if t.is_alive():
                 t.join()
 
-        print('%s: All threads have finished' % self._name)
+        myprint('All threads have finished')
 
         # All Threads are exited. 
-        print("%s: Updating globs.localFileInfos" % (self._name))
-        globs.localFilesCnt = localFilesInfo(globs.osvmDownloadDir, globs)
-        print("%s: %d files on local host" % (self._name, globs.localFilesCnt))
+        myprint('Updating globs.localFileInfos')
+        globs.localFilesCnt = localFilesInfo(globs.osvmDownloadDir)
+        myprint('%d files on local host' % (globs.localFilesCnt))
  
         # Dialog cleanup if possible
         try:
@@ -986,7 +978,7 @@ class MainInstallThread(threading.Thread):
             pass
 
         # All Threads are exited. 
-        print('%s: Exiting' % self._name)
+        myprint('Exiting')
 
 ### 
 class SlideShowThread(threading.Thread):
@@ -1036,20 +1028,20 @@ class SlideShowThread(threading.Thread):
 
 #### class Preferences
 class Preferences():
-    def __init__(self, globs):
+    def __init__(self):
         pass
 
-    def _loadPreferences(self, globs):
-        newInitFile1 = self._loadInitFile(globs)
-        newInitFile2 = self._parseInitFile(globs)
+    def _loadPreferences(self):
+        newInitFile1 = self._loadInitFile()
+        newInitFile2 = self._parseInitFile()
         if newInitFile1 or newInitFile2:
-            dlg = PreferencesDialog.PreferencesDialog(self, globs)
+            dlg = PreferencesDialog.PreferencesDialog(self)
             dlg.ShowModal()
             dlg.Destroy()
             #globs.printGlobals()
 
-    def _savePreferences(self, globs):
-        self._saveInitFile(globs)
+    def _savePreferences(self):
+        self._saveInitFile()
 
     # Return a dictionary (if exists) for the given section in the ConfigParser object
     def _initFileSectionGet(self, config, section):
@@ -1069,18 +1061,18 @@ class Preferences():
                 dict1[opt] = None
         return dict1
 
-    def _loadInitFile(self, globs):
+    def _loadInitFile(self):
         myprint("Loading preference file:", globs.initFilePath)
         self.config = configparser.ConfigParser()
         cf = self.config.read(globs.initFilePath)
         if self.config.sections() == []:
             # Create a new Init file, return TRUE
-            self._createDefaultInitFile(globs)
+            self._createDefaultInitFile()
             cf = self.config.read([globs.initFilePath])
             return True
         return False
 
-    def _createDefaultInitFile(self, globs):
+    def _createDefaultInitFile(self):
         myprint('Warning: Cannot read preference file, Creating default: %s' % globs.initFilePath)
 
         if os.path.exists(globs.initFilePath):
@@ -1134,7 +1126,7 @@ class Preferences():
 
         cfgFile.close()
 
-    def _parseInitFile(self, globs):
+    def _parseInitFile(self):
         try:
             self.config.read( globs.initFilePath)
 
@@ -1199,7 +1191,7 @@ class Preferences():
             # Create a new Init file from builtin defaults
             del self.config
             self.config = configparser.ConfigParser()
-            self._createDefaultInitFile(globs)
+            self._createDefaultInitFile()
             self.config.read(globs.initFilePath)
 
             iniFileVersion = self.config['Version'][globs.INI_VERSION]
@@ -1246,7 +1238,7 @@ class Preferences():
 
             return True # Parsing KO, New file created
 
-    def _saveInitFile(self, globs):
+    def _saveInitFile(self):
         myprint("Saving preference file:", globs.initFilePath)
 
         # lets update the config file
@@ -1385,7 +1377,7 @@ class FileOperationMenu(wx.Menu):
                 menuItem.SetBitmap(wx.Bitmap(os.path.join(globs.imgDir,'play.png')))
                 self.popupMenu.Append(menuItem)
                 # Register Properties menu handler with EVT_MENU
-                self.popupMenu.Bind(wx.EVT_MENU, lambda evt,temp=globs: self._MenuSlideShowCb(evt,temp), menuItem)
+                self.popupMenu.Bind(wx.EVT_MENU, lambda evt: self._MenuSlideShowCb(evt), menuItem)
                 continue
 
             if menuEntry[1] == globs.FILE_PROPERTIES:    # Properties
@@ -1393,7 +1385,7 @@ class FileOperationMenu(wx.Menu):
                 menuItem.SetBitmap(wx.Bitmap(os.path.join(globs.imgDir,'properties-32.jpg')))
                 self.popupMenu.Append(menuItem)
                 # Register Properties menu handler with EVT_MENU
-                self.popupMenu.Bind(wx.EVT_MENU, lambda evt, temp=globs: self._MenuPropertiesCb(evt,temp), menuItem)
+                self.popupMenu.Bind(wx.EVT_MENU, lambda evt: self._MenuPropertiesCb(evt), menuItem)
                 continue
 
             if menuEntry[1] == -1:    # Separator
@@ -1414,19 +1406,19 @@ class FileOperationMenu(wx.Menu):
             menuItem.SetBitmap(wx.Bitmap(os.path.join(globs.imgDir, imgFile)))
             self.popupMenu.Append(menuItem)
             # Register menu handler with EVT_MENU
-            self.popupMenu.Bind(wx.EVT_MENU, lambda evt,temp=globs: self._MenuSelectionCb(evt,temp), menuItem)
+            self.popupMenu.Bind(wx.EVT_MENU, lambda evt: self._MenuSelectionCb(evt), menuItem)
 
         # Displays the menu at the current mouse position
         self.parent.panel1.PopupMenu(self.popupMenu, self.clickedPos)
         self.popupMenu.Destroy() # destroy to avoid mem leak
 
-    def _MenuSlideShowCb(self, event, globs):
+    def _MenuSlideShowCb(self, event):
         menuEntry = self.popupMenuTitles[event.GetId()][1]
         fileName = str(menuEntry[0])
         myprint("Searching %s in globs.localFilesSorted (%d files)" % (fileName, len(globs.localFilesSorted)))
         idx = [x[0] for x in globs.localFilesSorted].index(fileName)
         fileType = fileName.split('.')[1]	# File suffix
-        filesSelected = self.parent.selectFilesByPosition(globs, fileType, idx)
+        filesSelected = self.parent.selectFilesByPosition(fileType, idx)
 
         # Simulate a button 'Play' press
         self._btnPlayInfo = getattr(self.parent, "btnPlay")
@@ -1436,15 +1428,15 @@ class FileOperationMenu(wx.Menu):
 
         event.Skip()
 
-    def _MenuPropertiesCb(self, event, globs):
+    def _MenuPropertiesCb(self, event):
         menuEntry = self.popupMenuTitles[event.GetId()][1]
         fileName = str(menuEntry[0])
-        dlg = PropertiesDialog.PropertiesDialog(self, fileName, globs)
+        dlg = PropertiesDialog.PropertiesDialog(self, fileName)
         ret = dlg.ShowModal()
         dlg.Destroy()
         event.Skip()
 
-    def _MenuSelectionCb(self, event, globs):
+    def _MenuSelectionCb(self, event):
         if globs.system == 'Darwin':
             id = event.GetId() - 1
         else:
@@ -1455,7 +1447,7 @@ class FileOperationMenu(wx.Menu):
         what      = menuEntry[1]
 
         if what == globs.FILE_PROPERTIES:
-            self._MenuPropertiesCb(event,globs)
+            self._MenuPropertiesCb(event)
             return
 
         myprint('fileName=%s what=%d' % (fileName,what))
@@ -1497,15 +1489,6 @@ class FileOperationMenu(wx.Menu):
         operation = menuEntry[1]
         button    = menuEntry[2]
         filePath  = menuEntry[3]
-
-        # if operation == globs.FILE_DELETE:
-        #     # Ask confirmation
-        #     dial = wx.MessageDialog(None, 
-        #                             'Do you really want to DELETE file %s ?'% (fileName), 
-        #                             'Question', wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
-        #     ret = dial.ShowModal()
-        #     if ret == wx.ID_NO:
-        #         return
 
         op[globs.OP_STATUS]   = 1          # Busy
         op[globs.OP_FILENAME] = fileName
@@ -1554,7 +1537,7 @@ class OSVMConfigThread(threading.Thread):
 
         # Update dictionaries using current config parameters
         myprint('Updating file dictionaries')
-        globs.localFilesCnt,globs.availRemoteFilesCnt = updateFileDicts(globs)
+        globs.localFilesCnt,globs.availRemoteFilesCnt = updateFileDicts()
 
         msg = '%d local files, %d remote files' % (globs.localFilesCnt,
                                                    globs.availRemoteFilesCnt)
@@ -1568,7 +1551,7 @@ class OSVMConfigThread(threading.Thread):
         wx.CallAfter(self._pDialog.enableEnter)
 
         # Notify user about any disabled module
-        wx.CallAfter(lambda temp=globs: self._pDialog.notifyDisabledModules(temp))
+        wx.CallAfter(self._pDialog.notifyDisabledModules)
 
         # Simulate a 'Enter View Mode' event if requested
         if globs.autoViewMode:
@@ -1589,15 +1572,15 @@ class OSVMConfigThread(threading.Thread):
 
 ####
 class OSVMConfig(wx.Frame):
-    def __init__(self, parent, id, title, globs):
+    def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         self.timerCnt = 0
 
-        self._initialize(globs)
+        self._initialize()
 
-    def _initialize(self, globs):
-        self.prefs = Preferences(globs)
-        self.prefs._loadPreferences(globs)
+    def _initialize(self):
+        self.prefs = Preferences()
+        self.prefs._loadPreferences()
 
 #        dlg = PreferencesDialog(self.prefs)
 #        ret = dlg.ShowModal()
@@ -1605,7 +1588,7 @@ class OSVMConfig(wx.Frame):
 
         globs.printGlobals()
 
-        self._initGUI(globs)
+        self._initGUI()
 
         self.Center()
         self.panel1.Layout()
@@ -1617,9 +1600,9 @@ class OSVMConfig(wx.Frame):
         self.MainConfigThread.start()
 
         globs.serverAddr = serverIpAddr()
-        globs.httpServer = startHTTPServer(globs)
+        globs.httpServer = startHTTPServer()
 
-    def _displayOSVMBitmap(self, globs):
+    def _displayOSVMBitmap(self):
         # load the image
         imgPath = os.path.join(globs.imgDir, 'OSVM3.png')
         img = wx.Image(imgPath, wx.BITMAP_TYPE_PNG)
@@ -1655,7 +1638,7 @@ class OSVMConfig(wx.Frame):
         parent.Add(bottomButtonBoxSizer, 0, border=0, flag=wx.ALIGN_BOTTOM | wx.ALIGN_RIGHT)
 
     # Create controls & Sizers
-    def _initGUI(self, globs):
+    def _initGUI(self):
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self,
                                size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
 
@@ -1704,7 +1687,7 @@ class OSVMConfig(wx.Frame):
                                           parent=self.panel1, style=0)
         self.btnEnterViewMode.SetToolTip('Enter Viewing Mode to browse local pictures and videos')
 #        self.btnEnterViewMode.Bind(wx.EVT_BUTTON, self.OnBtnEnterViewMode)
-        self.btnEnterViewMode.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnEnterViewMode(evt, temp))
+        self.btnEnterViewMode.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnEnterViewMode(evt))
         # Disable button. Will be enabled once configuration is loaded
         self.btnEnterViewMode.Disable()
 
@@ -1712,14 +1695,14 @@ class OSVMConfig(wx.Frame):
                                           label='Enter Sync Mode',
                                           parent=self.panel1, style=0)
         self.btnEnterSyncMode.SetToolTip('Enter Sync Mode to sync media files between your camera and this computer')
-        self.btnEnterSyncMode.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnEnterSyncMode(evt, temp))
+        self.btnEnterSyncMode.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnEnterSyncMode(evt))
         # Disable button. Will be enabled once configuration is loaded
         self.btnEnterSyncMode.Disable()
         
-        self._displayOSVMBitmap(globs)
+        self._displayOSVMBitmap()
 
         self.timer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, lambda evt, temp=globs: self.OnUpdate(evt, temp), self.timer)
+        self.Bind(wx.EVT_TIMER, lambda evt: self.OnUpdate(evt), self.timer)
         myprint('Starting timer')
         self.timer.Start(globs.TIMER2_FREQ)
 
@@ -1741,12 +1724,12 @@ class OSVMConfig(wx.Frame):
         self.SetClientSize(self.topBoxSizer1.GetSize())
         self.Centre()
 
-    def restartTimer(self, globs):
+    def restartTimer(self):
         self.timer.Stop()
         self.timer.Start(globs.TIMER2_FREQ)
         myprint('Timer restarted after exception')
                 
-    def OnUpdate(self, event, globs):
+    def OnUpdate(self, event):
         text = 'Initializing Configuration. Please wait...'
 
         self.timerCnt += 1
@@ -1758,7 +1741,7 @@ class OSVMConfig(wx.Frame):
         self.titleStaticText1.SetLabel(msg)
         #myprint(self.timerCnt,msg)
 
-    def OnBtnEnterViewMode(self, event, globs):
+    def OnBtnEnterViewMode(self, event):
         globs.viewMode = True
 
         if self.MainConfigThread.is_alive():
@@ -1766,7 +1749,7 @@ class OSVMConfig(wx.Frame):
 
         self.setBusyCursor(True)
         myprint('Launching OSVM')
-        frame = OSVM(self, -1, globs.myLongName, globs)
+        frame = OSVM(self, -1, globs.myLongName)
         self.setBusyCursor(False)
         self.panel1.Enable(False)
         frame.Show()
@@ -1776,13 +1759,13 @@ class OSVMConfig(wx.Frame):
         myprint('Timer status:',self.timer.IsRunning())
         
 
-    def OnBtnEnterSyncMode(self, event, globs):
+    def OnBtnEnterSyncMode(self, event):
         globs.viewMode = False
 
         if self.MainConfigThread.is_alive():
             self.MainConfigThread.join() # Block until thread has finished
 
-        WifiDialog.switchToFavoriteNetwork(globs)
+        WifiDialog.switchToFavoriteNetwork()
 
         myprint('globs.cameraConnected =', globs.cameraConnected)
 
@@ -1800,7 +1783,7 @@ class OSVMConfig(wx.Frame):
                 globs.availRemoteFilesCnt = 0
 
         self.setBusyCursor(True)
-        frame = OSVM(self, -1, globs.myLongName, globs)
+        frame = OSVM(self, -1, globs.myLongName)
         self.setBusyCursor(False)
         self.panel1.Enable(False)
 #        frame.ShowModal()
@@ -1816,7 +1799,7 @@ class OSVMConfig(wx.Frame):
         self.Destroy()
 
     # Notify user about any disabled module
-    def notifyDisabledModules(self, globs):
+    def notifyDisabledModules(self):
         for mod in globs.disabledModules:
             dlg = wx.MessageDialog(None, mod[1], 'Warning', wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
@@ -1873,7 +1856,7 @@ class InstallDialog(wx.Dialog):
         self.mainInstallThr.start()
 
         self._initialize()
-        self._runThread(globs)
+        self._runThread()
 
     def _initialize(self):
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self,
@@ -1890,9 +1873,9 @@ class InstallDialog(wx.Dialog):
             if not opStatus:
                 continue
 
-            operation = op[globs.OP_TYPE] # globs.FILE_DOWNLOAD = 1  globs.FILE_DELETE = 2
-            if operation == globs.FILE_DELETE:
-                continue
+#            operation = op[globs.OP_TYPE] # globs.FILE_DOWNLOAD = 1  globs.FILE_DELETE = 2
+#            if operation == globs.FILE_DELETE:
+#                continue
             fileName = op[globs.OP_FILENAME]
             self.numOps += 1
 
@@ -2031,8 +2014,8 @@ class InstallDialog(wx.Dialog):
         # the range is rounded up to meet wxwidget 3.0.
         self.ggAll = wx.Gauge(range=math.ceil(self.totalBlocks), parent=self.panel1, 
                               id=wx.ID_ANY, size=(-1, 20))
-        print('InstallDialog(): totalBlocks=%f range=%d' % (self.totalBlocks, 
-                                                            math.ceil(self.totalBlocks)))
+        myprint('totalBlocks=%f range=%d' % (self.totalBlocks, 
+                                             math.ceil(self.totalBlocks)))
         
         # Add a Total elapsed time counter and gauge
         self.totalElapTxt = wx.StaticText(label='Total Time:', 
@@ -2134,20 +2117,20 @@ class InstallDialog(wx.Dialog):
     def OnTimer(self, event):
         if self.numOps:   # Only if some file install/update
             for op in self.opList:
-                if not op[globs.OP_STATUS] or op[globs.OP_TYPE] == globs.FILE_DELETE:
+                if not op[globs.OP_STATUS]: #or op[globs.OP_TYPE] == globs.FILE_DELETE:
                     continue
                 # Update Counters/LEDs/Labels if transfer is active
                 if op[globs.OP_INTH] and op[globs.OP_INTH].isAlive():
-                    self.updateCounter(op, globs)
-                    self._updateLeds(op, globs)
-                    self._updateLabel(op, globs)
+                    self.updateCounter(op)
+                    self._updateLeds(op)
+                    self._updateLabel(op)
 
         self.timerTicks += globs.TIMER1_FREQ
         self.totalSecs = self.timerTicks / 1000
         self._updateTotalCounter()
 
     # Local methods
-    def _runThread(self, globs):
+    def _runThread(self):
         # Process all DELETE operations first
         #deleteLocalFiles(self, self.opList, globs)
 
@@ -2156,7 +2139,7 @@ class InstallDialog(wx.Dialog):
         # Process all pending INSTALL/UPDATE operations
         # Start the main thread which will create all the sub-threads 
         # to do the actual transfer
-        print('Releasing IntallThreadLock')
+        myprint('Releasing IntallThreadLock')
         self.mainInstallThrLock.release()	#Let the install threads run
         self.timer.Start(globs.TIMER1_FREQ)
 
@@ -2173,7 +2156,7 @@ class InstallDialog(wx.Dialog):
         print('Remote File: %s size: %s bytes...' % (fileUrl,totalSize))
         return (totalSize, fileUrl)
 
-    def _updateLabel(self, op, globs):
+    def _updateLabel(self, op):
         stBox = self.subPanel[globs.INST_STBOX]
 
         statinfo = os.stat(op[globs.OP_FILEPATH])
@@ -2182,7 +2165,7 @@ class InstallDialog(wx.Dialog):
                                          humanBytes(op[globs.OP_SIZE][0]))
         stBox.SetLabel(label)
 
-    def _updateLeds(self, op, globs):
+    def _updateLeds(self, op):
         ledList = self.subPanel[globs.INST_LEDLIST]
 
         led = ledList[op[globs.OP_INSTEP]]      # LED to update
@@ -2191,17 +2174,17 @@ class InstallDialog(wx.Dialog):
 
         if state == globs.LED_BLINK:
             if self.totalSecs % 2:
-                led.SetState(globs, color)
+                led.SetState(color)
             else:
-                led.SetState(globs, globs.LEDS_COLOURS[globs.LED_GREY][0])
+                led.SetState(globs.LEDS_COLOURS[globs.LED_GREY][0])
         else:
-            led.SetState(globs, color)
+            led.SetState(color)
 
     def _updateTotalCounter(self):
         self.totalCount = 0
         # How much has been done so far?
         for op in self.opList:
-            if not op[globs.OP_STATUS] or op[globs.OP_TYPE] == globs.FILE_DELETE:
+            if not op[globs.OP_STATUS]: # or op[globs.OP_TYPE] == globs.FILE_DELETE:
                 continue
             self.totalCount += op[globs.OP_INCOUNT]
 
@@ -2236,12 +2219,12 @@ class InstallDialog(wx.Dialog):
 
     # Update the Install Dialog window containing the gauges
     # Called by the timer handler and by the worker thread
-    def updateCounter(self, op, globs, reason=0):
+    def updateCounter(self, op, reason=0):
 
         # reason = 1 means final update for this download
         if reason:
             count = op[globs.OP_SIZE][1]
-            print('final update:',count)
+            myprint('final update:',count)
         else:
             count = op[globs.OP_INCOUNT]
 
@@ -2291,7 +2274,7 @@ class InstallDialog(wx.Dialog):
             op[globs.OP_INLEDSTATE] = globs.LED_ON
             op[globs.OP_INLEDCOL] = globs.LED_RED
             try:
-                self._updateLeds(op, globs)
+                self._updateLeds(op)
             except:
                 pass
 
@@ -2310,7 +2293,7 @@ class InstallDialog(wx.Dialog):
         op[globs.OP_INSTEP] = step    # LED number
         op[globs.OP_INLEDSTATE] = globs.LED_ON
         op[globs.OP_INLEDCOL] = globs.LED_GREEN
-        self._updateLeds(op, globs)
+        self._updateLeds(op)
         if step == 2:
             #  Clear Remaining time widget
             self.subPanel[globs.INST_REMCNT].SetLabel('00:00:00')
@@ -2321,7 +2304,7 @@ class OSVM(wx.Frame):
     downloadDir = ''
     timerCnt = 0
     ssThr = 0
-    def __init__(self, parent, id, title, globs):
+    def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         self.parent = parent
 
@@ -2340,7 +2323,7 @@ class OSVM(wx.Frame):
         self.ssThr.setDaemon(True)
         self.ssThr.start()
 
-        self._initialize(globs)
+        self._initialize()
 
     def _MakeModal(self, modal=True):
         if modal and not hasattr(self, '_disabler'):
@@ -2417,9 +2400,9 @@ class OSVM(wx.Frame):
                 if remFileName in list(globs.localFileInfos.keys()) and globs.vlcVideoViewer:
                     button.Bind(wx.EVT_BUTTON, self.LaunchViewer)
                 else:
-                    button.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnThumbButton(evt,temp))
+                    button.Bind(wx.EVT_BUTTON, lambda evt: self.OnThumbButton(evt))
 #            button.Bind(wx.EVT_RIGHT_DOWN, self.OnThumbButtonRightDown)
-            button.Bind(wx.EVT_RIGHT_DOWN, lambda evt,temp=globs: self.OnThumbButtonRightDown(evt,temp))
+            button.Bind(wx.EVT_RIGHT_DOWN, lambda evt: self.OnThumbButtonRightDown(evt))
 
             remFileSizeString = humanBytes(remFileSize)
 
@@ -2435,7 +2418,7 @@ class OSVM(wx.Frame):
             button.SetToolTip(toolTipString)
 
             # Colorize button if file is available locally
-            color = fileColor(remFileName, globs)
+            color = fileColor(remFileName)
             button.SetBackgroundColour(color[0])
             button.SetForegroundColour(color[1])
 
@@ -2458,7 +2441,7 @@ class OSVM(wx.Frame):
         tab.SetSizer(sizer)
         return tab,firstRemFileDate,lastRemFileDate
 
-    def _createThumbnailPanel(self, globs):
+    def _createThumbnailPanel(self):
         setBusyCursor(True)
 
         agwStyle=fnb.FNB_VC8|fnb.FNB_COLOURFUL_TABS | fnb.FNB_NO_X_BUTTON
@@ -2466,7 +2449,7 @@ class OSVM(wx.Frame):
         self.noteBook = fnb.FlatNotebook(parent=self.panel1, id=wx.ID_ANY,agwStyle=agwStyle) 
 
         # Create a custom panel to use when the notebook is empty, e.g. no file is detected
-        self.customPanel = LogoPanel.LogoPanel(self.noteBook, -1, globs=globs)
+        self.customPanel = LogoPanel.LogoPanel(self.noteBook, -1)
         self.noteBook.SetCustomPage(self.customPanel)
 
         self._pageCount = self.noteBook.GetPageCount()
@@ -2600,7 +2583,7 @@ class OSVM(wx.Frame):
         pendingOpsCnt = self.pendingOperationsCount()
         statusBarMsg = 'File successfully marked. %d marked file(s)' % (pendingOpsCnt)
         self.updateStatusBar(statusBarMsg)
-        self._enableActionButtons(globs)
+        self._enableActionButtons()
         
         # Sanity check
         # Each entry in thumbButtons[] is of form: [widget, fileName, fgcol, bgcol]
@@ -2619,7 +2602,7 @@ class OSVM(wx.Frame):
 
     # Set mode to Enable/Disable. Prevent user using not uptodate information
     def _setMode(self, mode, reason):
-        print('_setMode(): mode %s' % mode)
+        myprint('Setting mode %s' % mode)
         #print traceback.print_stack()
 
         # Restore focus to panel
@@ -2721,13 +2704,13 @@ class OSVM(wx.Frame):
                 msg = '%d local files' % (globs.localFilesCnt)
             else:
                 msg = '%d local files, %d files available on camera' % (globs.localFilesCnt, globs.availRemoteFilesCnt)
-
+        #myprint(msg)
         self.statusBar1.SetStatusText(msg, self.statusBarFieldsCount-1)
         
         if self.statusBar1.GetStatusText(self.SB_SSID) != globs.iface.ssid():	# Check if SSID has changed
             self.statusBar1.SetStatusText(globs.iface.ssid(), self.SB_SSID)
             
-    def _displayBitmap(self, widget, image, type, globs):
+    def _displayBitmap(self, widget, image, type):
         # load the image
         imgPath = os.path.join(globs.imgDir, image)
         Img = wx.Image(imgPath, type)
@@ -2920,7 +2903,7 @@ class OSVM(wx.Frame):
         parent.Append(self.menuFile, '&File')
         parent.Append(self.menuHelp, '&Help')
 
-    def _init_menuFile_Items(self, parent, globs):
+    def _init_menuFile_Items(self, parent):
         menuItem0 = wx.MenuItem(parent, self.MENUITEM_PREFERENCES, '&Preferences\tCtrl+P') #wx.ID_PREFERENCES
         parent.Append(menuItem0)
         parent.Enable(menuItem0.Id,True)
@@ -2933,18 +2916,18 @@ class OSVM(wx.Frame):
         parent.Append(menuItem2)
         parent.Enable(menuItem2.Id,True)
 
-    def _init_menuHelp_Items(self, parent, globs):
+    def _init_menuHelp_Items(self, parent):
         menuItem = wx.MenuItem(parent, self.MENUITEM_ABOUT, '&About')#wx.ID_ABOUT
         parent.Append(menuItem)
         parent.Enable(menuItem.Id,True)
 
-    def _init_utils(self, globs):
+    def _init_utils(self):
         self.menuBar = wx.MenuBar()
         self.menuFile = wx.Menu()
         self.menuHelp = wx.Menu()
 
-        self._init_menuFile_Items(self.menuFile, globs)
-        self._init_menuHelp_Items(self.menuHelp, globs)
+        self._init_menuFile_Items(self.menuFile)
+        self._init_menuHelp_Items(self.menuHelp)
         self._init_menuBar_Menus(self.menuBar)
 
         self.SetMenuBar(self.menuBar)
@@ -2953,18 +2936,18 @@ class OSVM(wx.Frame):
         self.menuBar.Enable(101, True)
         self.menuBar.Enable(102, True)
         self.menuBar.Enable(103, True)
-        self.Bind(wx.EVT_MENU, lambda event, temp=globs: self._menuHdl(event, temp))
+        self.Bind(wx.EVT_MENU, lambda event: self._menuHdl(event))
 
-    def _menuHdl(self, event, globs):
+    def _menuHdl(self, event):
         id = event.GetId() 
         if id == self.MENUITEM_PREFERENCES:
-            self.OnBtnPreferences(event, globs)
+            self.OnBtnPreferences(event)
         elif id == self.MENUITEM_CLEAN:
-            self.OnBtnCleanDownloadDir(event, globs)
+            self.OnBtnCleanDownloadDir(event)
         elif id == self.MENUITEM_QUIT:
-            self.OnBtnQuit(event, globs)
+            self.OnBtnQuit(event)
         elif id == self.MENUITEM_ABOUT:
-            self.OnBtnAbout(event, globs)
+            self.OnBtnAbout(event)
 
     def _init_sizers(self):
         # Top Level BoxSizer
@@ -3017,14 +3000,14 @@ class OSVM(wx.Frame):
 
         self.panel1.SetSizerAndFit(self.topBoxSizer)
 
-    def _initialize(self, globs):
+    def _initialize(self):
         # Package buttons list
         self.thumbButtons = list() #[]
 
         # List of scheduled operations on files. Format:
         # op[globs.OP_STATUS|0]      = status (busy=1/off=0)
         # op[globs.OP_FILENAME|1]    = base file name
-        # op[globs.OP_TYPE|2]        = operation #globs.FILE_DOWNLOAD globs.FILE_DELETE = 2
+        # op[globs.OP_TYPE|2]        = operation #FILE_DOWNLOAD=0 FILE_MARK=1 FILE_UNMARK=2
         # op[globs.OP_FILEPATH|4]    = full pathname of local file for download
         # op[globs.OP_SIZE|5]        = (size in bytes, block count)
         # op[globs.OP_REMURL|6]      = full remote url to download
@@ -3039,10 +3022,10 @@ class OSVM(wx.Frame):
         self.opList = [[0] * globs.OP_LASTIDX for i in range(globs.MAX_OPERATIONS)]
 
         # Load Preferences
-        self.prefs = Preferences(self)
-        self.prefs._loadPreferences(globs)
+        self.prefs = Preferences()
+        self.prefs._loadPreferences()
 
-        self._init_utils(globs)
+        self._init_utils()
 
         self.SetClientSize(wx.Size(1200, 680))
         self.Center()
@@ -3065,11 +3048,11 @@ class OSVM(wx.Frame):
 
         self.fileTypesChoice.SetToolTip('Select type of files to show/sync')
         self.fileTypesChoice.SetStringSelection(globs.FILETYPES[0])
-        self.fileTypesChoice.Bind(wx.EVT_CHOICE, lambda evt, temp=globs: self.OnFileTypesChoice(evt, temp))
+        self.fileTypesChoice.Bind(wx.EVT_CHOICE, lambda evt: self.OnFileTypesChoice(evt))
 
         self.fromCb = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='From Date')
         self.fromCb.SetValue(False)
-        self.fromCb.Bind(wx.EVT_CHECKBOX, lambda evt, temp=globs: self.OnFromDate(evt, temp))
+        self.fromCb.Bind(wx.EVT_CHECKBOX, lambda evt: self.OnFromDate(evt))
         self.fromCb.Disable()
         
         self.dpc1 = wx.adv.DatePickerCtrl(self.panel1,
@@ -3077,7 +3060,7 @@ class OSVM(wx.Frame):
 
         self.toCb = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='To Date')
         self.toCb.SetValue(False)
-        self.toCb.Bind(wx.EVT_CHECKBOX, lambda evt, temp=globs: self.OnToDate(evt, temp))
+        self.toCb.Bind(wx.EVT_CHECKBOX, lambda evt: self.OnToDate(evt))
         self.toCb.Disable()
 
         self.dpc2 = wx.adv.DatePickerCtrl(self.panel1,
@@ -3097,61 +3080,61 @@ class OSVM(wx.Frame):
                                         id=wx.ID_ANY, parent=self.panel1, style=0)
         self.fileSortChoice.SetToolTip('Select sort order')
         self.fileSortChoice.SetStringSelection(self.sortTypes[0] if globs.fileSortRecentFirst else self.sortTypes[1])
-        self.fileSortChoice.Bind(wx.EVT_CHOICE, lambda evt, temp=globs: self.OnFileSortChoice(evt, temp))
+        self.fileSortChoice.Bind(wx.EVT_CHOICE, lambda evt: self.OnFileSortChoice(evt))
 
         self.btnCast = wx.Button(label="Cast", size=wx.Size(32,32), parent=self.panel1, style=wx.NO_BORDER)
-        self._displayBitmap(self.btnCast, 'cast-32.jpg', wx.BITMAP_TYPE_JPEG, globs)
+        self._displayBitmap(self.btnCast, 'cast-32.jpg', wx.BITMAP_TYPE_JPEG)
         self.btnCast.SetToolTip('Cast images to a GoogleCast')
-        self.btnCast.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnCast(evt,temp))
+        self.btnCast.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnCast(evt))
         if not globs.pycc:
             self.btnCast.Disable()
 
         self.btnRew = wx.Button(size=wx.Size(32,32), parent=self.panel1, style=wx.NO_BORDER)
-        self._displayBitmap(self.btnRew, 'rew.png', wx.BITMAP_TYPE_PNG, globs)
+        self._displayBitmap(self.btnRew, 'rew.png', wx.BITMAP_TYPE_PNG)
         self.btnRew.SetToolTip('Restart the Slideshow from beginning')
-        self.btnRew.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnRew(evt,temp))
+        self.btnRew.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnRew(evt))
 
         self.btnPlay = wx.Button(name='btnPlay', size=wx.Size(32,32), parent=self.panel1, style=wx.NO_BORDER)
-        self._displayBitmap(self.btnPlay, 'play.png', wx.BITMAP_TYPE_PNG,globs)
+        self._displayBitmap(self.btnPlay, 'play.png', wx.BITMAP_TYPE_PNG)
         self.btnPlay.SetToolTip('Start the Slideshow')
-        self.btnPlay.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnPlay(evt,temp))
+        self.btnPlay.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnPlay(evt))
 
         self.btnStop = wx.Button(size=wx.Size(32,32), parent=self.panel1, style=wx.NO_BORDER)
-        self._displayBitmap(self.btnStop, 'stop.png', wx.BITMAP_TYPE_PNG, globs)
+        self._displayBitmap(self.btnStop, 'stop.png', wx.BITMAP_TYPE_PNG)
         self.btnStop.SetToolTip('Stop the Slideshow')
-        self.btnStop.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnStop(evt,temp))
+        self.btnStop.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnStop(evt))
         for dpc in [self.dpc1,self.dpc2]:
             dpc.Disable()
 
         self.btnRescan = wx.Button(id=wx.ID_REFRESH, label='Refresh',
                                    name='btnRescan', parent=self.panel1, style=0)
         self.btnRescan.SetToolTip('Rescan configuration')
-        self.btnRescan.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnRescan(evt,temp))
+        self.btnRescan.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnRescan(evt))
 
         # Create the LEDS and Static Texts to show colors meaning
         for i in range(len(globs.FILE_COLORS_STATUS)):
-            led = LedControl.ColorLED(self.panel1, globs, str(globs.fileColors[i][0].GetAsString(flags=wx.C2S_HTML_SYNTAX)))
+            led = LedControl.ColorLED(self.panel1, str(globs.fileColors[i][0].GetAsString(flags=wx.C2S_HTML_SYNTAX)))
             self.colorGrid.append(led)
             self.colorGrid.append(wx.StaticText(self.panel1, label=globs.FILE_COLORS_STATUS[i]))
 
         self.btnCancel = wx.Button(id=wx.ID_CANCEL, label='Cancel All', parent=self.panel1, style=0)
         self.btnCancel.SetToolTip('Cancel all pending requests')
-        self.btnCancel.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnCancel(evt,globs))
+        self.btnCancel.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnCancel(evt))
         self.btnCancel.Disable()
         
         self.btnDownload = wx.Button(id=wx.ID_OK, label='Download', parent=self.panel1, style=0)
         self.btnDownload.SetToolTip('Commit all pending requests')
-        self.btnDownload.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnCommit(evt,temp))
+        self.btnDownload.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnDownload(evt))
         self.btnDownload.Disable()
         
         self.btnShare = wx.Button(id=wx.ID_OK, label='Share', parent=self.panel1, style=0)
         self.btnShare.SetToolTip('Share selected files')
-        self.btnShare.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnShare(evt,temp))
+        self.btnShare.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnShare(evt))
         self.btnShare.Disable()
 
         self.btnDelete = wx.Button(id=wx.ID_OK, label='Delete', parent=self.panel1, style=0)
         self.btnDelete.SetToolTip('Delete selected files')
-        self.btnDelete.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnDelete(evt,temp))
+        self.btnDelete.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnDelete(evt))
         self.btnDelete.Disable()
 
         self._disableActionButtons()
@@ -3187,7 +3170,7 @@ class OSVM(wx.Frame):
         self.statusBar1.SetStatusText('View Mode' if globs.viewMode else 'Sync Mode', self.SB_MODE)
         self.statusBar1.SetStatusText(globs.iface.ssid(), self.SB_SSID)
 
-        self._createThumbnailPanel(globs)
+        self._createThumbnailPanel()
         
         if globs.noPanel:
             msg = 'Skipping loading of thumbnail panel'
@@ -3215,31 +3198,31 @@ class OSVM(wx.Frame):
         self.btnSwitchMode = wx.Button(id=wx.ID_ANY, parent=self.panel1, style=0)
         self.btnSwitchMode.SetLabel('Switch to Sync Mode' if globs.viewMode else 'Switch to View Mode')
         #        self.btnSwitchMode.Bind(wx.EVT_BUTTON, self.OnBtnSwitchMode)
-        self.btnSwitchMode.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnSwitchMode(evt,temp))
+        self.btnSwitchMode.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnSwitchMode(evt))
 
         self.btnSwitchNetwork = wx.Button(id=wx.ID_ANY, label='Select Camera', parent=self.panel1, style=0)
         #        self.btnSwitchNetwork.Bind(wx.EVT_BUTTON, self.OnBtnSwitchNetwork)
-        self.btnSwitchNetwork.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnSwitchNetwork(evt,temp))
+        self.btnSwitchNetwork.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnSwitchNetwork(evt))
         if globs.system != 'Darwin' or not globs.networkSelector:
             self.btnSwitchNetwork.Disable()
 
         self.btnHelp = wx.Button(id=wx.ID_HELP, label='Help', parent=self.panel1, style=0)
-        self.btnHelp.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnHelp(evt,temp))
+        self.btnHelp.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnHelp(evt))
 
         self.btnQuit = wx.Button(id=wx.ID_EXIT, label='Quit', parent=self.panel1, style=0)
         self.btnQuit.SetToolTip('Quit Application')
-        self.btnQuit.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnQuit(evt, temp))
+        self.btnQuit.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnQuit(evt))
 
         if not globs.compactMode:
             self.staticBitmap1 = wx.StaticBitmap(bitmap=wx.NullBitmap, id=wx.ID_ANY, parent=self.panel1, style=0)
-            self._displayBitmap(self.staticBitmap1, "OSVM5.png", wx.BITMAP_TYPE_PNG, globs)
+            self._displayBitmap(self.staticBitmap1, "OSVM5.png", wx.BITMAP_TYPE_PNG)
 
         self.staticBitmap2 = wx.StaticBitmap(bitmap=wx.NullBitmap,
                                              id=wx.ID_ANY, parent=self.panel1, style=0)
         self.staticBitmap2.SetToolTip('Network Status:\nRED: No Network\nGREEN:Camera OK')
 
         # Update connection status indicator
-        self._updateConnectionStatus(globs)
+        self._updateConnectionStatus()
 
         self._init_sizers()
 
@@ -3352,22 +3335,22 @@ class OSVM(wx.Frame):
     # stop statusBar1 animation
     def finish(self):
         if self.timer.IsRunning():
-            myprint ('Stopping animation')
+            myprint('Stopping animation')
             self.timer.Stop()
 
         msg = 'All scheduled operations finished/Cancelled'
         self.updateStatusBar(msg)
 
-    def _updateLEDs(self, globs):
+    def _updateLEDs(self):
         for i in range(int(len(self.colorGrid) / 2)):
             color = str(globs.fileColors[i][0].GetAsString(flags=wx.C2S_HTML_SYNTAX))
-            self.colorGrid[i*2].SetState(globs, color)
+            self.colorGrid[i*2].SetState(color)
 
     def _disableActionButtons(self):
         for b in [self.btnCancel, self.btnDownload, self.btnShare, self.btnDelete]:
             b.Disable()
 
-    def _enableActionButtons(self, globs):
+    def _enableActionButtons(self):
         for b in [self.btnCancel, self.btnDownload, self.btnShare, self.btnDelete]:
             b.Enable()
         if globs.viewMode:
@@ -3391,7 +3374,7 @@ class OSVM(wx.Frame):
         print("OnSize(): Resize event",sbWidth)
 
     # Left Click on a File button, zoom in the thumbnail
-    def OnThumbButton(self, event, globs):
+    def OnThumbButton(self, event):
         button = event.GetEventObject()
 
         found = False
@@ -3405,12 +3388,12 @@ class OSVM(wx.Frame):
             return
 
         thumbFilePath = os.path.join(globs.thumbDir, entry[1])
-        dlg = ThumbnailDialog.ThumbnailDialog(self, thumbnail=thumbFilePath, globs=globs)
+        dlg = ThumbnailDialog.ThumbnailDialog(self, thumbnail=thumbFilePath)
         ret = dlg.ShowModal()
         dlg.Destroy()
         event.Skip()
         
-    def OnThumbButtonRightDown(self, event, globs):
+    def OnThumbButtonRightDown(self, event):
         button = event.GetEventObject()
 
         # Retrieve the button in self.thumbButtons
@@ -3436,7 +3419,7 @@ class OSVM(wx.Frame):
                 pendingOpsCnt = self.pendingOperationsCount()
                 statusBarMsg = 'File successfully marked. %d file(s) marked' % (pendingOpsCnt)
                 self.updateStatusBar(statusBarMsg)
-                self._enableActionButtons(globs)
+                self._enableActionButtons()
                 break
 
         self.panel1.Refresh()
@@ -3497,7 +3480,7 @@ class OSVM(wx.Frame):
             # Suspend the slideshow if active
             if self.ssThrLock.acquire(blocking=False) == False:	# Block the thread if active
                 print('Lock is already set, should have blocked, so... Slideshow is paused')
-            self._displayBitmap(self.btnPlay, 'play.png', wx.BITMAP_TYPE_PNG, globs)
+            self._displayBitmap(self.btnPlay, 'play.png', wx.BITMAP_TYPE_PNG)
             self.btnPlay.SetName('btnPlay')
 
             fileURL = 'http://%s:%s/%s' % (globs.serverAddr, globs.SERVER_HTTP_PORT, fname)
@@ -3538,12 +3521,12 @@ class OSVM(wx.Frame):
         self.updateStatusBar(msg)
 
         myprint('Launching MediaViewerDialog')
-        dlg = MediaViewerDialog.MediaViewerDialog(self, filePath, globs)
+        dlg = MediaViewerDialog.MediaViewerDialog(self, filePath)
         ret = dlg.ShowModal()
         dlg.Destroy()
-        print('Exit of MediaViewerDialog. ret:%d' % ret)
+        #myprint('Exit of MediaViewerDialog. ret:%d' % ret)
 
-    def OnBtnSwitchMode(self, event, globs):
+    def OnBtnSwitchMode(self, event):
         button = event.GetEventObject()
         myprint('Switching to: %s Mode' % ('Sync' if globs.viewMode else 'View'))
         globs.viewMode = not globs.viewMode
@@ -3553,7 +3536,7 @@ class OSVM(wx.Frame):
             button.SetLabel('Switch to View Mode')
             # Switch to favorite network
             if globs.autoSwitchToFavoriteNetwork and globs.favoriteNetwork != ('None','None'):
-                if WifiDialog.switchToFavoriteNetwork(globs):
+                if WifiDialog.switchToFavoriteNetwork():
                     msg = 'Switch to favorite network has failed'
                     self.updateStatusBar(msg)
                     print(msg)
@@ -3564,10 +3547,10 @@ class OSVM(wx.Frame):
         evt.SetEventObject(self.btnRescan)
         wx.PostEvent(self.btnRescan, evt)
 
-    def OnBtnSwitchNetwork(self, event, globs):
+    def OnBtnSwitchNetwork(self, event):
         # Switch the network
         ossid = globs.iface.ssid()
-        dlg = WifiDialog.WifiDialog(self, globs)
+        dlg = WifiDialog.WifiDialog(self)
         ret = dlg.ShowModal()
         dlg.Destroy()
         if ret != wx.ID_CANCEL:
@@ -3581,14 +3564,14 @@ class OSVM(wx.Frame):
             wx.PostEvent(self.btnRescan, evt)
         event.Skip()
 
-    def OnBtnHelp(self, event, globs):
-        dlg = HelpDialog.HelpDialog(self, globs)
+    def OnBtnHelp(self, event):
+        dlg = HelpDialog.HelpDialog(self)
         dlg.ShowModal()
         dlg.Destroy()
         event.Skip()
 
-    def OnBtnPreferences(self, event, globs):
-        dlg = PreferencesDialog.PreferencesDialog(self.prefs, globs)
+    def OnBtnPreferences(self, event):
+        dlg = PreferencesDialog.PreferencesDialog(self.prefs)
         ret = dlg.ShowModal()
         # Check if a Rescan is required
         self.needRescan = dlg.isRescanRequired()
@@ -3599,14 +3582,14 @@ class OSVM(wx.Frame):
             evt.SetEventObject(self.btnRescan)
             wx.PostEvent(self.btnRescan, evt)
 
-    def OnBtnCleanDownloadDir(self, event, globs):
+    def OnBtnCleanDownloadDir(self, event):
         downloadDir = globs.osvmDownloadDir
-        dlg = CleanDownloadDirDialog.CleanDownloadDirDialog(self, download=downloadDir, globs=globs)
+        dlg = CleanDownloadDirDialog.CleanDownloadDirDialog(self, download=downloadDir)
         dlg.ShowModal()
         dlg.Destroy()
         event.Skip()
 
-    def OnBtnQuit(self, event, globs):
+    def OnBtnQuit(self, event):
         if globs.askBeforeExit:
             dlg = wx.MessageDialog(None, 'Do you really want to quit?', 'Question',
                                    wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
@@ -3619,7 +3602,7 @@ class OSVM(wx.Frame):
                 self.Destroy()    # Bye Bye
         else:
             if globs.savePreferencesOnExit:
-                self.prefs._savePreferences(globs)
+                self.prefs._savePreferences()
             self.parent.Destroy()
 #        self._MakeModal(False) # Re-enables parent window
 #        if self.eventLoop:
@@ -3631,7 +3614,7 @@ class OSVM(wx.Frame):
         event.Skip()
         self.Destroy()
 
-    def OnBtnAbout(self, event, globs):
+    def OnBtnAbout(self, event):
         description = """Olympus Sync & View Manager (aka OSVM) is a powerful tool
 ..... to manage files between a Olympus camera and your laptop....
 """
@@ -3653,43 +3636,43 @@ class OSVM(wx.Frame):
 
         wx.adv.AboutBox(info)
 
-    def _selectFiles(self, fileType, globs):
+    def _selectFiles(self, fileType):
         if globs.viewMode:
-            cnt = self._selectFilesByDate(globs, fileType)
+            cnt = self._selectFilesByDate(fileType)
         else:
-            cnt = self._syncFiles(globs, fileType)
+            cnt = self._syncFiles(fileType)
         pendingOpsCnt = self.pendingOperationsCount()
         msg = '%d requests successfully scheduled, %d in the queue' % (cnt, pendingOpsCnt)
         self.updateStatusBar(msg)
         self.panel1.Refresh()
 
-    def OnFileTypesChoice(self, event, globs):
+    def OnFileTypesChoice(self, event):
         idx = self.fileTypesChoice.GetSelection()
         self.fileType = globs.FILETYPES[idx]
         if self.fileType == 'JPG' or self.fileType == 'MOV':
-            self.OnBtnCancel(1, globs)
-            self._selectFiles(self.fileType, globs)
+            self.OnBtnCancel(1)
+            self._selectFiles(self.fileType)
             self.fromCb.Enable()
             self.toCb.Enable()
         elif self.fileType == 'ALL':
-            self.OnBtnCancel(1, globs)
-            self._selectFiles('JPG', globs)
-            self._selectFiles('MOV', globs)
+            self.OnBtnCancel(1)
+            self._selectFiles('JPG')
+            self._selectFiles('MOV')
             self.fromCb.Enable()
             self.toCb.Enable()
         else:
             # Clear all pending requests
-            self.OnBtnCancel(1, globs)
+            self.OnBtnCancel(1)
             self.fromCb.Disable()
             self.toCb.Disable()
 
         event.Skip()
 
-    def OnFromDate(self, event, globs):
+    def OnFromDate(self, event):
         button = event.GetEventObject()
 
         if button.GetValue():	# Take FROM date into account
-            dlg = DateDialog.DateDialog(self, globs.remOldestDate, globs.remNewestDate, globs)
+            dlg = DateDialog.DateDialog(self, globs.remOldestDate, globs.remNewestDate)
             ret = dlg.ShowModal()
             if ret == wx.ID_OK:
                 fd = dlg.dpc.GetDate()
@@ -3709,9 +3692,9 @@ class OSVM(wx.Frame):
         if self.fileType == 'JPG':
             myprint ('Must schedule a request for available images matching interval')
             if globs.viewMode:
-                cnt = self._selectFilesByDate(globs, 'JPG')
+                cnt = self._selectFilesByDate('JPG')
             else:
-                cnt = self._syncFiles(globs, 'JPG')
+                cnt = self._syncFiles('JPG')
             pendingOpsCnt = self.pendingOperationsCount()
             msg = '%d requests successfully scheduled, %d in the queue' % (cnt, pendingOpsCnt)
             self.updateStatusBar(msg)
@@ -3720,9 +3703,9 @@ class OSVM(wx.Frame):
         if self.fileType == 'MOV':
             print ('Must schedule a request for available video matching interval')
             if globs.viewMode:
-                cnt = self._selectFilesByDate(globs, 'MOV')
+                cnt = self._selectFilesByDate('MOV')
             else:
-                cnt = self._syncFiles(globs, 'MOV')
+                cnt = self._syncFiles('MOV')
             pendingOpsCnt = self.pendingOperationsCount()
             msg = '%d requests successfully scheduled, %d in the queue' % (cnt, pendingOpsCnt)
             self.updateStatusBar(msg)
@@ -3731,11 +3714,11 @@ class OSVM(wx.Frame):
         if self.fileType == 'ALL':
             print ('Must schedule a request for available image/video matching interval')
             if globs.viewMode:
-                cnt1 = self._selectFilesByDate(globs, 'JPG')
-                cnt2 = self._selectFilesByDate(globs, 'MOV')
+                cnt1 = self._selectFilesByDate('JPG')
+                cnt2 = self._selectFilesByDate('MOV')
             else:
-                cnt1 = self._syncFiles(globs, 'JPG')
-                cnt2 = self._syncFiles(globs, 'MOV')
+                cnt1 = self._syncFiles('JPG')
+                cnt2 = self._syncFiles('MOV')
             pendingOpsCnt = self.pendingOperationsCount()
             msg = '%d requests successfully scheduled, %d in the queue' % (cnt1+cnt2, pendingOpsCnt)
             self.updateStatusBar(msg)
@@ -3744,11 +3727,11 @@ class OSVM(wx.Frame):
         #dumpOperationList("Pending Request List", self.opList)
         event.Skip()
 
-    def OnToDate(self, event, globs):
+    def OnToDate(self, event):
         button = event.GetEventObject()
 
         if button.GetValue():	# Take TO date into account
-            dlg = DateDialog.DateDialog(self, globs.remOldestDate, globs.remNewestDate, globs)
+            dlg = DateDialog.DateDialog(self, globs.remOldestDate, globs.remNewestDate)
             if dlg.ShowModal() == wx.ID_OK:
                 td = dlg.dpc.GetDate()
                 self.toDate = '%d/%d/%d' % (td.month+1,td.day,td.year)
@@ -3767,9 +3750,9 @@ class OSVM(wx.Frame):
         if self.fileType == 'JPG':
             print ('Must schedule a request for available images matching inteval')
             if globs.viewMode:
-                cnt = self._selectFilesByDate(globs, 'JPG')
+                cnt = self._selectFilesByDate('JPG')
             else:
-                cnt = self._syncFiles(globs, 'JPG')
+                cnt = self._syncFiles('JPG')
             pendingOpsCnt = self.pendingOperationsCount()
             msg = '%d requests successfully scheduled, %d in the queue' % (cnt, pendingOpsCnt)
             self.updateStatusBar(msg)
@@ -3778,9 +3761,9 @@ class OSVM(wx.Frame):
         if self.fileType == 'MOV':
             print ('Must schedule a request for available video matching inteval')
             if globs.viewMode:
-                cnt = self._selectFilesByDate(globs, 'MOV')
+                cnt = self._selectFilesByDate('MOV')
             else:
-                cnt = self._syncFiles(globs, 'MOV')
+                cnt = self._syncFiles('MOV')
             pendingOpsCnt = self.pendingOperationsCount()
             msg = '%d requests successfully scheduled, %d in the queue' % (cnt, pendingOpsCnt)
             self.updateStatusBar(msg)
@@ -3789,11 +3772,11 @@ class OSVM(wx.Frame):
         if self.fileType == 'ALL':
             print ('Must schedule a request for available image/video matching interval')
             if globs.viewMode:
-                cnt1 = self._selectFilesByDate(globs, 'JPG')
-                cnt2 = self._selectFilesByDate(globs, 'MOV')
+                cnt1 = self._selectFilesByDate('JPG')
+                cnt2 = self._selectFilesByDate('MOV')
             else:
-                cnt1 = self._syncFiles(globs, 'JPG')
-                cnt2 = self._syncFiles(globs, 'MOV')
+                cnt1 = self._syncFiles('JPG')
+                cnt2 = self._syncFiles('MOV')
             pendingOpsCnt = self.pendingOperationsCount()
             msg = '%d requests successfully scheduled, %d in the queue' % (cnt1+cnt2, pendingOpsCnt)
             self.updateStatusBar(msg)
@@ -3802,7 +3785,7 @@ class OSVM(wx.Frame):
         #dumpOperationList("Pending Request List", self.opList)
         event.Skip()
 
-    def OnDateChanged(self, event, globs):
+    def OnDateChanged(self, event):
         fd = self.dpc1.GetValue()
         td = self.dpc2.GetValue()
 
@@ -3822,7 +3805,7 @@ class OSVM(wx.Frame):
 
         if self.fileType == 'JPG':
             print('Must schedule a request for available images matching interval')
-            cnt = self._syncFiles(globs, 'JPG')
+            cnt = self._syncFiles('JPG')
             pendingOpsCnt = self.pendingOperationsCount()
             msg = '%d requests successfully scheduled, %d in the queue' % (cnt, pendingOpsCnt)
             self.updateStatusBar(msg)
@@ -3830,7 +3813,7 @@ class OSVM(wx.Frame):
 
         if self.fileType == 'MOV':
             print ('Must schedule a request for available video matching interval')
-            cnt = self._syncFiles(globs, 'MOV')
+            cnt = self._syncFiles('MOV')
             pendingOpsCnt = self.pendingOperationsCount()
             msg = '%d requests successfully scheduled, %d in the queue' % (cnt, pendingOpsCnt)
             self.updateStatusBar(msg)
@@ -3838,8 +3821,8 @@ class OSVM(wx.Frame):
 
         if self.fileType == 'ALL':
             print ('Must schedule a request for available image/video matching interval')
-            cnt1 = self._syncFiles(globs, 'JPG')
-            cnt2 = self._syncFiles(globs, 'MOV')
+            cnt1 = self._syncFiles('JPG')
+            cnt2 = self._syncFiles('MOV')
             pendingOpsCnt = self.pendingOperationsCount()
             msg = '%d requests successfully scheduled, %d in the queue' % (cnt1+cnt2, pendingOpsCnt)
             self.updateStatusBar(msg)
@@ -3848,7 +3831,7 @@ class OSVM(wx.Frame):
         #dumpOperationList("Pending Request List", self.opList)
         event.Skip()
 
-    def OnFileSortChoice(self, event, globs):
+    def OnFileSortChoice(self, event):
         idx = self.fileSortChoice.GetSelection()
         if (globs.fileSortRecentFirst and not idx) or (not globs.fileSortRecentFirst and idx):
             myprint('Nothing to do')
@@ -3860,10 +3843,10 @@ class OSVM(wx.Frame):
         wx.PostEvent(self.btnRescan, evt)
         event.Skip()
 
-    def OnBtnCast(self, event, globs):
+    def OnBtnCast(self, event):
         button = event.GetEventObject()
 
-        globs.castMediaCtrl = ChromecastDialog.initPyChromecast(globs)
+        globs.castMediaCtrl = ChromecastDialog.initPyChromecast()
         if not globs.castMediaCtrl:
             myprint('No Chromecast detected :(')
             button.SetWindowStyleFlag(wx.NO_BORDER)
@@ -3875,12 +3858,12 @@ class OSVM(wx.Frame):
         button.Refresh()
         event.Skip()
 
-    def OnBtnRew(self, event, globs):
+    def OnBtnRew(self, event):
         globs.slideShowNextIdx = 0
         print('Restarting Slideshow from beg.')
         event.Skip()
 
-    def OnBtnPlay(self, event, globs):
+    def OnBtnPlay(self, event):
         button = event.GetEventObject()
 
         if not globs.castMediaCtrl:	# Cast device not initialized
@@ -3904,22 +3887,22 @@ class OSVM(wx.Frame):
                 button.Disable()
                 # If no image is selected, browse thru all the images
                 if self.mediaFileList:
-                    dlg = MediaViewerDialog.MediaViewerDialog(self, self.mediaFileList, globs)
+                    dlg = MediaViewerDialog.MediaViewerDialog(self, self.mediaFileList)
                 else:
-                    dlg = MediaViewerDialog.MediaViewerDialog(self, globs.localFilesSorted, globs)
+                    dlg = MediaViewerDialog.MediaViewerDialog(self, globs.localFilesSorted)
                 ret = dlg.ShowModal()
                 dlg.Destroy()
                 # Clear opList
                 if globs.viewMode:
-                    cnt = self._unSelectFiles(globs,'JPG')
-                    cnt += self._unSelectFiles(globs,'MOV')
+                    cnt = self._unSelectFiles('JPG')
+                    cnt += self._unSelectFiles('MOV')
                     # Re-Select files by type (if specified)
                     e = wx.PyCommandEvent(wx.EVT_CHOICE.typeId, self.fileTypesChoice.GetId())
                     e.SetEventObject(self.fileTypesChoice)
                     wx.PostEvent(self.fileTypesChoice, e)
                 else:
-                    cnt = self._unSyncFiles(globs, 'JPG')
-                    cnt += self._unSyncFiles(globs, 'MOV')
+                    cnt = self._unSyncFiles('JPG')
+                    cnt += self._unSyncFiles('MOV')
                 myprint('%d selected files have been cleared' % (cnt))
                 self.Refresh()
                 button.Enable()
@@ -3931,7 +3914,7 @@ class OSVM(wx.Frame):
                     self.mediaFileList = globs.localFilesSorted
                 slideShowLastIdx = len(self.mediaFileList)
                 self.ssThrLock.release()
-                self._displayBitmap(button, 'pause.png', wx.BITMAP_TYPE_PNG, globs)
+                self._displayBitmap(button, 'pause.png', wx.BITMAP_TYPE_PNG)
                 button.SetName('btnPause')
                 button.SetToolTip('Pause the Slideshow')
         else:
@@ -3942,12 +3925,12 @@ class OSVM(wx.Frame):
             print('Slideshow is paused')
             msg = ''
             self.updateStatusBar(msg)
-            self._displayBitmap(button, 'play.png', wx.BITMAP_TYPE_PNG, globs)
+            self._displayBitmap(button, 'play.png', wx.BITMAP_TYPE_PNG)
             button.SetName('btnPlay')
             button.SetToolTip('Start the Slideshow')
         event.Skip()
 
-    def OnBtnStop(self, event, globs):
+    def OnBtnStop(self, event):
         msg = 'Stopping the Slideshow'
         self.updateStatusBar(msg)
         if self.ssThrLock.acquire(blocking=False) == False:	# Block the thread if active
@@ -3955,13 +3938,13 @@ class OSVM(wx.Frame):
         print('Slideshow is stopped')
         msg = ''
         self.updateStatusBar(msg)
-        self._displayBitmap(self.btnPlay, 'play.png', wx.BITMAP_TYPE_PNG, globs)
+        self._displayBitmap(self.btnPlay, 'play.png', wx.BITMAP_TYPE_PNG)
         self.btnPlay.SetName('btnPlay')
         self.btnPlay.SetToolTip('Start the Slideshow')
         globs.slideShowNextIdx = 0 # Reset image index
         event.Skip()
 
-    def OnBtnRescan(self, event, globs):
+    def OnBtnRescan(self, event):
         found = False
         # Is there any pending operation? Warn user if needed
         try:
@@ -3985,16 +3968,16 @@ class OSVM(wx.Frame):
         # Reset File type selector
         self.fileTypesChoice.SetStringSelection(globs.FILETYPES[0])
         # Update file information
-        globs.localFilesCnt,globs.availRemoteFilesCnt = updateFileDicts(globs)
+        globs.localFilesCnt,globs.availRemoteFilesCnt = updateFileDicts()
         slideShowLastIdx = globs.localFilesCnt
         # Update datePickerCtrls
         self._setDatePickerCtrl()
         # Update LEDs colors
-        self._updateLEDs(globs)
+        self._updateLEDs()
         # Cancel all pending operations
-        self.OnBtnCancel(1, globs)
+        self.OnBtnCancel(1)
         # Update connection status indicator
-        self._updateConnectionStatus(globs)
+        self._updateConnectionStatus()
         # Rescan is finished
         wx.EndBusyCursor()
         # Update status message
@@ -4025,7 +4008,7 @@ class OSVM(wx.Frame):
         self._setMode(globs.MODE_ENABLED, msg)
 #        event.Skip()
 
-    def _unSyncFiles(self, globs, fileType=''): # Clear all requests associated to a given file type (JPG, MOV)
+    def _unSyncFiles(self, fileType=''): # Clear all requests associated to a given file type (JPG, MOV)
         print('Must clear all requests for %s' % (fileType))
         i = 0
         for op in self.opList:
@@ -4035,7 +4018,7 @@ class OSVM(wx.Frame):
                 self.resetOneRequest(op)
         return i
 
-    def _syncFiles(self, globs, fileType=''):	# fileType could be : JPG, MOV
+    def _syncFiles(self, fileType=''):	# fileType could be : JPG, MOV
         myprint('Syncing %s files' % (fileType))
         i = 0
         # Browse the list of buttons (remote files) and schedule a request if file matches fileType and date (if requested)
@@ -4091,11 +4074,11 @@ class OSVM(wx.Frame):
                 print (msg)
                 self.updateStatusBar(msg, fgcolor=wx.WHITE, bgcolor=wx.RED)
                 # Clear all pending requests
-                self.OnBtnCancel(1, globs)
+                self.OnBtnCancel(1)
                 return 0
         return i
 
-    def _unSelectFiles(self, globs, fileType=''): # Clear all requests for a given file type (JPG, MOV)
+    def _unSelectFiles(self, fileType=''): # Clear all requests for a given file type (JPG, MOV)
         myprint('Must clear all requests for %s' % (fileType))
         i = 0
         for op in self.opList:
@@ -4105,7 +4088,7 @@ class OSVM(wx.Frame):
                 self.resetOneRequest(op)
         return i
 
-    def _selectFilesByDate(self, globs, fileType=''):	# fileType could be : JPG, MOV
+    def _selectFilesByDate(self, fileType=''):	# fileType could be : JPG, MOV
         myprint('Selecting %s files' % (fileType))
         i = 0
         # Browse the list of buttons and schedule a request if file matches fileType and date (if requested)
@@ -4153,7 +4136,7 @@ class OSVM(wx.Frame):
             i += 1
         return i
 
-    def selectFilesByPosition(self, globs, fileType='', position=0):	# fileType could be : JPG, MOV
+    def selectFilesByPosition(self, fileType='', position=0):	# fileType could be : JPG, MOV
         # Loop thru opList[]: Clear all slots marked as MARK
         for op in self.opList:
             if op[globs.OP_STATUS] and op[globs.OP_TYPE] == globs.FILE_MARK:
@@ -4173,13 +4156,13 @@ class OSVM(wx.Frame):
                 op = [x for x in self.opList if not x[globs.OP_STATUS]][0] # First free slot
             except:
                 msg = 'Maximum selection (%d) reached' % globs.MAX_OPERATIONS
-                self.updateStatusBar(msg, fgcolor=wx.WHITE, bgcolor=wx.RED)
+                self.updateStatusBar(globs, msg, fgcolor=wx.WHITE, bgcolor=wx.RED)
                 break
             self._scheduleOperation(op, e)
             i += 1
         return i
 
-    def OnBtnShare(self, event, globs):
+    def OnBtnShare(self, event):
         shareList = list()
         for op in self.opList:
             if op[globs.OP_STATUS]:
@@ -4188,18 +4171,18 @@ class OSVM(wx.Frame):
 
         myprint('Sharing files', shareList)
         
-        mailDlg = MailDialog.MailDialog(self, globs, attachmentlist=shareList)
+        mailDlg = MailDialog.MailDialog(self, attachmentlist=shareList)
         mailDlg.ShowModal()
         mailDlg.Destroy()
         # Clear all marked files
-        cnt = self._unSelectFiles(globs,'JPG')
-        cnt += self._unSelectFiles(globs,'MOV')
+        cnt = self._unSelectFiles('JPG')
+        cnt += self._unSelectFiles('MOV')
         # Clear action buttons
         self._disableActionButtons()
         self.Refresh()
         event.Skip()
 
-    def OnBtnDelete(self, event, globs):
+    def OnBtnDelete(self, event):
         #if globs.askBeforeCommit:
         msg = 'Do you really want to DELETE marked files(s) ?'
         dial = wx.MessageDialog(None, msg, 'Delete Files',
@@ -4224,7 +4207,7 @@ class OSVM(wx.Frame):
                     myprint('%s successfully deleted' % filePath)
                     needRefresh = True
         if needRefresh:
-            globs.localFilesCnt = localFilesInfo(globs.osvmDownloadDir, globs)
+            globs.localFilesCnt = localFilesInfo(globs.osvmDownloadDir)
             myprint('%d local files on this host' % globs.localFilesCnt)
 
             # Update list of files on the GUI
@@ -4232,7 +4215,7 @@ class OSVM(wx.Frame):
         self._disableActionButtons()
         event.Skip()
         
-    def OnBtnDownload(self, event, globs):
+    def OnBtnDownload(self, event):
         pendingOpsCnt = self.pendingOperationsCount()
         if pendingOpsCnt == 0:
             return
@@ -4283,11 +4266,11 @@ class OSVM(wx.Frame):
 
         wx.BeginBusyCursor(cursor=wx.HOURGLASS_CURSOR)
         # Clear all pending operations
-        self.OnBtnCancel(1, globs)
+        self.OnBtnCancel(1)
 
         # If some files have been installed, rescan/update list
         # Detect local files on the host
-        globs.localFilesCnt = localFilesInfo(globs.osvmDownloadDir, globs)
+        globs.localFilesCnt = localFilesInfo(globs.osvmDownloadDir)
         myprint('%d local files on this host' % globs.localFilesCnt)
 
         # Update list of files on the GUI
@@ -4299,7 +4282,7 @@ class OSVM(wx.Frame):
         self._setMode(globs.MODE_ENABLED, msg)
         event.Skip()
 
-    def OnBtnCancel(self, event, globs):
+    def OnBtnCancel(self, event):
         # pendingOpsCnt = self.pendingOperationsCount()
         # if pendingOpsCnt == 0:
         #     return
@@ -4368,15 +4351,15 @@ class OSVM(wx.Frame):
         self.timerCnt += 1
         self.updateStatusBar(''.join(self.display))
 
-    def _updateConnectionStatus(self, globs):
+    def _updateConnectionStatus(self):
         if globs.cameraConnected or globs.viewMode:
-            self._displayBitmap(self.staticBitmap2, "traffic-light-green-65-nobg.png", wx.BITMAP_TYPE_PNG, globs)
+            self._displayBitmap(self.staticBitmap2, "traffic-light-green-65-nobg.png", wx.BITMAP_TYPE_PNG)
         else:
-            self._displayBitmap(self.staticBitmap2, "traffic-light-red-65-nobg.png", wx.BITMAP_TYPE_PNG, globs)
+            self._displayBitmap(self.staticBitmap2, "traffic-light-red-65-nobg.png", wx.BITMAP_TYPE_PNG)
 
 # Arguments parser
-def parse_argv(globs):
-    desc = 'Graphical UI to manage files (pictures, video) on a OLYMPUS camera over WIFI''Also a File viewer over GoogleCast'
+def parse_argv():
+    desc = 'Graphical UI to manage files (pictures, video) on a OLYMPUS camera over WIFI''Provides a Remote File viewer over GoogleCast'
 
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument("-d", "--debug",
@@ -4407,7 +4390,7 @@ def parse_argv(globs):
     args = parser.parse_args()
     return args
 
-def printToolsVersion(globs):
+def printToolsVersion():
     if globs.system == 'Windows':
         # Get win32api version
         fixed_file_info = win32api.GetFileVersionInfo(win32api.__file__, '\\')
@@ -4417,8 +4400,8 @@ def printToolsVersion(globs):
         label = 'Platform: %s\nPython: %s\nWxPython: %s' % ((platform.platform()),  globs.pythonVersion, wx.version())
     print(label)
 
-def main(globs):
-    args = parse_argv(globs)
+def main():
+    args = parse_argv()    
 
     osvmdirpath = os.path.join(os.path.join(expanduser("~"), globs.osvmDir))
     if os.path.exists(osvmdirpath):
@@ -4461,7 +4444,7 @@ def main(globs):
 
     if args.version:
         print('%s: Version: %s' % (globs.myName, globs.myVersion))
-        printToolsVersion(globs)
+        printToolsVersion()
         print('PyChromeCast:',module_path(pychromecast))
         print('Vlc:',module_path(vlc))
         if globs.networkSelector:
@@ -4503,7 +4486,7 @@ def main(globs):
 
     print('%s: Version: %s. Running at: %s' % (globs.myName, globs.myVersion, time.strftime('%m/%d/%y %H:%M:%S', time.localtime())))
     print('System:', globs.system )
-    printToolsVersion(globs)
+    printToolsVersion()
     print('Host Archictecture:', globs.hostarch)
     print('Path:', globs.modPath)
     print('Image Dir:', globs.imgDir)
@@ -4543,7 +4526,7 @@ RSSI:           %s""" % (iname, interface.ssid(), interface.bssid(),interface.tr
         if not globs.iface:
             myprint('No Network Interface')
 
-    frame = OSVMConfig(None, -1, globs.myLongName, globs)
+    frame = OSVMConfig(None, -1, globs.myLongName)
     frame.Show(True)
 
 #    app.SetTopWindow(frame)
@@ -4553,7 +4536,7 @@ RSSI:           %s""" % (iname, interface.ssid(), interface.bssid(),interface.tr
     #print ("Application has been killed !")
 
     # Some cleanup
-    cleanup(globs)
+    cleanup()
 
 if __name__ == "__main__":
-    main(globs)
+    main()

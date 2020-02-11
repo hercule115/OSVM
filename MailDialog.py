@@ -21,13 +21,20 @@ from email import encoders
 import mimetypes # To guess file type
 import smtplib	# actual sending function
 
-moduleList = ['osvmGlobals', 'MailPreferencesDialog']
+# moduleList = ['osvmGlobals', 'MailPreferencesDialog']
 
-for m in moduleList:
-    print('Loading: %s' % m)
-    mod = __import__(m, fromlist=[None])
-    globals()[m] = globals().pop('mod')	# Rename module in globals()
+# for m in moduleList:
+#     print('Loading: %s' % m)
+#     mod = __import__(m, fromlist=[None])
+#     globals()[m] = globals().pop('mod')	# Rename module in globals()
 
+moduleList = {'osvmGlobals':'globs', 'MailPreferencesDialog':'MailPreferencesDialog'}
+
+for k,v in moduleList.items():
+    print('Loading: %s as %s' % (k,v))
+    mod = __import__(k, fromlist=[None])
+    globals()[v] = globals().pop('mod')	# Rename module in globals()
+    
 ####
 #print(__name__)
 
@@ -118,13 +125,13 @@ def sendMultiPartMail(smtpParams, sender, receiver, subject, textbody, attachmen
 
 #### MailDialog
 class MailDialog(wx.Dialog):
-    def __init__(self, parent, globs, attachmentlist):
+    def __init__(self, parent, attachmentlist):
         self.attachmentList = attachmentlist
 
         myStyle = wx.DEFAULT_DIALOG_STYLE|wx.TAB_TRAVERSAL|wx.RESIZE_BORDER
         wx.Dialog.__init__(self, None, wx.ID_ANY, 'Compose Mail', style=myStyle)
 
-        self._initialize(globs)
+        self._initialize()
 
         self.panel1.SetSizerAndFit(self.topBoxSizer)
         self.SetClientSize(self.topBoxSizer.GetSize())
@@ -133,7 +140,7 @@ class MailDialog(wx.Dialog):
     """
     Create and layout the widgets in the dialog
     """
-    def _initialize(self, globs):
+    def _initialize(self):
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self,
                                size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
 
@@ -179,15 +186,15 @@ class MailDialog(wx.Dialog):
         # Buttons to deal with Attachments 
         self.btnAdd = wx.Button(id=wx.ID_DEFAULT, label='Add', parent=self.panel1, style=0)
         self.btnAdd.SetToolTip('Add a new attachment to the list')
-        self.btnAdd.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnAdd(evt, temp))
+        self.btnAdd.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnAdd(evt))
 
         self.btnRemove = wx.Button(id=wx.ID_DEFAULT, label='Remove', parent=self.panel1, style=0)
         self.btnRemove.SetToolTip('Remove attachment from the list')
-        self.btnRemove.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnRemove(evt, temp))
+        self.btnRemove.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnRemove(evt))
         
         self.btnClear = wx.Button(id=wx.ID_DEFAULT, label='Clear', parent=self.panel1, style=0)
         self.btnClear.SetToolTip('Clear attachment list')
-        self.btnClear.Bind(wx.EVT_BUTTON, lambda evt, temp=globs: self.OnBtnClear(evt, temp))
+        self.btnClear.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnClear(evt))
         if not self.attachmentLB.GetCount():
             self.btnRemove.Disable()
             self.btnClear.Disable()
@@ -222,7 +229,7 @@ class MailDialog(wx.Dialog):
 
         # Finally add bottom buttons in a sizer
         self.btnPrefs = wx.Button(label='Preferences', id=wx.ID_ANY, parent=self.panel1, style=0)
-        self.btnPrefs.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnPrefs(evt,temp))
+        self.btnPrefs.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnPrefs(evt))
 
         self.btnCancel = wx.Button(label='Cancel', id=wx.ID_ANY, parent=self.panel1, style=0)
         self.btnCancel.Bind(wx.EVT_BUTTON, self.OnBtnCancel)
@@ -230,7 +237,7 @@ class MailDialog(wx.Dialog):
         self.btnSend = wx.Button(id=wx.ID_ANY, label='send',
                                  name='Send', parent=self.panel1, style=0)
         self.btnSend.SetToolTip(u'Send this mail')
-        self.btnSend.Bind(wx.EVT_BUTTON, lambda evt,temp=globs: self.OnBtnSend(evt,temp))
+        self.btnSend.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnSend(evt))
         self.btnSend.Disable()
 
         self._init_sizers()
@@ -310,7 +317,7 @@ class MailDialog(wx.Dialog):
             self.btnSend.Enable(False)
 
     ## Events
-    def OnBtnSend(self, event, globs):
+    def OnBtnSend(self, event):
         # Mail Headers
         sender   = self.mailHdrVal[1].GetValue()
         receiver = self.mailHdrVal[3].GetValue()
@@ -338,8 +345,8 @@ class MailDialog(wx.Dialog):
             self.Close()
         event.Skip()
 
-    def OnBtnPrefs(self, event, globs):
-        dlg = MailPreferencesDialog.MailPreferencesDialog(self, globs)
+    def OnBtnPrefs(self, event):
+        dlg = MailPreferencesDialog.MailPreferencesDialog(self)
         ret = dlg.ShowModal()
         dlg.Destroy()
         if ret == wx.ID_APPLY:
@@ -356,7 +363,7 @@ class MailDialog(wx.Dialog):
             self.smtpConfigInfo.SetLabel(val)
         event.Skip()
 
-    def OnBtnAdd(self, event, globs):
+    def OnBtnAdd(self, event):
         with wx.FileDialog(self, "Add File", defaultDir=globs.osvmDownloadDir, style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
             if fileDialog.ShowModal() == wx.ID_CANCEL:
                 return     # the user changed their mind
@@ -370,7 +377,7 @@ class MailDialog(wx.Dialog):
             self.btnClear.Enable()
         event.Skip()
         
-    def OnBtnRemove(self, event, globs):
+    def OnBtnRemove(self, event):
         sel = self.attachmentLB.GetSelection()
         if sel == wx.NOT_FOUND:
             myprint('No file selected')
@@ -386,7 +393,7 @@ class MailDialog(wx.Dialog):
             self.btnClear.Enable()
         event.Skip()
 
-    def OnBtnClear(self, event, globs):
+    def OnBtnClear(self, event):
         self.attachmentLB.Clear()
         self.attachmentList.clear()
         self.btnRemove.Disable()
@@ -415,14 +422,16 @@ def myprint(*args, **kwargs):
     __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
 
 class MyFrame(wx.Frame):
-    def __init__(self, parent, id, title, globs):
+    def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
 
+        myprint(globs.smtpServerPort)
+        
         attachmentList = list()
         attachmentList.append(os.path.join(globs.osvmDownloadDir,'PB102070.JPG'))
         attachmentList.append(os.path.join(globs.osvmDownloadDir,'PB102071.JPG'))
-        dlg = MailDialog(self, globs, attachmentlist=attachmentList)
+        dlg = MailDialog(self, attachmentlist=attachmentList)
         ret = dlg.ShowModal()
         dlg.Destroy()
 
@@ -430,22 +439,22 @@ class MyFrame(wx.Frame):
 
 def main():
     # Create Globals instance
-    g = osvmGlobals.myGlobals()
-    g.system = platform.system()		# Linux or Windows or MacOS (Darwin)
-    g.pythonVersion = (sys.version).split()[0]	# 2.x or 3.x ?
+    #globs = osvmGlobals.myGlobals()
+    globs.system = platform.system()		# Linux or Windows or MacOS (Darwin)
+    globs.pythonVersion = (sys.version).split()[0]	# 2.x or 3.x ?
 
-    g.osvmDownloadDir = '/Users/didier/SynologyDrive/Photo/Olympus TG4/'
+    globs.osvmDownloadDir = '/Users/didier/SynologyDrive/Photo/Olympus TG4/'
 
-    g.smtpServer = 'smtp.gmail.com'
-    g.smtpServerProtocol = 'SSL'
-    g.smtpServerPort = 465
-    g.smtpServerUseAuth = True
-    g.smtpServerUserName   = 'dspoirot@gmail.com'
-    g.smtpServerUserPasswd = 'foobar'
+    globs.smtpServer = 'smtp.gmail.com'
+    globs.smtpServerProtocol = 'SSL'
+    globs.smtpServerPort = 465
+    globs.smtpServerUseAuth = True
+    globs.smtpServerUserName   = 'dspoirot@gmail.com'
+    globs.smtpServerUserPasswd = 'foobar'
     
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
-    frame = MyFrame(None, -1, title="Test", globs=g)
+    frame = MyFrame(None, -1, title="Test")
     frame.Show()
     app.MainLoop()
 

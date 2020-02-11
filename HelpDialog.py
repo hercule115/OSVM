@@ -6,13 +6,12 @@ import sys
 import os
 import inspect
 
-#import osvmGlobals
-moduleList = ['osvmGlobals']
+moduleList = {'osvmGlobals':'globs'}
 
-for m in moduleList:
-    print('Loading: %s' % m)
-    mod = __import__(m, fromlist=[None])
-    globals()[m] = globals().pop('mod')	# Rename module in globals()
+for k,v in moduleList.items():
+    print('Loading: %s as %s' % (k,v))
+    mod = __import__(k, fromlist=[None])
+    globals()[v] = globals().pop('mod')	# Rename module in globals()
 
 ####
 #print(__name__)
@@ -29,7 +28,7 @@ class HtmlWindow(wx.html.HtmlWindow):
         wx.LaunchDefaultBrowser(link.GetHref())
 
 class HelpDialog(wx.Dialog):
-    def __init__(self, parent, globs):
+    def __init__(self, parent):
         myStyle = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.TAB_TRAVERSAL
         wx.Dialog.__init__(self, None, wx.ID_ANY, "Help on %s" % (globs.myLongName), style=myStyle)
 
@@ -80,25 +79,23 @@ def module_path(local_function):
     return os.path.abspath(inspect.getsourcefile(local_function))
         
 class MyFrame(wx.Frame):
-    def __init__(self, parent, id, title, globs):
+    def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
-        dlg = HelpDialog(self, globs)
+        dlg = HelpDialog(self)
         ret = dlg.ShowModal()
         dlg.Destroy()
 
         self.Show()
 
 def main():
-    # Create Globals instance
-    g = osvmGlobals.myGlobals()
-
-    g.modPath         = module_path(main)
-    g.helpPath        = os.path.join(os.path.dirname(g.modPath), 'help.htm')
+    # Init Globals instance
+    globs.modPath	= module_path(main)
+    globs.helpPath	= os.path.join(os.path.dirname(globs.modPath), 'help.htm')
     
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
-    frame = MyFrame(None, -1, title="Test", globs=g)
+    frame = MyFrame(None, -1, title="Test")
     frame.Show()
     app.MainLoop()
 
