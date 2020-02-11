@@ -126,6 +126,7 @@ useExternalViewer = False
 httpServer = None
 castMediaCtrl = None
 slideShowNextIdx = 0
+slideShowLastIdx = 0
 chromecasts = list() # List of available chromecast devices
 castDevice = None # Selected chromecast
 lastCastDeviceName = None
