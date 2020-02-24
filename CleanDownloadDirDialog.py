@@ -80,7 +80,7 @@ class CleanDownloadDirDialog(wx.Dialog):
             w0.SetValue(False)
             w0.Bind(wx.EVT_CHECKBOX, lambda evt: self.OnFileType(evt))
             
-            globs.CLEAN_FILETYPES[k], s = folderSize(self.downloadDir, k, True) 
+            globs.CLEAN_FILETYPES[k], s = folderSize(self.downloadDir, k, True) # Recurse in .thumbnails
             size = humanBytes(s)
             
             w1 = wx.StaticText(self.panel1) # counter
@@ -216,8 +216,9 @@ def humanBytes(size):
 
 #
 # Get folder size (in bytes) on the disk for files matching suffixes
-# Recurse controls recursion
-# ex: folderSize('/a/b/c', '.jpg'))
+# Recurse controls recursion in subdirectories
+# ex: folderSize('/a/b/c', '.jpg', True)
+# Return count of files found and size in bytes
 def folderSize(folder, suffixes, recurse):
     totalSize = 0
     fileCount = 0
