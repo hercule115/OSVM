@@ -26,7 +26,7 @@ CWSecurityModes = {
     10: 'Enterprise',
 }
 
-SERVER_HTTP_PORT = '8124'
+SERVER_HTTP_PORT = '8125'
 
 modPath         = None
 system          = None
@@ -269,13 +269,6 @@ LEDS_COLOURS = [['#929292', '#A8A8A8', '#9C9C9C', '#B7B7B7'], # grey
 [LED_OFF,
  LED_BLINK,
  LED_ON] = [i for i in range(3)]
-
-# File Types to view/sync
-FILETYPES = ['None', 'JPG', 'MOV', 'ALL']
-FILETYPES_NOVLC = ['', 'JPG']
-
-# File types to clean. For each type, a counter is provided (see folderSize())
-CLEAN_FILETYPES = { 'JPG':0, 'MOV':0 }
 
 # Wifi networks parameters (scanForNetworks())
 [NET_SSID,
