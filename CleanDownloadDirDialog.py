@@ -26,8 +26,10 @@ class CleanDownloadDirDialog(wx.Dialog):
     def __init__(self, parent, download):
         self.parent = parent
         self.downloadDir = download
+        # File types to clean. For each type, a counter is provided (see folderSize())
+        self.CLEAN_FILETYPES = { 'JPG':0, 'MOV':0, 'MP4':0 }
 
-        myprint(self.downloadDir)
+        myprint(self.downloadDir, self.CLEAN_FILETYPES.keys())
 
         myStyle = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.TAB_TRAVERSAL
         wx.Dialog.__init__(self, None, wx.ID_ANY, 'Select Files To Clean', style=myStyle)
@@ -75,17 +77,17 @@ class CleanDownloadDirDialog(wx.Dialog):
         self.itemList.append((w0,w1,w2))
 
         lineno = 1
-        for k in globs.CLEAN_FILETYPES.keys():
+        for k in self.CLEAN_FILETYPES.keys():
             w0 = wx.CheckBox(self.panel1, label=k)
             w0.SetValue(False)
             w0.Bind(wx.EVT_CHECKBOX, lambda evt: self.OnFileType(evt))
             
-            globs.CLEAN_FILETYPES[k], s = folderSize(self.downloadDir, k, True) # Recurse in .thumbnails
+            self.CLEAN_FILETYPES[k], s = folderSize(self.downloadDir, k, True) # Recurse in .thumbnails
             size = humanBytes(s)
             
             w1 = wx.StaticText(self.panel1) # counter
             w1.SetFont(wx.Font(12, wx.SWISS, wx.ITALIC, wx.NORMAL, False))
-            lbl = "<span foreground='grey'>%s</span>" % str(globs.CLEAN_FILETYPES[k])
+            lbl = "<span foreground='grey'>%s</span>" % self.CLEAN_FILETYPES[k]
             w1.SetLabelMarkup(lbl)
 
             w2 = wx.StaticText(self.panel1) # size
@@ -97,7 +99,7 @@ class CleanDownloadDirDialog(wx.Dialog):
             self.gbs.Add(w1, pos=(lineno,1), border=0, flag=wx.ALIGN_LEFT)
             self.gbs.Add(w2, pos=(lineno,2), border=0, flag=wx.ALIGN_LEFT)
             
-            self.itemList.append((w0,w1,w2,s,size,globs.CLEAN_FILETYPES[k]))
+            self.itemList.append((w0,w1,w2,s,size,self.CLEAN_FILETYPES[k]))
             lineno += 1
         
         lineno += 1 # blank line separator
@@ -194,7 +196,7 @@ class CleanDownloadDirDialog(wx.Dialog):
 
     def OnBtnApply(self, event):
         i = 1 # Skip header
-        for k in globs.CLEAN_FILETYPES.keys():
+        for k in self.CLEAN_FILETYPES.keys():
             if self.itemList[i][0].GetValue():  # wx.Checkbox
                 myprint('Cleaning %s files' % k)
                 for f in [y for x in os.walk(self.downloadDir) for y in glob.glob(os.path.join(x[0], '*.%s' % k))]:
