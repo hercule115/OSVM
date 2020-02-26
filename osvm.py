@@ -131,7 +131,7 @@ except ImportError:
 else:
     globs.networkSelector = True
 
-from PIL import Image
+from PIL import Image, ExifTags
 
 import wx.lib.agw.flatnotebook as fnb
 import builtins as __builtin__
@@ -336,8 +336,9 @@ def createSymLink(path, link):
     return 0
 
 # Browse a directory, looking for filenames ending with: JPG, MOV, ORF, MPO, MP4
-def listLocalFiles(dir, hidden=False, relative=True):
-    suffixes = ('jpg', 'mov', 'orf', 'mpo', 'mp4')
+def listLocalFiles(dir, hidden=False, relative=True, suffixes=('jpg', 'mov', 'orf', 'mpo', 'mp4')):
+#    suffixes = ('jpg', 'mov', 'orf', 'mpo', 'mp4')
+    myprint('Looking for files with suffix:', suffixes)
     nodes = []
     try:
         for fname in os.listdir(dir):
@@ -807,6 +808,39 @@ def serverIpAddr():
         ipAddr = '0;0;0;0'
     myprint(ipAddr)
     return ipAddr
+
+# Check if local images need to be rotated using Exif metadata and proceed accordingly
+def rotateImageIfNeeded():
+    rotation = {1:0, 3:180, 6:270, 8:90} # Required rotation in degrees
+
+    fileList = listLocalFiles(globs.osvmDownloadDir, hidden=False, relative=False, suffixes=('jpg'))
+    for f in fileList:
+        try:
+            image = Image.open(f)
+            for tag in ExifTags.TAGS.keys():
+#                print(ExifTags.TAGS[tag])
+                if ExifTags.TAGS[tag] == 'Orientation':
+                    break
+            exif = dict(image._getexif().items())
+#            myprint(f,exif[tag])
+
+            if rotation[exif[tag]]:
+                newFilePath = os.path.join(globs.osvmDownloadDir,'%s-rot%d.%s' %
+                                           (os.path.basename(f).split('.')[0],
+                                            rotation[exif[tag]],
+                                            os.path.basename(f).split('.')[1]))
+                if os.path.exists(newFilePath):
+                    image.close()
+                    continue
+                
+                myprint('Rotating %s by %d degrees' % (f,rotation[exif[tag]]))
+                image = image.rotate(rotation[exif[tag]], Image.NEAREST, expand=True)
+                myprint('Creating: %s' % (newFilePath))
+                image.save(newFilePath)
+            image.close()
+        except (AttributeError, KeyError, IndexError):
+            # cases: image don't have getexif
+            pass
 
 ############# CLASSES #########################################################
 class InstallThread(threading.Thread):
@@ -1422,8 +1456,14 @@ class FileOperationMenu(wx.Menu):
         fileName = str(menuEntry[0])
         myprint("Searching %s in globs.localFilesSorted (%d files)" % (fileName, len(globs.localFilesSorted)))
         idx = [x[0] for x in globs.localFilesSorted].index(fileName)
-        fileType = fileName.split('.')[1]	# File suffix
-        filesSelected = self.parent.selectFilesByPosition(fileType, idx)
+        suffix = fileName.split('.')[1]	# File suffix
+
+        # Get key in globs.FILE_SUFFIXES containing the suffix
+        fileType = [key  for (key, value) in globs.FILE_SUFFIXES.items() if suffix in value]
+        if not fileType: # Key not found
+            myprint('File type %s not supported' % suffix)
+            return
+        filesSelected = self.parent.selectFilesByPosition(fileType[0], idx)
 
         # Simulate a button 'Play' press
         self._btnPlayInfo = getattr(self.parent, "btnPlay")
@@ -1539,6 +1579,9 @@ class OSVMConfigThread(threading.Thread):
                 dlg.ShowModal()
 
         time.sleep(5) # To let the timer run for animation
+
+        # Check if some images need rotation
+        rotateImageIfNeeded()
 
         # Update dictionaries using current config parameters
         myprint('Updating file dictionaries')
@@ -2361,14 +2404,6 @@ class OSVM(wx.Frame):
         self.MENUITEM_QUIT = 102
         self.MENUITEM_ABOUT = 103
 
-        # File Types Choice entries. 'None' MUST BE FIRST
-        IMAGES = 'PICT'
-        MOVIES = 'VIDEO'
-        self.FILETYPES = ['None', IMAGES, MOVIES, 'ALL']
-        self.FILETYPES_NOVLC = ['', IMAGES] # If No VLC detected
-        # File suffixes supported for images and videos
-        self.SUFFIXES = { IMAGES:('JPG','jpg','JPEG', 'jpeg'), MOVIES:('MOV', 'mov','mp4', 'MP4') }
-        
         # Slideshow thread
         self.ssThrLock = threading.Lock()
         self.ssThrLock.acquire()	# Acquire the lock to prevent the thread from running
@@ -3095,17 +3130,14 @@ class OSVM(wx.Frame):
 
         self.fileTypesTxt = wx.StaticText(label='File Type', parent=self.panel1, id=wx.ID_ANY)
         if not globs.vlcVideoViewer:
-#            self.fileTypesChoice = wx.Choice(choices=[v for v in globs.FILETYPES_NOVLC],
-            self.fileTypesChoice = wx.Choice(choices=[v for v in self.FILETYPES_NOVLC],             
+            self.fileTypesChoice = wx.Choice(choices=[v for v in globs.FILE_TYPES_NOVLC],
                                              id=wx.ID_ANY, parent=self.panel1, style=0)
         else:
-#            self.fileTypesChoice = wx.Choice(choices=[v for v in globs.FILETYPES],
-            self.fileTypesChoice = wx.Choice(choices=[v for v in self.FILETYPES],             
+            self.fileTypesChoice = wx.Choice(choices=[v for v in globs.FILE_TYPES],
                                              id=wx.ID_ANY, parent=self.panel1, style=0)
 
         self.fileTypesChoice.SetToolTip('Select type of files to show/sync')
-#        self.fileTypesChoice.SetStringSelection(globs.FILETYPES[0])
-        self.fileTypesChoice.SetStringSelection(self.FILETYPES[0])
+        self.fileTypesChoice.SetStringSelection(globs.FILE_TYPES[0])
         self.fileTypesChoice.Bind(wx.EVT_CHOICE, lambda evt: self.OnFileTypesChoice(evt))
 
         self.fromCb = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='From Date')
@@ -3709,9 +3741,9 @@ class OSVM(wx.Frame):
 
     def OnFileTypesChoice(self, event):
         idx = self.fileTypesChoice.GetSelection()
-        self.fileType = self.FILETYPES[idx]
+        self.fileType = globs.FILE_TYPES[idx]
         print(idx,self.fileType)
-        if self.fileType in self.SUFFIXES.keys():
+        if self.fileType in globs.FILE_SUFFIXES.keys():
             self.OnBtnCancel(1)
             self._selectFiles(self.fileType)
             self.fromCb.Enable()
@@ -3719,7 +3751,7 @@ class OSVM(wx.Frame):
         elif self.fileType == 'ALL':
             self.OnBtnCancel(1)
             cnt = 0
-            for suffix in self.SUFFIXES.keys():
+            for suffix in globs.FILE_SUFFIXES.keys():
                 cnt += self._selectFiles(suffix)
             msg = '%d requests successfully marked' % (cnt)
             self.updateStatusBar(msg)
@@ -3767,7 +3799,7 @@ class OSVM(wx.Frame):
         else:
             myprint('Must schedule a request for any available file matching interval')
             cnt = 0
-            for suffix in self.SUFFIXES.keys():
+            for suffix in globs.FILE_SUFFIXES.keys():
                 if globs.viewMode:
                     cnt += self._selectFilesByDate(suffix)
                 else:
@@ -3813,7 +3845,7 @@ class OSVM(wx.Frame):
         else:
             myprint('Must schedule a request for any available file matching interval')
             cnt = 0
-            for suffix in self.SUFFIXES.keys():
+            for suffix in globs.FILE_SUFFIXES.keys():
                 if globs.viewMode:
                     cnt += self._selectFilesByDate(suffix)
                 else:
@@ -3854,7 +3886,7 @@ class OSVM(wx.Frame):
         if self.fileType == 'ALL':
             myprint('Must schedule a request for available image/video matching interval')
             cnt = 0
-            for suffix in self.SUFFIXES.keys():
+            for suffix in globs.FILE_SUFFIXES.keys():
                 cnt += self._syncFiles(suffix)
             pendingOpsCnt = self.pendingOperationsCount()
             msg = '%d requests successfully scheduled, %d in the queue' % (cnt, pendingOpsCnt)
@@ -3928,17 +3960,17 @@ class OSVM(wx.Frame):
                 # Clear opList
                 if globs.viewMode:
                     cnt = 0
-                    for suffix in self.SUFFIXES.keys():
+                    for suffix in globs.FILE_SUFFIXES.keys():
                         cnt += self._unSelectFiles(suffix)
                     # Re-Select files by type (if specified)
                     # e = wx.PyCommandEvent(wx.EVT_CHOICE.typeId, self.fileTypesChoice.GetId())
                     # e.SetEventObject(self.fileTypesChoice)
                     # wx.PostEvent(self.fileTypesChoice, e)
 
-                    self.fileTypesChoice.SetStringSelection(self.FILETYPES[0]) # None 
+                    self.fileTypesChoice.SetStringSelection(globs.FILE_TYPES[0]) # None 
                 else:
                     cnt = 0
-                    for suffix in self.SUFFIXES.keys():
+                    for suffix in globs.FILE_SUFFIXES.keys():
                         cnt += self._unSyncFiles(suffix)
                 myprint('%d selected files have been cleared' % (cnt))
                 self.Refresh()
@@ -4003,8 +4035,9 @@ class OSVM(wx.Frame):
         # Set file sort choice
         self.fileSortChoice.SetStringSelection(self.sortTypes[0] if globs.fileSortRecentFirst else self.sortTypes[1])
         # Reset File type selector
-#        self.fileTypesChoice.SetStringSelection(globs.FILETYPES[0])
-        self.fileTypesChoice.SetStringSelection(self.FILETYPES[0])
+        self.fileTypesChoice.SetStringSelection(globs.FILE_TYPES[0])
+        # Check if some images need rotation
+        rotateImageIfNeeded()
         # Update file information
         globs.localFilesCnt,globs.availRemoteFilesCnt = updateFileDicts()
         globs.slideShowLastIdx = globs.localFilesCnt
@@ -4047,17 +4080,17 @@ class OSVM(wx.Frame):
 #        event.Skip()
 
     def _unSyncFiles(self, fileType=''): # Clear all requests associated to a given file type (JPG, MOV)
-        myprint('Must clear all requests for %s. Suffixes: %s' % (fileType,self.SUFFIXES[fileType]))
+        myprint('Must clear all requests for %s. Suffixes: %s' % (fileType,globs.FILE_SUFFIXES[fileType]))
         i = 0
         for op in self.opList:
-            if op[globs.OP_STATUS] and op[globs.OP_FILETYPE] in self.SUFFIXES[fileType]:
+            if op[globs.OP_STATUS] and op[globs.OP_FILETYPE] in globs.FILE_SUFFIXES[fileType]:
                 i += 1
                 self.resetOneButton(op[globs.OP_FILENAME])
                 self.resetOneRequest(op)
         return i
 
     def _syncFiles(self, fileType=''):	# fileType could be : JPG, MOV
-        myprint('Syncing %s files. Suffixes: %s' % (fileType, self.SUFFIXES[fileType]))
+        myprint('Syncing %s files. Suffixes: %s' % (fileType, globs.FILE_SUFFIXES[fileType]))
         i = 0
         # Browse the list of buttons (remote files) and schedule a request if file matches fileType and date (if requested)
         if self.fromCb.GetValue():	# Check if From date cb is set
@@ -4076,7 +4109,7 @@ class OSVM(wx.Frame):
 
         for button in self.thumbButtons:
             remFileName = button[1]
-            if not remFileName.split('.')[1] in self.SUFFIXES[fileType]:
+            if not remFileName.split('.')[1] in globs.FILE_SUFFIXES[fileType]:
                 continue
 
             # Check if already available locally
@@ -4117,17 +4150,17 @@ class OSVM(wx.Frame):
         return i
 
     def _unSelectFiles(self, fileType=''): # Clear all requests for a given file type (JPG, MOV)
-        myprint('Must clear all requests for %s. Suffixes: %s' % (fileType, self.SUFFIXES[fileType]))
+        myprint('Must clear all requests for %s. Suffixes: %s' % (fileType, globs.FILE_SUFFIXES[fileType]))
         i = 0
         for op in self.opList:
-            if op[globs.OP_STATUS] and op[globs.OP_FILETYPE] in self.SUFFIXES[fileType]:
+            if op[globs.OP_STATUS] and op[globs.OP_FILETYPE] in globs.FILE_SUFFIXES[fileType]:
                 i += 1
                 self.resetOneButton(op[globs.OP_FILENAME])
                 self.resetOneRequest(op)
         return i
 
     def _selectFilesByDate(self, fileType=''):	# fileType could be : JPG, MOV
-        myprint('Selecting %s files. Suffixes: %s' % (fileType, self.SUFFIXES[fileType]))
+        myprint('Selecting %s files. Suffixes: %s' % (fileType, globs.FILE_SUFFIXES[fileType]))
         i = 0
         # Browse the list of buttons and schedule a request if file matches fileType and date (if requested)
         if self.fromCb.GetValue():	# Check if From date cb is set
@@ -4153,7 +4186,7 @@ class OSVM(wx.Frame):
             fileName = button[1]
             fileDate = globs.localFileInfos[fileName][globs.F_DATE]
 
-            if not fileName.split('.')[1] in self.SUFFIXES[fileType]:
+            if not fileName.split('.')[1] in globs.FILE_SUFFIXES[fileType]:
                 continue
 
             if self.fromCb.GetValue():	# Check if From date cb is set
@@ -4175,7 +4208,7 @@ class OSVM(wx.Frame):
         return i
 
     def selectFilesByPosition(self, fileType='', position=0):	# fileType could be : JPG, MOV
-        myprint('Selecting %s files, position=%d. Suffixes: %s' % (fileType, self.SUFFIXES[fileType]))
+        myprint('Selecting %s files, position=%d. Suffixes: %s' % (fileType, position, globs.FILE_SUFFIXES[fileType]))
         # Loop thru opList[]: Clear all slots marked as MARK
         for op in self.opList:
             if op[globs.OP_STATUS] and op[globs.OP_TYPE] == globs.FILE_MARK:
@@ -4186,7 +4219,7 @@ class OSVM(wx.Frame):
         i = 0
         for f in globs.localFilesSorted[position:]:
             fileName = f[globs.F_NAME]
-            if not fileName.split('.')[1] in self.SUFFIXES[fileType]:
+            if not fileName.split('.')[1] in globs.FILE_SUFFIXES[fileType]:
                 continue
 
             button = [x[0] for x in self.thumbButtons if x[1] == fileName]
@@ -4215,7 +4248,7 @@ class OSVM(wx.Frame):
         mailDlg.Destroy()
         # Clear all marked files
         cnt = 0
-        for suffix in self.SUFFIXES.keys():
+        for suffix in globs.FILE_SUFFIXES.keys():
             cnt += self._unSelectFiles(suffix)
         # Clear action buttons
         self._disableActionButtons()
@@ -4345,8 +4378,7 @@ class OSVM(wx.Frame):
 
         # Reset file choices if a 'real Cancel' request only
         if event != 1:
-#            self.fileTypesChoice.SetStringSelection(globs.FILETYPES[0]) # None
-            self.fileTypesChoice.SetStringSelection(self.FILETYPES[0]) # None            
+            self.fileTypesChoice.SetStringSelection(globs.FILE_TYPES[0]) # None
 
         # Prevent user action
         msg = 'All requests have been cancelled'
