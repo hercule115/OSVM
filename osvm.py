@@ -727,6 +727,9 @@ def downloadFile(op, pDialog):
             modTime = time.mktime(dt.timetuple())
             os.utime(localFile, (modTime, modTime))
 
+            # Check if file needs rotation
+            rotateImage(localFile)
+            
     return (ret, '')
 
 # Delete local files if needed
@@ -809,39 +812,45 @@ def serverIpAddr():
     myprint(ipAddr)
     return ipAddr
 
-# Check if local images need to be rotated using Exif metadata and proceed accordingly
-def rotateImageIfNeeded():
+# Rotate an image if needed
+def rotateImage(filePath):
     rotation = {1:0, 3:180, 6:270, 8:90} # Required rotation in degrees
 
+    if os.path.basename(filePath).split('.')[1].lower() != 'jpg':
+        return
+
+    try:
+        image = Image.open(filePath)
+        for tag in ExifTags.TAGS.keys():
+            if ExifTags.TAGS[tag] == 'Orientation':
+                break
+        exif = dict(image._getexif().items())
+
+        # If 'Orientation' tag is not 1, file needs rotation
+        if rotation[exif[tag]]:
+            newFilePath = os.path.join(globs.osvmDownloadDir,'%s-rot%d.%s' %
+                                       (os.path.basename(filePath).split('.')[0],
+                                        rotation[exif[tag]],
+                                        os.path.basename(filePath).split('.')[1]))
+            if os.path.exists(newFilePath):
+                image.close()
+                return
+
+            myprint('Rotating %s by %d degrees' % (filePath,rotation[exif[tag]]))
+            image = image.rotate(rotation[exif[tag]], Image.NEAREST, expand=True)
+            myprint('Creating: %s' % (newFilePath))
+            image.save(newFilePath)
+        image.close()
+    except (AttributeError, KeyError, IndexError):
+        # cases: image don't have getexif
+        pass
+
+# Check if local images need to be rotated using Exif metadata and proceed accordingly
+def rotateLocalImages():
     fileList = listLocalFiles(globs.osvmDownloadDir, hidden=False, relative=False, suffixes=('jpg'))
     for f in fileList:
-        try:
-            image = Image.open(f)
-            for tag in ExifTags.TAGS.keys():
-#                print(ExifTags.TAGS[tag])
-                if ExifTags.TAGS[tag] == 'Orientation':
-                    break
-            exif = dict(image._getexif().items())
-#            myprint(f,exif[tag])
-
-            if rotation[exif[tag]]:
-                newFilePath = os.path.join(globs.osvmDownloadDir,'%s-rot%d.%s' %
-                                           (os.path.basename(f).split('.')[0],
-                                            rotation[exif[tag]],
-                                            os.path.basename(f).split('.')[1]))
-                if os.path.exists(newFilePath):
-                    image.close()
-                    continue
-                
-                myprint('Rotating %s by %d degrees' % (f,rotation[exif[tag]]))
-                image = image.rotate(rotation[exif[tag]], Image.NEAREST, expand=True)
-                myprint('Creating: %s' % (newFilePath))
-                image.save(newFilePath)
-            image.close()
-        except (AttributeError, KeyError, IndexError):
-            # cases: image don't have getexif
-            pass
-
+        rotateImage(f)
+        
 ############# CLASSES #########################################################
 class InstallThread(threading.Thread):
     def __init__(self, name, dialog, thrLock, queueLock, workQueue):
@@ -1581,7 +1590,7 @@ class OSVMConfigThread(threading.Thread):
         time.sleep(5) # To let the timer run for animation
 
         # Check if some images need rotation
-        rotateImageIfNeeded()
+        rotateLocalImages()
 
         # Update dictionaries using current config parameters
         myprint('Updating file dictionaries')
@@ -4037,7 +4046,7 @@ class OSVM(wx.Frame):
         # Reset File type selector
         self.fileTypesChoice.SetStringSelection(globs.FILE_TYPES[0])
         # Check if some images need rotation
-        rotateImageIfNeeded()
+        rotateLocalImages()
         # Update file information
         globs.localFilesCnt,globs.availRemoteFilesCnt = updateFileDicts()
         globs.slideShowLastIdx = globs.localFilesCnt
