@@ -158,19 +158,18 @@ class MediaViewerDialog(wx.Dialog):
         # scale the image, preserving the aspect ratio
         W = wximg.GetWidth()
         H = wximg.GetHeight()
+        print(W,H)
         if W > H:
             r = W / H
-#            NewW = self.photoMaxSize
-#            NewH = self.photoMaxSize * H / W
             NewW = self.photoMaxSize * r
             NewH = self.photoMaxSize
         else:
-            r = H / W
-#            NewH = self.photoMaxSize
-#            NewW = self.photoMaxSize * W / H
             NewH = self.photoMaxSize
-            NewW = self.photoMaxSize * r
+            NewW = ( NewH * W ) / H
         wximg = wximg.Scale(NewW,NewH)
+
+        #print(wx.DisplaySize(), self.photoMaxSize)
+        #print(NewW,NewH)
 
         self.imageCtrl.SetBitmap(wx.Bitmap(wximg))
         self.SetTitle(imageFileName)
@@ -464,7 +463,8 @@ class MyFrame(wx.Frame):
     def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
-        filePath = os.path.join( os.getcwd(), 'images', 'plus-32.jpg')
+#        filePath = os.path.join( os.getcwd(), 'images', 'plus-32.jpg')
+        filePath = '/Users/didier/SynologyDrive/Photo/TEST2/n.jpg'
         dlg = MediaViewerDialog(self, filePath)
         ret = dlg.ShowModal()
         dlg.Destroy()
@@ -478,7 +478,8 @@ def main():
         globs.disabledModules.append(('VLC',msg))
 
     # Create a list of image files containing a single file
-    globs.localFileInfos['plus-32.jpg'] = ['plus-32.jpg', 0, 0, '']    
+#    globs.localFileInfos['plus-32.jpg'] = ['plus-32.jpg', 0, 0, '']
+    globs.localFileInfos['n.jpg'] = ['n.jpg', 0, 0, '']    
     globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst)
     
             # Create DemoFrame frame, passing globals instance as parameter
