@@ -103,13 +103,14 @@ class WifiDialog(wx.Dialog):
             # Known Network checkbox
             knownCb = wx.CheckBox(self.panel2, label='')
             knownCb.SetValue(self.netProps[i][len(self.netProps[0])-2])
-            knownCb.Bind(wx.EVT_CHECKBOX, lambda evt: self.OnKnownCb(evt))
+#            knownCb.Bind(wx.EVT_CHECKBOX, lambda evt: self.OnKnownCb(evt))
+            knownCb.Bind(wx.EVT_CHECKBOX, self.OnKnownCb)
             self.onerowfields.append(knownCb)
             # Favorite Network checkbox
             favoriteCb = wx.CheckBox(self.panel2, label='')
             favoriteCb.SetValue(self.netProps[i][len(self.netProps[0])-1])
-            #            favoriteCb.Bind(wx.EVT_CHECKBOX, self.OnFavoriteCb)
-            favoriteCb.Bind(wx.EVT_CHECKBOX, lambda evt: self.OnFavoriteCb(evt))
+            favoriteCb.Bind(wx.EVT_CHECKBOX, self.OnFavoriteCb)
+            #favoriteCb.Bind(wx.EVT_CHECKBOX, lambda evt: self.OnFavoriteCb(evt))
             self.onerowfields.append(favoriteCb)
             self.favoriteCbList.append(favoriteCb)
             # Create directory entry. key=(SSID,BSSID)
@@ -132,8 +133,8 @@ class WifiDialog(wx.Dialog):
         # Scan QR Code button
         self.btnScanQR = wx.Button(id=wx.ID_ANY, label='Scan QR Code', parent=self.panel1, style=0)
         self.btnScanQR.SetToolTip('Scan QR Code from Camera')
-#        self.btnScanQR.Bind(wx.EVT_BUTTON, self.OnBtnScanQR)
-        self.btnScanQR.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnScanQR(evt))
+        self.btnScanQR.Bind(wx.EVT_BUTTON, self.OnBtnScanQR)
+#        self.btnScanQR.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnScanQR(evt))
             
         # Cancel button
         self.btnCancel = wx.Button(id=wx.ID_CANCEL, parent=self.panel1, style=0)
@@ -143,13 +144,13 @@ class WifiDialog(wx.Dialog):
         # OK button
         self.btnOK = wx.Button(id=wx.ID_OK, parent=self.panel1, style=0)
         self.btnOK.SetToolTip('Close this Dialog and Proceed')
-#        self.btnOK.Bind(wx.EVT_BUTTON, self.OnBtnOK)
-        self.btnOK.Bind(wx.EVT_BUTTON,  lambda evt: self.OnBtnOK(evt))
+        self.btnOK.Bind(wx.EVT_BUTTON, self.OnBtnOK)
+#        self.btnOK.Bind(wx.EVT_BUTTON,  lambda evt: self.OnBtnOK(evt))
         self.btnOK.SetDefault()
 
         self.timer = wx.Timer(self)
-#        self.Bind(wx.EVT_TIMER, self.OnTimer, self.timer)
-        self.timer.Bind(wx.EVT_TIMER, lambda evt: self.OnTimer(evt))
+        self.Bind(wx.EVT_TIMER, self.OnTimer, self.timer)
+#        self.timer.Bind(wx.EVT_TIMER, lambda evt: self.OnTimer(evt))
         self.timer.Start(5000)
 
         self._init_sizers()
@@ -360,6 +361,8 @@ class WifiDialog(wx.Dialog):
             return
         self.SetTitle('WIFI Selector: %d networks detected' % len(globs.allNetworks))
 
+        myprint('Scanning networks: %d networks detected' % len(globs.allNetworks))
+                
         # Sort allNetworks by RSSI
         self.netwSorted = sorted(globs.allNetworks, key=lambda x: x[globs.NET_RSSI], reverse=True)
 
