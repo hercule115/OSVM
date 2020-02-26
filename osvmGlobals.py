@@ -5,7 +5,7 @@ from os.path import expanduser
 
 myName     = 'OSVM'
 myLongName = 'Olympus Sync & View Manager'
-myVersion  = '2.4.1'
+myVersion  = '2.4.2'
 
 disabledModules = list()
 pycc = True
@@ -252,6 +252,15 @@ TIMER3_FREQ = 200 # milliseconds
 TIMER4_FREQ = 100 # milliseconds
 TIMER5_FREQ =  50 # milliseconds
 TIMER6_FREQ = 300 # milliseconds
+
+# File Types Choice entries. 'None' MUST BE FIRST
+FILE_IMAGES = 'PICT'
+FILE_MOVIES = 'VIDEO'
+FILE_TYPES = ['None', FILE_IMAGES, FILE_MOVIES, 'ALL']
+FILE_TYPES_NOVLC = ['', FILE_IMAGES] # If No VLC detected
+# File suffixes supported for images and videos
+FILE_SUFFIXES = { FILE_IMAGES:('JPG','jpg','JPEG', 'jpeg'),
+                  FILE_MOVIES:('MOV', 'mov','mp4', 'MP4') }
 
 # LEDs colours
 LEDS_COLOURS = [['#929292', '#A8A8A8', '#9C9C9C', '#B7B7B7'], # grey
