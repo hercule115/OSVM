@@ -79,12 +79,14 @@ import socket
 import datetime
 import glob
 import ctypes
+import ast
 
 # Local modules
 moduleList = (
     'ChromecastDialog', 
     'CleanDownloadDirDialog', 
     'DateDialog', 
+    'ExifDialog',
     'HelpDialog', 
     'LedControl', 
     'LogoPanel', 
@@ -385,14 +387,16 @@ def localFilesInfo(dirName):
             myprint('Error: os.stat()')
             continue
 
-        if not globs.viewMode and globs.cameraConnected:
-            try:
-                remFileName = globs.availRemoteFiles[fileName][globs.F_NAME]
-            except:
-                # Local file does not exist anymore on remote/camera. Probably deleted...
-                myprint('File %s not found on remote/camera. Deleting' % (fileName))
-                os.remove(filePath)
-                continue
+        # Check if local file exists on camera. Rotated images are bypassed
+        if not '-rot' in fileName:
+            if not globs.viewMode and globs.cameraConnected:
+                try:
+                    remFileName = globs.availRemoteFiles[fileName][globs.F_NAME]
+                except:
+                    # Local file does not exist anymore on remote/camera. Probably deleted...
+                    myprint('File %s not found on remote/camera. Deleting' % (fileName))
+                    os.remove(filePath)
+                    continue
 
 #        if not globs.viewMode:
 #            try:
@@ -727,9 +731,38 @@ def downloadFile(op, pDialog):
             modTime = time.mktime(dt.timetuple())
             os.utime(localFile, (modTime, modTime))
 
-            # Check if file needs rotation
-            rotateImage(localFile)
-            
+    # Update Exif data cache file and re-load cache
+    exifFilePath = os.path.join(globs.osvmDownloadDir, globs.exifFile)
+    if not os.path.exists(exifFilePath):
+        myprint('%s does not exist. Creating' % exifFilePath)
+        ExifDialog.saveExifDataFromImages(exifFilePath)
+    else:   # Exif cache file already exists. Must update it
+        ed = getExifData(localFile)
+        if not ed:
+            myprint('Unable to get Exif data from file %s' % localFile)
+        else:
+            # Load existing data from file
+            exifDataDict = ExifDialog.buildDictFromFile(exifFilePath)
+
+            # Update dictionary containing exif data for all files
+            exifDataDict[os.path.basename(localFile)] = str(ed)
+
+            # Update exif data cache file
+            with open(exifFilePath, 'w') as fh:
+                for (k,v) in exifDataDict.items():
+                    fh.write('%s:%s\r\n' % (k,v))
+
+    # Re-Load existing data from file after update
+    exifDataDict = ExifDialog.buildDictFromFile(exifFilePath)
+
+    # Check if file needs rotation
+    try:
+        exifDataAsStr = exifDataDict[localFile]
+    except:
+        myprint('No Exif data for %s' % localFile)
+    else:
+        rotateImage(localFile, ast.literal_eval(exifDataAsStr))
+
     return (ret, '')
 
 # Delete local files if needed
@@ -813,43 +846,70 @@ def serverIpAddr():
     return ipAddr
 
 # Rotate an image if needed
-def rotateImage(filePath):
+def rotateImage(filePath, exifData):
     rotation = {1:0, 3:180, 6:270, 8:90} # Required rotation in degrees
 
     if os.path.basename(filePath).split('.')[1].lower() != 'jpg':
         return
 
     try:
+        orientation = exifData['Orientation']
+    except:
+        myprint('No \'Orientation\' tag found for file %s' % filePath)
+        return
+
+    if rotation[orientation]:
+        newFilePath = os.path.join(globs.osvmDownloadDir,'%s-rot%d.%s' %
+                                   (os.path.basename(filePath).split('.')[0],
+                                    rotation[orientation],
+                                    os.path.basename(filePath).split('.')[1]))
+        if os.path.exists(newFilePath):
+            return
+
+        myprint('Rotating %s by %d degrees' % (filePath,rotation[orientation]))
         image = Image.open(filePath)
-        for tag in ExifTags.TAGS.keys():
-            if ExifTags.TAGS[tag] == 'Orientation':
-                break
-        exif = dict(image._getexif().items())
-
-        # If 'Orientation' tag is not 1, file needs rotation
-        if rotation[exif[tag]]:
-            newFilePath = os.path.join(globs.osvmDownloadDir,'%s-rot%d.%s' %
-                                       (os.path.basename(filePath).split('.')[0],
-                                        rotation[exif[tag]],
-                                        os.path.basename(filePath).split('.')[1]))
-            if os.path.exists(newFilePath):
-                image.close()
-                return
-
-            myprint('Rotating %s by %d degrees' % (filePath,rotation[exif[tag]]))
-            image = image.rotate(rotation[exif[tag]], Image.NEAREST, expand=True)
-            myprint('Creating: %s' % (newFilePath))
-            image.save(newFilePath)
+        image = image.rotate(rotation[orientation], Image.NEAREST, expand=True)
+        myprint('Creating: %s' % (newFilePath))
+        image.save(newFilePath)
         image.close()
-    except (AttributeError, KeyError, IndexError):
-        # cases: image don't have getexif
-        pass
+
+        
+    # try:
+    #     image = Image.open(filePath)
+    #     for tag in ExifTags.TAGS.keys():
+    #         if ExifTags.TAGS[tag] == 'Orientation':
+    #             break
+    #     exif = dict(image._getexif().items())
+
+    #     # If 'Orientation' tag is not 1, file needs rotation
+    #     if rotation[exif[tag]]:
+    #         newFilePath = os.path.join(globs.osvmDownloadDir,'%s-rot%d.%s' %
+    #                                    (os.path.basename(filePath).split('.')[0],
+    #                                     rotation[exif[tag]],
+    #                                     os.path.basename(filePath).split('.')[1]))
+    #         if os.path.exists(newFilePath):
+    #             image.close()
+    #             return
+
+    #         myprint('Rotating %s by %d degrees' % (filePath,rotation[exif[tag]]))
+    #         image = image.rotate(rotation[exif[tag]], Image.NEAREST, expand=True)
+    #         myprint('Creating: %s' % (newFilePath))
+    #         image.save(newFilePath)
+    #     image.close()
+    # except (AttributeError, KeyError, IndexError):
+    #     # cases: image don't have getexif
+    #     pass
 
 # Check if local images need to be rotated using Exif metadata and proceed accordingly
-def rotateLocalImages():
+def rotateLocalImages(exifData):
     fileList = listLocalFiles(globs.osvmDownloadDir, hidden=False, relative=False, suffixes=('jpg'))
     for f in fileList:
-        rotateImage(f)
+        try:
+            exifDataAsStr = exifData[os.path.basename(f)]
+        except:
+            myprint('No Exif data for %s' % f)
+        else:
+            rotateImage(f, ast.literal_eval(exifDataAsStr))
         
 ############# CLASSES #########################################################
 class InstallThread(threading.Thread):
@@ -1589,8 +1649,17 @@ class OSVMConfigThread(threading.Thread):
 
         time.sleep(5) # To let the timer run for animation
 
+        # Build Exif data cache file
+        exifFilePath = os.path.join(globs.osvmDownloadDir, globs.exifFile)
+        if not os.path.exists(exifFilePath):
+            myprint('%s does not exist. Creating' % exifFilePath)
+            ExifDialog.saveExifDataFromImages(exifFilePath)
+        # Load data from file
+        self.exifData = ExifDialog.buildDictFromFile(exifFilePath)
+        print(type(self.exifData).__name__)
+        
         # Check if some images need rotation
-        rotateLocalImages()
+        rotateLocalImages(self.exifData)
 
         # Update dictionaries using current config parameters
         myprint('Updating file dictionaries')
@@ -4045,8 +4114,15 @@ class OSVM(wx.Frame):
         self.fileSortChoice.SetStringSelection(self.sortTypes[0] if globs.fileSortRecentFirst else self.sortTypes[1])
         # Reset File type selector
         self.fileTypesChoice.SetStringSelection(globs.FILE_TYPES[0])
+        # Build Exif data cache file
+        exifFilePath = os.path.join(globs.osvmDownloadDir, globs.exifFile)
+        if not os.path.exists(exifFilePath):
+            myprint('%s does not exist. Creating' % exifFilePath)
+            ExifDialog.saveExifDataFromImages(exifFilePath)
+        # Load data from file
+        self.exifData = ExifDialog.buildDictFromFile(exifFilePath)
         # Check if some images need rotation
-        rotateLocalImages()
+        rotateLocalImages(self.exifData)
         # Update file information
         globs.localFilesCnt,globs.availRemoteFilesCnt = updateFileDicts()
         globs.slideShowLastIdx = globs.localFilesCnt

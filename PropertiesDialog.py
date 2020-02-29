@@ -196,7 +196,8 @@ class MyFrame(wx.Frame):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
 
-        fileName = 'P2272477.JPG'
+        #fileName = 'P2272477.JPG'
+        fileName = '20200214_170528.jpg'
         filePath = os.path.join(globs.osvmDownloadDir, fileName)
         i = os.stat(filePath)
         fileSize = i.st_size

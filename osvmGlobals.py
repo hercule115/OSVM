@@ -42,9 +42,10 @@ pythonVersion   = None
 
 # Constants
 osvmDir         = '.osvm'		# In home directory
-initFile        = 'osvm.ini'	# In osvmDir
-initFileBk      = 'osvm.ini.bk'	# In osvmDir
+initFile        = 'osvm.ini'		# In osvmDir
+initFileBk      = 'osvm.ini.bk'		# In osvmDir
 logFile         = 'osvm-log.txt'	# In osvmDir
+exifFile        = '.exif-cache.txt'	# In osvmDownloadDir
 iniFileVersion  = '1'
 
 # Default values for 'Reset Preferences'
