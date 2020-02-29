@@ -9,7 +9,8 @@ import time
 import platform
 import subprocess
 
-moduleList = {'osvmGlobals':'globs'}
+moduleList = {'osvmGlobals':'globs',
+              'ExifDialog':'ExifDialog'}
 
 for k,v in moduleList.items():
     print('Loading: %s as %s' % (k,v))
@@ -33,6 +34,14 @@ class PropertiesDialog(wx.Dialog):
 
         myStyle = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER|wx.TAB_TRAVERSAL
         wx.Dialog.__init__(self, None, wx.ID_ANY, 'File Properties: %s' % (self.fileName), style=myStyle)
+
+        exifFilePath = os.path.join(globs.osvmDownloadDir, globs.exifFile)
+        if not os.path.exists(exifFilePath):
+            myprint('%s does not exist. Creating' % exifFilePath)
+            ExifDialog.saveExifDataFromImages(exifFilePath)
+        # Load data from file
+        self.exifData = ExifDialog.buildDictFromFile(exifFilePath)
+        
         self._initialize()
 
         self.panel1.SetSizerAndFit(self.topBoxSizer)
@@ -50,6 +59,15 @@ class PropertiesDialog(wx.Dialog):
         self.btnCopyPath.SetToolTip('Copy the absolute pathname of the file in the clipboard')
         self.btnCopyPath.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnCopyPath(evt))
 
+        # Exif Data button
+        self.btnExif = wx.Button(label='Exif Data', id=wx.ID_ANY, parent=self.panel1, style=0)
+        self.btnExif.SetToolTip('Show the Exif Data')
+        self.btnExif.Bind(wx.EVT_BUTTON, self.OnBtnExif)
+        try:
+            entry = self.exifData[self.fileName]    # Exif data don't exist for filename
+        except:
+            self.btnExif.Disable()
+        
         # Close button
         self.btnClose = wx.Button(id=wx.ID_CLOSE, parent=self.panel1, style=0)
         self.btnClose.SetToolTip('Close this Dialog')
@@ -123,6 +141,8 @@ class PropertiesDialog(wx.Dialog):
     def _init_buttonsBoxSizer_Items(self, parent):
         parent.Add(self.btnCopyPath, 1, border=0, flag=wx.ALIGN_LEFT)
         parent.AddStretchSpacer(prop=1)
+        parent.Add(self.btnExif, 1, border=0, flag=wx.ALIGN_CENTER)
+        parent.AddStretchSpacer(prop=1)
         parent.Add(self.btnClose, 1, border=0, flag=wx.ALIGN_RIGHT)
 
     def _init_sizers(self):
@@ -143,6 +163,13 @@ class PropertiesDialog(wx.Dialog):
             subprocess.run("pbcopy", universal_newlines=True, input=data)
         event.Skip()
 
+    def OnBtnExif(self, event):
+        filePath = os.path.join(globs.osvmDownloadDir,self.fileName)
+        dlg = ExifDialog.ExifDialog(self, filePath, self.exifData[self.fileName])
+        dlg.ShowModal()
+        dlg.Destroy()
+        event.Skip()
+        
     def OnBtnClose(self, event):
         self.Close()
 
@@ -169,12 +196,13 @@ class MyFrame(wx.Frame):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
 
-        fileName = 'plus-32.jpg'
-        filePath = os.path.join( os.getcwd(), 'images', fileName)
+        fileName = 'P2272477.JPG'
+        filePath = os.path.join(globs.osvmDownloadDir, fileName)
         i = os.stat(filePath)
         fileSize = i.st_size
         fileDate = i.st_mtime # in seconds
         globs.localFileInfos[fileName] = [fileName,fileSize,fileDate,filePath]
+        globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst)
         
         dlg = PropertiesDialog(self, fileName)
         ret = dlg.ShowModal()
@@ -186,10 +214,7 @@ def main():
     # Init Globals instance
     globs.system = platform.system()		# Linux or Windows or MacOS (Darwin)
     globs.viewMode = True
-    
-    # Create a list of image files containing a single file
-    globs.localFileInfos['plus-32.jpg'] = ['plus-32.jpg', 0, 0, '']    
-    globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst)
+    globs.osvmDownloadDir = '/Users/didier/SynologyDrive/Photo/TEST'
     
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
