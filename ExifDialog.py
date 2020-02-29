@@ -14,8 +14,6 @@ for k,v in moduleList.items():
     mod = __import__(k, fromlist=[None])
     globals()[v] = globals().pop('mod')	# Rename module in globals()
 
-exifData = dict()
-
 ####
 #print(__name__)
 
@@ -49,7 +47,7 @@ class ExifDialog(wx.Dialog):
         parent.Add(4, 4, border=0, flag=0)
         parent.Add(self.bottomBS, 0, border=5, flag= wx.ALL | wx.ALIGN_RIGHT)
 
-    # Preferences items
+    # Exif Tags/Value in Grid Sizer
     def _init_exifBS_Items(self, parent):
         parent.Add(self.exifGS, 0, border=5, flag= wx.EXPAND)
 
@@ -98,7 +96,7 @@ class ExifDialog(wx.Dialog):
         gsNumRows = (dictLen / gsNumCols) + 1
         self.exifGS = wx.GridSizer(cols=gsNumCols, hgap=0, rows=gsNumRows, vgap=2)
 
-        # GPS Coordinates
+        # GPS Coordinates if available
         self.gpsCoordinates = getDecimalCoordinates(self.exifData['GPSInfo'])
         if self.gpsCoordinates:
             self.gpsCoordsBS = wx.BoxSizer(orient=wx.HORIZONTAL)
@@ -107,7 +105,7 @@ class ExifDialog(wx.Dialog):
             self.gpsCoordsBS.Add(self.gpsLabelST, 0, border=5, flag=wx.EXPAND|wx.ALL)
             self.gpsCoordsBS.Add(4,0)
             self.gpsCoordsBS.Add(self.gpsCoordsST, 0, border=5, flag=wx.EXPAND|wx.ALL)
-            print('GPS info =',self.gpsCoordinates)
+            #print('GPS info =',self.gpsCoordinates)
 
         # Bottom button boxSizer
         self.bottomBS = wx.BoxSizer(orient=wx.HORIZONTAL)
@@ -253,9 +251,6 @@ class MyFrame(wx.Frame):
 
         self.Show()
 
-    def _savePreferences(self):	# dummy
-        pass
-    
 def main():
     # Init Globals instance
     globs.osvmDownloadDir = '/Users/didier/SynologyDrive/Photo/TEST'
