@@ -158,7 +158,6 @@ class MediaViewerDialog(wx.Dialog):
         # scale the image, preserving the aspect ratio
         W = wximg.GetWidth()
         H = wximg.GetHeight()
-        print(W,H)
         if W > H:
             r = W / H
             NewW = self.photoMaxSize * r
