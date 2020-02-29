@@ -7,6 +7,12 @@ import builtins as __builtin__
 import inspect
 import ast
 
+from PIL import Image
+from PIL.ExifTags import TAGS, GPSTAGS
+
+# Skip them
+TAGS_TO_SKIP = ['Artist', 'Copyright', 'MakerNote', 'PrintImageMatching', 'UserComment']
+
 moduleList = {'osvmGlobals':'globs'}
 
 for k,v in moduleList.items():
@@ -52,7 +58,7 @@ class ExifDialog(wx.Dialog):
         parent.Add(self.exifGS, 0, border=5, flag= wx.EXPAND)
 
     def _init_exifGS_Items(self, parent):
-        del self.exifData[None]
+        #del self.exifData['None']
         for elem in sorted(list(self.exifData.items())): # elem is a tuple (k,v)
             k = elem[0]
             v = elem[1]
@@ -97,15 +103,20 @@ class ExifDialog(wx.Dialog):
         self.exifGS = wx.GridSizer(cols=gsNumCols, hgap=0, rows=gsNumRows, vgap=2)
 
         # GPS Coordinates if available
-        self.gpsCoordinates = getDecimalCoordinates(self.exifData['GPSInfo'])
-        if self.gpsCoordinates:
-            self.gpsCoordsBS = wx.BoxSizer(orient=wx.HORIZONTAL)
-            self.gpsLabelST  = wx.StaticText(label='GPS Coordinates:', parent=self.panel1)
-            self.gpsCoordsST = wx.StaticText(label=str(self.gpsCoordinates), parent=self.panel1)
-            self.gpsCoordsBS.Add(self.gpsLabelST, 0, border=5, flag=wx.EXPAND|wx.ALL)
-            self.gpsCoordsBS.Add(4,0)
-            self.gpsCoordsBS.Add(self.gpsCoordsST, 0, border=5, flag=wx.EXPAND|wx.ALL)
-            #print('GPS info =',self.gpsCoordinates)
+        try:
+            self.gpsCoordinates = getDecimalCoordinates(self.exifData['GPSInfo'])
+        except:
+            myprint('No GPSInfo in Exif Data for %s' % self.fileName)
+            self.gpsCoordinates = None
+        else:
+            if self.gpsCoordinates:
+                self.gpsCoordsBS = wx.BoxSizer(orient=wx.HORIZONTAL)
+                self.gpsLabelST  = wx.StaticText(label='GPS Coordinates:', parent=self.panel1)
+                self.gpsCoordsST = wx.StaticText(label=str(self.gpsCoordinates), parent=self.panel1)
+                self.gpsCoordsBS.Add(self.gpsLabelST, 0, border=5, flag=wx.EXPAND|wx.ALL)
+                self.gpsCoordsBS.Add(4,0)
+                self.gpsCoordsBS.Add(self.gpsCoordsST, 0, border=5, flag=wx.EXPAND|wx.ALL)
+                #print('GPS info =',self.gpsCoordinates)
 
         # Bottom button boxSizer
         self.bottomBS = wx.BoxSizer(orient=wx.HORIZONTAL)
@@ -178,7 +189,8 @@ def getExifData(filename):
                     gps_data[sub_decoded] = v[t]
                 exif_data[decoded] = gps_data
             else:
-                if decoded in TAGS_TO_SKIP:
+                if decoded == None or decoded in TAGS_TO_SKIP:
+#                if decoded in TAGS_TO_SKIP:                
                     continue
                 exif_data[decoded] = v
     except IOError:
