@@ -872,7 +872,8 @@ def rotateImage(filePath, exifData):
         myprint('Creating: %s' % (newFilePath))
         image.save(newFilePath)
         image.close()
-
+        # Modifying modification time
+        os.utime(newFilePath, (0, os.path.getmtime(filePath)))
         
     # try:
     #     image = Image.open(filePath)
@@ -1656,7 +1657,6 @@ class OSVMConfigThread(threading.Thread):
             ExifDialog.saveExifDataFromImages(exifFilePath)
         # Load data from file
         self.exifData = ExifDialog.buildDictFromFile(exifFilePath)
-        print(type(self.exifData).__name__)
         
         # Check if some images need rotation
         rotateLocalImages(self.exifData)
