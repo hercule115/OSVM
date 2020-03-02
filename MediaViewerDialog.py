@@ -41,7 +41,7 @@ class MediaViewerDialog(wx.Dialog):
             fileName = self.mediaFileListOrPath[0][globs.F_NAME]
         suffix = fileName.split('.')[1]
 
-        if suffix == 'JPG' or suffix == 'jpg':
+        if suffix.lower() == 'jpg' or suffix.lower() == 'png':
             self.imageViewer()
         else:
             if globs.vlcVideoViewer:
