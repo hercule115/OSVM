@@ -10,10 +10,19 @@ import ast
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 
+import math
+from urllib.request import Request, urlopen
+from urllib.error import URLError
+from io import BytesIO
+from PIL import Image
+
 # Skip them
 TAGS_TO_SKIP = ['Artist', 'Copyright', 'MakerNote', 'PrintImageMatching', 'UserComment']
 
-moduleList = {'osvmGlobals':'globs'}
+moduleList = {
+    'osvmGlobals':'globs',
+    'MediaViewerDialog':'MediaViewerDialog'
+}
 
 for k,v in moduleList.items():
     print('Loading: %s as %s' % (k,v))
@@ -49,7 +58,7 @@ class ExifDialog(wx.Dialog):
         parent.Add(self.exifBS, 0, border=5, flag=wx.ALL) #wx.EXPAND | 
         parent.Add(4, 4, border=0, flag=0)
         if self.gpsCoordinates:
-            parent.Add(self.gpsCoordsBS, 0, border=5, flag=wx.ALL)
+            parent.Add(self.gpsBS, 0, border=5, flag=wx.ALL)
         parent.Add(4, 4, border=0, flag=0)
         parent.Add(self.bottomBS, 0, border=5, flag= wx.ALL | wx.ALIGN_RIGHT)
 
@@ -58,7 +67,6 @@ class ExifDialog(wx.Dialog):
         parent.Add(self.exifGS, 0, border=5, flag= wx.EXPAND)
 
     def _init_exifGS_Items(self, parent):
-        #del self.exifData['None']
         for elem in sorted(list(self.exifData.items())): # elem is a tuple (k,v)
             k = elem[0]
             v = elem[1]
@@ -82,6 +90,14 @@ class ExifDialog(wx.Dialog):
                 bs1.Add(vST, 0, border=5, flag=wx.EXPAND|wx.ALL| wx.ALIGN_RIGHT)
                 parent.Add(bs1, border=0, flag=wx.ALL | wx.EXPAND)
 
+    # GPS Coordinates and map
+    def _init_gpsBS_Items(self, parent):
+        parent.Add(self.gpsLabelST, 0, border=5, flag=wx.EXPAND|wx.ALL)
+        parent.Add(4,0)
+        parent.Add(self.gpsCoordsST, 0, border=5, flag=wx.EXPAND|wx.ALL)
+        parent.Add(4, 0)
+        parent.Add(self.btnShowMap, 0, border=5, flag=wx.ALL)        
+
     # Bottom items
     def _init_bottomBS_Items(self, parent):
         parent.Add(4, 4, border=0, flag=wx.EXPAND)
@@ -102,22 +118,6 @@ class ExifDialog(wx.Dialog):
         gsNumRows = (dictLen / gsNumCols) + 1
         self.exifGS = wx.GridSizer(cols=gsNumCols, hgap=0, rows=gsNumRows, vgap=2)
 
-        # GPS Coordinates if available
-        try:
-            self.gpsCoordinates = getDecimalCoordinates(self.exifData['GPSInfo'])
-        except:
-            myprint('No GPSInfo in Exif Data for %s' % self.fileName)
-            self.gpsCoordinates = None
-        else:
-            if self.gpsCoordinates:
-                self.gpsCoordsBS = wx.BoxSizer(orient=wx.HORIZONTAL)
-                self.gpsLabelST  = wx.StaticText(label='GPS Coordinates:', parent=self.panel1)
-                self.gpsCoordsST = wx.StaticText(label=str(self.gpsCoordinates), parent=self.panel1)
-                self.gpsCoordsBS.Add(self.gpsLabelST, 0, border=5, flag=wx.EXPAND|wx.ALL)
-                self.gpsCoordsBS.Add(4,0)
-                self.gpsCoordsBS.Add(self.gpsCoordsST, 0, border=5, flag=wx.EXPAND|wx.ALL)
-                #print('GPS info =',self.gpsCoordinates)
-
         # Bottom button boxSizer
         self.bottomBS = wx.BoxSizer(orient=wx.HORIZONTAL)
 
@@ -125,6 +125,8 @@ class ExifDialog(wx.Dialog):
         self._init_topBS_Items(self.topBS)
         self._init_exifBS_Items(self.exifBS)
         self._init_exifGS_Items(self.exifGS)
+        if self.gpsCoordinates:
+            self._init_gpsBS_Items(self.gpsBS)
         self._init_bottomBS_Items(self.bottomBS)
 
     """
@@ -138,6 +140,23 @@ class ExifDialog(wx.Dialog):
         self.staticBox2 = wx.StaticBox(id=wx.ID_ANY, label=' Exif Data ', 
                                        parent=self.panel1, style=0)
 
+        # GPS Coordinates if available
+        try:
+            self.gpsCoordinates = getDecimalCoordinates(self.exifData['GPSInfo'])
+        except:
+            myprint('No GPSInfo in Exif Data for %s' % self.fileName)
+            self.gpsCoordinates = None
+        else:
+            #print('GPS info =',self.gpsCoordinates)
+            if self.gpsCoordinates:
+                self.gpsBS = wx.BoxSizer(orient=wx.HORIZONTAL)
+                self.gpsLabelST  = wx.StaticText(label='GPS Coordinates:', parent=self.panel1)
+                self.gpsCoordsST = wx.StaticText(label=str(self.gpsCoordinates), parent=self.panel1)
+
+                self.btnShowMap = wx.Button(label='Show Map', parent=self.panel1, style=0)
+                self.btnShowMap.SetToolTip('Show GPS Coordinates on a map')
+                self.btnShowMap.Bind(wx.EVT_BUTTON, self.OnBtnShowMap)
+
         self.btnClose = wx.Button(id=wx.ID_CLOSE, parent=self.panel1, style=0)
         self.btnClose.SetToolTip('Close this Dialog')
         self.btnClose.SetDefault()
@@ -146,6 +165,25 @@ class ExifDialog(wx.Dialog):
         self._init_sizers()
 
     #### Events ####
+    def OnBtnShowMap(self, event):
+        latitude = self.gpsCoordinates[0]
+        longitude = self.gpsCoordinates[1]
+        img = getMapImage(latitude, longitude, 0.04,  0.05, 13) #  -20.47, 57.34
+        if not img:
+            myprint('Unable to download map for %s', str(self.gpsCoordinates))
+            event.Skip()
+            return
+        mapPath = os.path.join(globs.tmpDir, 'im1.png')
+        img.save(mapPath)
+
+        globs.localFileInfos['im1.png'] = ['im1.png', 0, 0, '']    
+        globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst)
+        
+        dlg = MediaViewerDialog.MediaViewerDialog(self, mapPath)
+        dlg.ShowModal()
+        dlg.Destroy()
+        event.Skip()
+
     def OnBtnClose(self, event):
         self.EndModal(wx.ID_CLOSE)
         event.Skip()
@@ -242,6 +280,45 @@ def saveExifDataFromImages(exifFilePath):
     with open(exifFilePath, 'w') as fh:
         for (k,v) in exifDataDict.items():
             fh.write('%s:%s\r\n' % (k,v))
+
+def deg2num(lat_deg, lon_deg, zoom):
+    lat_rad = math.radians(lat_deg)
+    n = 2.0 ** zoom
+    xtile = int((lon_deg + 180.0) / 360.0 * n)
+    ytile = int((1.0 - math.log(math.tan(lat_rad) + (1 / math.cos(lat_rad))) / math.pi) / 2.0 * n)
+    return (xtile, ytile)
+
+def num2deg(xtile, ytile, zoom):
+    n = 2.0 ** zoom
+    lon_deg = xtile / n * 360.0 - 180.0
+    lat_rad = math.atan(math.sinh(math.pi * (1 - 2 * ytile / n)))
+    lat_deg = math.degrees(lat_rad)
+    return (lat_deg, lon_deg)
+
+def getMapImage(lat_deg, lon_deg, delta_lat,  delta_long, zoom):
+    HEADERS = {
+        'User-Agent': 'OSVM User Agent 4.4.0',
+        'From': 'd.poirot@libertysurf.fr'
+    }
+    smurl = r"http://a.tile.openstreetmap.org/{0}/{1}/{2}.png"
+    xmin, ymax =deg2num(lat_deg, lon_deg, zoom)
+    xmax, ymin =deg2num(lat_deg + delta_lat, lon_deg + delta_long, zoom)
+
+    cluster = Image.new('RGB',((xmax-xmin+1)*256-1,(ymax-ymin+1)*256-1))
+    for xtile in range(xmin, xmax+1):
+        for ytile in range(ymin,  ymax+1):
+            try:
+                imgurl=smurl.format(zoom, xtile, ytile)
+                myprint("Opening: " + imgurl)
+                imgstr = urlopen(Request(imgurl, headers=HEADERS)).read()
+                tile = Image.open(BytesIO(imgstr))
+                cluster.paste(tile, box=((xtile-xmin)*256 ,  (ytile-ymin)*256))
+            except URLError as e:
+                myprint(e)
+                myprint("Couldn't download image tile")
+                #tile = None
+                return None
+    return cluster
     
 class MyFrame(wx.Frame):
     def __init__(self, parent, id, title):
@@ -266,6 +343,27 @@ class MyFrame(wx.Frame):
 def main():
     # Init Globals instance
     globs.osvmDownloadDir = '/Users/didier/SynologyDrive/Photo/TEST'
+    osvmdirpath = os.path.join(os.path.join(os.path.expanduser("~"), globs.osvmDir))
+    if os.path.exists(osvmdirpath):
+        if not os.path.isdir(osvmdirpath):
+            myprint("%s must be a directory. Exit!" % (osvmdirpath))
+            exit()
+    else:
+        try:
+            os.mkdir(osvmdirpath)
+        except OSError as e:
+            msg = "Cannot create %s: %s" % (osvmdirpath, "{0}".format(e.strerror))
+            print(msg)
+            exit()
+
+    globs.tmpDir = os.path.join(osvmdirpath, '.tmp')
+    if not os.path.isdir(globs.tmpDir):
+        try:
+            os.mkdir(globs.tmpDir)
+        except OSError as e:
+            msg = "Cannot create %s: %s" % (globs.tmpDir, "{0}".format(e.strerror))
+            myprint(msg)
+            exit()
 
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
