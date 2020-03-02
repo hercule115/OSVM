@@ -5,7 +5,7 @@ from os.path import expanduser
 
 myName     = 'OSVM'
 myLongName = 'Olympus Sync & View Manager'
-myVersion  = '2.5.0'
+myVersion  = '2.5.1'
 
 disabledModules = list()
 pycc = True
@@ -204,23 +204,23 @@ FILE_PROPERTIES = -3
 FILE_SLIDESHOW  = -4
 
 # Max # of operations to commit in a single click
-MAX_OPERATIONS = 2000
+MAX_OPERATIONS = 5000
 
 # opList fields index
 [OP_STATUS,	# status (busy=1/free=0)
  OP_FILENAME,	# remote file name (camera)
  OP_FILETYPE,	# JPG, MOV,...
- OP_TYPE,		# FILE_DOWNLOAD = 0  FILE_MARK = 1,...
+ OP_TYPE,	# FILE_DOWNLOAD = 0  FILE_MARK = 1,...
  OP_FILEPATH,	# full pathname of local file for download
- OP_SIZE,		# (size in bytes, block count)
+ OP_SIZE,	# (size in bytes, block count)
  OP_FILEDATE,	# remote file date
  OP_REMURL,	# full remote url to download
- OP_INWGT,		# list of all assoc. widgets in InstallDialog frame
+ OP_INWGT,	# list of all assoc. widgets in InstallDialog frame
  OP_INCOUNT,	# current block counter for this op
  OP_INSTEP,	# Installation step
  OP_INLEDCOL,	# Installation LED color
  OP_INLEDSTATE,	# Installation LED state: ON/BLINK/OFF
- OP_INTH,		# Installation thread
+ OP_INTH,	# Installation thread
  OP_INTICKS,	# Installation elapsed time
  OP_LASTIDX] = [i for i in range(16)]    # LASTIDX must be last field
 
