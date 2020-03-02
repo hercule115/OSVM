@@ -137,15 +137,13 @@ class ExifDialog(wx.Dialog):
                                size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
 
         #### Misc 
-        self.staticBox2 = wx.StaticBox(id=wx.ID_ANY, label=' Exif Data ', 
-                                       parent=self.panel1, style=0)
+        self.staticBox2 = wx.StaticBox(label=' Exif Data ', parent=self.panel1, style=0)
 
         # GPS Coordinates if available
         try:
             self.gpsCoordinates = getDecimalCoordinates(self.exifData['GPSInfo'])
         except:
             myprint('No GPSInfo in Exif Data for %s' % self.fileName)
-            self.gpsCoordinates = None
         else:
             #print('GPS info =',self.gpsCoordinates)
             if self.gpsCoordinates:
@@ -168,9 +166,9 @@ class ExifDialog(wx.Dialog):
     def OnBtnShowMap(self, event):
         latitude = self.gpsCoordinates[0]
         longitude = self.gpsCoordinates[1]
-        img = getMapImage(latitude, longitude, 0.04,  0.05, 13) #  -20.47, 57.34
+        img = getMapImage(latitude, longitude, 0.04,  0.05, 13)
         if not img:
-            myprint('Unable to download map for %s', str(self.gpsCoordinates))
+            myprint('Unable to download map for %s' % str(self.gpsCoordinates))
             event.Skip()
             return
         mapPath = os.path.join(globs.tmpDir, 'im1.png')
@@ -228,7 +226,6 @@ def getExifData(filename):
                 exif_data[decoded] = gps_data
             else:
                 if decoded == None or decoded in TAGS_TO_SKIP:
-#                if decoded in TAGS_TO_SKIP:                
                     continue
                 exif_data[decoded] = v
     except IOError:
@@ -316,7 +313,6 @@ def getMapImage(lat_deg, lon_deg, delta_lat,  delta_long, zoom):
             except URLError as e:
                 myprint(e)
                 myprint("Couldn't download image tile")
-                #tile = None
                 return None
     return cluster
     
