@@ -287,7 +287,7 @@ def getTmpFile():
     return f.name
 
 def dumpOperationList(title, oplist):
-    optype = ["NOT USED", "DOWNLOAD", "MARK", "UNMARK"]
+    optype = ["DOWNLOAD", "MARK", "UNMARK"]
     opstep = ["DOWNLOAD", "EXTRACT", "INSTALL"]
     i = 0
     print('**** Dump: %s ****' % title)
@@ -296,13 +296,15 @@ def dumpOperationList(title, oplist):
         if op[globs.OP_STATUS] != 0:
             print('*** %d ***' % (i))
             print('         File Name: %s' % op[globs.OP_FILENAME])
+            print('         File Path: %s' % op[globs.OP_FILEPATH])
             print('         File Type: %s' % op[globs.OP_FILETYPE])
-            print('         File Date: %s' % getHumanDate(op[globs.OP_FILEDATE]))
+            ldate = time.strftime('%d-%b-%Y %H:%M', time.localtime(op[globs.OP_FILEDATE]))
+            print('         File Date: %s' % ldate)
             print('      Request Type: %s' % optype[op[globs.OP_TYPE]])
 
             if op[globs.OP_TYPE] == globs.FILE_DOWNLOAD:
-                print('      Local filename: %s' % op[globs.OP_FILEPATH])
-                print('     Remote File URL: %s' % op[globs.OP_REMURL])
+                print('    Local filename: %s' % op[globs.OP_FILEPATH])
+                print('    Remote File URL: %s' % op[globs.OP_REMURL])
                 print('    Remote File Size: %d/%d' % (op[globs.OP_SIZE][0],op[globs.OP_SIZE][1]))
                 print('    Current Transfer Block Counter: %d' % op[globs.OP_INCOUNT])
                 print('    Current Installation Step: %s' % opstep[op[globs.OP_INSTEP]])
@@ -868,24 +870,50 @@ def rotateImage(filePath, exifData):
 
         myprint('Rotating %s by %d degrees' % (filePath,rotation[orientation]))
         image = Image.open(filePath)
+        exif = image.info['exif'] # Read exif from info attribute
         image = image.rotate(rotation[orientation], Image.NEAREST, expand=True)
         myprint('Creating: %s' % (newFilePath))
-        image.save(newFilePath)
+        image.save(newFilePath, exif=exif)
+        #Create thumbnail of rotated image, keeping exif data
+        size = (160,120)
+        image.thumbnail(size, Image.ANTIALIAS)
+        image.save(os.path.join(globs.thumbDir,os.path.basename(newFilePath)), exif=exif)
         image.close()
-        # Modifying modification time
+        # Modify modification time
         os.utime(newFilePath, (0, os.path.getmtime(filePath)))
         
 # Check if local images need to be rotated using Exif metadata and proceed accordingly
 def rotateLocalImages(exifData):
     fileList = listLocalFiles(globs.osvmDownloadDir, hidden=False, relative=False, suffixes=('jpg'))
-    for f in fileList:
+    for f in [x for x in fileList if not '-rot' in x]: # Skip over rotated images
         try:
             exifDataAsStr = exifData[os.path.basename(f)]
         except:
             myprint('No Exif data for %s' % f)
         else:
             rotateImage(f, ast.literal_eval(exifDataAsStr))
-        
+
+# Check if some thumbnails are missing in globs.osvmDownloadDir
+def createImagesThumbnail():
+    fileList = listLocalFiles(globs.osvmDownloadDir, hidden=False, relative=True, suffixes=('jpg'))
+    for f in fileList:
+        thumbnailFilePath = os.path.join(globs.thumbDir, f)
+        if not os.path.exists(thumbnailFilePath):
+            filePath = os.path.join(globs.osvmDownloadDir, f)
+            image = Image.open(filePath)
+            try:
+                exif = image.info['exif'] # Read exif from info attribute
+            except:
+                exif = b''
+            #Create thumbnail of image, keeping exif data
+            size = (160,120)
+            image.thumbnail(size, Image.ANTIALIAS)
+            myprint('Creating: %s' % (thumbnailFilePath))
+            image.save(thumbnailFilePath, exif=exif)
+            image.close()
+            # Modify modification time
+            os.utime(thumbnailFilePath, (0, os.path.getmtime(filePath)))
+
 ############# CLASSES #########################################################
 class InstallThread(threading.Thread):
     def __init__(self, name, dialog, thrLock, queueLock, workQueue):
@@ -1631,6 +1659,9 @@ class OSVMConfigThread(threading.Thread):
             ExifDialog.saveExifDataFromImages(exifFilePath)
         # Load data from file
         self.exifData = ExifDialog.buildDictFromFile(exifFilePath)
+
+        # Create thumbnail image if needed
+        createImagesThumbnail()
         
         # Check if some images need rotation
         rotateLocalImages(self.exifData)
@@ -2719,7 +2750,9 @@ class OSVM(wx.Frame):
         nBlocks = fileSize / globs.URLLIB_READ_BLKSIZE
         op[globs.OP_SIZE]     = (fileSize, nBlocks)
         op[globs.OP_FILEDATE] = fileDate
-
+#        op[globs.OP_FILEPATH] = globs.localFileInfos[fileName][globs.F_PATH]
+        op[globs.OP_FILEPATH] = os.path.join(globs.osvmDownloadDir, fileName)
+            
         pendingOpsCnt = self.pendingOperationsCount()
         statusBarMsg = 'File successfully marked. %d marked file(s)' % (pendingOpsCnt)
         self.updateStatusBar(statusBarMsg)
@@ -2901,9 +2934,9 @@ class OSVM(wx.Frame):
             imgPath = os.path.join(globs.thumbDir, globs.imgDir, 'sad-smiley.png')
             Img = wx.Image(imgPath, wx.BITMAP_TYPE_PNG)
             (w,h) = Img.GetSize().Get()
-        
+
         # convert it to a wx.Bitmap, and put it on the wx.StaticBitmap
-        widget.SetBitmap(wx.Bitmap(Img.Scale(w*globs.thumbnailScaleFactor, h*globs.thumbnailScaleFactor)))
+        widget.SetBitmap(wx.Bitmap(Img.Scale(w*globs.thumbnailScaleFactor, h*globs.thumbnailScaleFactor)),dir=wx.TOP)
 
     def _init_topBoxSizer_Items(self, parent):
         if globs.compactMode:
@@ -3144,7 +3177,7 @@ class OSVM(wx.Frame):
 
     def _initialize(self):
         # Package buttons list
-        self.thumbButtons = list() #[]
+        self.thumbButtons = list()
 
         # List of scheduled operations on files. Format:
         # op[globs.OP_STATUS|0]      = status (busy=1/off=0)
@@ -4088,6 +4121,8 @@ class OSVM(wx.Frame):
         self.fileSortChoice.SetStringSelection(self.sortTypes[0] if globs.fileSortRecentFirst else self.sortTypes[1])
         # Reset File type selector
         self.fileTypesChoice.SetStringSelection(globs.FILE_TYPES[0])
+        # Create thumbnail image if needed
+        createImagesThumbnail()
         # Build Exif data cache file
         exifFilePath = os.path.join(globs.osvmDownloadDir, globs.exifFile)
         if not os.path.exists(exifFilePath):
@@ -4260,10 +4295,16 @@ class OSVM(wx.Frame):
                 else:
                     continue
 
-            e = [button, fileName, globs.FILE_MARK, -1, -1]
-            op = [x for x in self.opList if not x[globs.OP_STATUS]][0] # First free slot
-            self._scheduleOperation(op, e)
-            i += 1
+            e = [button, fileName, globs.FILE_MARK, -1, fileDate]
+            try:
+                op = [x for x in self.opList if not x[globs.OP_STATUS]][0] # First free slot
+                self._scheduleOperation(op, e)
+                i += 1
+            except:
+                msg = 'Maximum selection (%d) reached' % globs.MAX_OPERATIONS
+                self.updateStatusBar(msg, fgcolor=wx.WHITE, bgcolor=wx.RED)
+                myprint(msg)
+                break
         return i
 
     def selectFilesByPosition(self, fileType='', position=0):	# fileType could be : JPG, MOV
@@ -4278,16 +4319,18 @@ class OSVM(wx.Frame):
         i = 0
         for f in globs.localFilesSorted[position:]:
             fileName = f[globs.F_NAME]
+            fileDate = f[globs.F_DATE]
             if not fileName.split('.')[1] in globs.FILE_SUFFIXES[fileType]:
                 continue
 
             button = [x[0] for x in self.thumbButtons if x[1] == fileName]
-            e = [button, fileName, globs.FILE_MARK, -1, -1]
+#            e = [button, fileName, globs.FILE_MARK, -1, -1]
+            e = [button, fileName, globs.FILE_MARK, -1, fileDate]
             try:
                 op = [x for x in self.opList if not x[globs.OP_STATUS]][0] # First free slot
             except:
                 msg = 'Maximum selection (%d) reached' % globs.MAX_OPERATIONS
-                self.updateStatusBar(globs, msg, fgcolor=wx.WHITE, bgcolor=wx.RED)
+                self.updateStatusBar(msg, fgcolor=wx.WHITE, bgcolor=wx.RED)
                 break
             self._scheduleOperation(op, e)
             i += 1
@@ -4295,6 +4338,9 @@ class OSVM(wx.Frame):
 
     def OnBtnShare(self, event):
         shareList = list()
+
+        #dumpOperationList("Global Operation List", self.opList)
+        
         for op in self.opList:
             if op[globs.OP_STATUS]:
                 filePath = op[globs.OP_FILEPATH]
