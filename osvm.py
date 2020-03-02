@@ -875,32 +875,6 @@ def rotateImage(filePath, exifData):
         # Modifying modification time
         os.utime(newFilePath, (0, os.path.getmtime(filePath)))
         
-    # try:
-    #     image = Image.open(filePath)
-    #     for tag in ExifTags.TAGS.keys():
-    #         if ExifTags.TAGS[tag] == 'Orientation':
-    #             break
-    #     exif = dict(image._getexif().items())
-
-    #     # If 'Orientation' tag is not 1, file needs rotation
-    #     if rotation[exif[tag]]:
-    #         newFilePath = os.path.join(globs.osvmDownloadDir,'%s-rot%d.%s' %
-    #                                    (os.path.basename(filePath).split('.')[0],
-    #                                     rotation[exif[tag]],
-    #                                     os.path.basename(filePath).split('.')[1]))
-    #         if os.path.exists(newFilePath):
-    #             image.close()
-    #             return
-
-    #         myprint('Rotating %s by %d degrees' % (filePath,rotation[exif[tag]]))
-    #         image = image.rotate(rotation[exif[tag]], Image.NEAREST, expand=True)
-    #         myprint('Creating: %s' % (newFilePath))
-    #         image.save(newFilePath)
-    #     image.close()
-    # except (AttributeError, KeyError, IndexError):
-    #     # cases: image don't have getexif
-    #     pass
-
 # Check if local images need to be rotated using Exif metadata and proceed accordingly
 def rotateLocalImages(exifData):
     fileList = listLocalFiles(globs.osvmDownloadDir, hidden=False, relative=False, suffixes=('jpg'))
