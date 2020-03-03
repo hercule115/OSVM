@@ -133,7 +133,7 @@ except ImportError:
 else:
     globs.networkSelector = True
 
-from PIL import Image, ExifTags
+from PIL import Image, ExifTags, ImageOps
 
 import wx.lib.agw.flatnotebook as fnb
 import builtins as __builtin__
@@ -876,9 +876,14 @@ def rotateImage(filePath, exifData):
         image.save(newFilePath, exif=exif)
         #Create thumbnail of rotated image, keeping exif data
         size = (160,120)
-        image.thumbnail(size, Image.ANTIALIAS)
-        image.save(os.path.join(globs.thumbDir,os.path.basename(newFilePath)), exif=exif)
-        image.close()
+        thumb = ImageOps.fit(Image.open(filePath).rotate(rotation[orientation], Image.ANTIALIAS, expand=True), size, Image.ANTIALIAS)
+        thumb.save(os.path.join(globs.thumbDir,os.path.basename(newFilePath)),exif=exif)
+
+        # size = (160,120)
+        # image.thumbnail(size, Image.ANTIALIAS)
+        # image.save(os.path.join(globs.thumbDir,os.path.basename(newFilePath)), exif=exif)
+        # image.close()
+
         # Modify modification time
         os.utime(newFilePath, (0, os.path.getmtime(filePath)))
         
@@ -896,21 +901,26 @@ def rotateLocalImages(exifData):
 # Check if some thumbnails are missing in globs.osvmDownloadDir
 def createImagesThumbnail():
     fileList = listLocalFiles(globs.osvmDownloadDir, hidden=False, relative=True, suffixes=('jpg'))
-    for f in fileList:
+    for f in [x for x in fileList if not '-rot' in x]: # Skip over rotated images
         thumbnailFilePath = os.path.join(globs.thumbDir, f)
         if not os.path.exists(thumbnailFilePath):
             filePath = os.path.join(globs.osvmDownloadDir, f)
-            image = Image.open(filePath)
-            try:
-                exif = image.info['exif'] # Read exif from info attribute
-            except:
-                exif = b''
-            #Create thumbnail of image, keeping exif data
-            size = (160,120)
-            image.thumbnail(size, Image.ANTIALIAS)
             myprint('Creating: %s' % (thumbnailFilePath))
-            image.save(thumbnailFilePath, exif=exif)
-            image.close()
+            
+            size = (160,120)
+            thumb = ImageOps.fit(Image.open(filePath), size, Image.ANTIALIAS)
+            thumb.save(thumbnailFilePath)
+            
+            # image = Image.open(filePath)
+            # try:
+            #     exif = image.info['exif'] # Read exif from info attribute
+            # except:
+            #     exif = b''
+            # #Create thumbnail of image, keeping exif data
+            # size = (160,120)
+            # image.thumbnail(size, Image.ANTIALIAS)
+            # image.save(thumbnailFilePath, exif=exif)
+            # image.close()
             # Modify modification time
             os.utime(thumbnailFilePath, (0, os.path.getmtime(filePath)))
 
@@ -4324,7 +4334,6 @@ class OSVM(wx.Frame):
                 continue
 
             button = [x[0] for x in self.thumbButtons if x[1] == fileName]
-#            e = [button, fileName, globs.FILE_MARK, -1, -1]
             e = [button, fileName, globs.FILE_MARK, -1, fileDate]
             try:
                 op = [x for x in self.opList if not x[globs.OP_STATUS]][0] # First free slot
