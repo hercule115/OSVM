@@ -144,6 +144,7 @@ class ExifDialog(wx.Dialog):
             self.gpsCoordinates = getDecimalCoordinates(self.exifData['GPSInfo'])
         except:
             myprint('No GPSInfo in Exif Data for %s' % self.fileName)
+            self.gpsCoordinates = None
         else:
             #print('GPS info =',self.gpsCoordinates)
             if self.gpsCoordinates:
@@ -244,7 +245,15 @@ def buildDictFromFile(filename):
         for line in fh:
             tag,value = line.strip().split(':', 1)
             tags[tag] = value.strip()
+    #myprint('Exif Dict Length:%d' % len(tags))
     return tags
+
+def saveFileFromDict(exifDataDict, exifFilePath):
+    # Update exif data cache file
+    myprint('Updating Exif Data File from dict')
+    with open(exifFilePath, 'w') as fh:
+        for (k,v) in exifDataDict.items():
+            fh.write('%s:%s\r\n' % (k,v))
 
 def getDecimalCoordinates(gpsInfo):
     gpsCoords = dict()
@@ -274,9 +283,10 @@ def saveExifDataFromImages(exifFilePath):
         exifDataDict[os.path.basename(f)] = str(exifData)
 
     # Create a file containing all exif data for all files
-    with open(exifFilePath, 'w') as fh:
-        for (k,v) in exifDataDict.items():
-            fh.write('%s:%s\r\n' % (k,v))
+    saveFileFromDict(exifDataDict, exifFilePath)
+    # with open(exifFilePath, 'w') as fh:
+    #     for (k,v) in exifDataDict.items():
+    #         fh.write('%s:%s\r\n' % (k,v))
 
 def deg2num(lat_deg, lon_deg, zoom):
     lat_rad = math.radians(lat_deg)
@@ -313,6 +323,9 @@ def getMapImage(lat_deg, lon_deg, delta_lat,  delta_long, zoom):
             except URLError as e:
                 myprint(e)
                 myprint("Couldn't download image tile")
+                msg = "Cannot download image tiles: %s. Check Internet connection." % ("{0}".format(e.strerror))
+                dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
+                dlg.ShowModal()
                 return None
     return cluster
     
@@ -327,8 +340,17 @@ class MyFrame(wx.Frame):
             saveExifDataFromImages(exifFilePath)
         # Load data from file
         exifData = buildDictFromFile(exifFilePath)
-
+        
         fileName = 'P2272477.JPG'        
+
+        # Get exif data from info attributes
+        size = (160,120)
+        im = Image.open(os.path.join(globs.osvmDownloadDir,fileName))
+        im.thumbnail(size, Image.ANTIALIAS)
+        exif = im.info['exif']
+        print(exif)
+        im.save('%s-thumb.jpg' % (fileName), exif=exif)
+
         filePath = os.path.join(globs.osvmDownloadDir,fileName)
         dlg = ExifDialog(self, filePath, exifData[fileName])
         ret = dlg.ShowModal()
