@@ -420,7 +420,7 @@ def localFilesInfo(dirName):
         fileDate = statinfo.st_mtime # in seconds
         globs.localFileInfos[fileName] = [fileName,localFileSize,fileDate,filePath]
         i += 1
-    globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst) #True)
+    globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst)
     return i
 
 def downloadThumbnail(e):
@@ -734,32 +734,42 @@ def downloadFile(op, pDialog):
             os.utime(localFile, (modTime, modTime))
 
     # Update Exif data cache file and re-load cache
+    myprint('Updating Exif cache')
     exifFilePath = os.path.join(globs.osvmDownloadDir, globs.exifFile)
     if not os.path.exists(exifFilePath):
         myprint('%s does not exist. Creating' % exifFilePath)
         ExifDialog.saveExifDataFromImages(exifFilePath)
     else:   # Exif cache file already exists. Must update it
-        ed = getExifData(localFile)
-        if not ed:
+        try:
+            myprint('Retrieving Exif Data for %s' % localFile)
+            ed = ExifDialog.getExifData(localFile)
+        except:
             myprint('Unable to get Exif data from file %s' % localFile)
         else:
-            # Load existing data from file
+            # Load existing exif data from file
             exifDataDict = ExifDialog.buildDictFromFile(exifFilePath)
 
             # Update dictionary containing exif data for all files
-            exifDataDict[os.path.basename(localFile)] = str(ed)
+            myprint('Updating Exif Data Dict. Length=%d' % len(exifDataDict))
+            try:
+                foo = exifDataDict[os.path.basename(localFile)]
+            except:
+                myprint('exifDataDict[%s] does not exist. Adding.' % os.path.basename(localFile))
+                exifDataDict[os.path.basename(localFile)] = str(ed)
+            else:
+                myprint('exifDataDict[%s] already exists.' % os.path.basename(localFile))
 
             # Update exif data cache file
-            with open(exifFilePath, 'w') as fh:
-                for (k,v) in exifDataDict.items():
-                    fh.write('%s:%s\r\n' % (k,v))
+            ExifDialog.saveFileFromDict(exifDataDict, exifFilePath)
 
+    myprint('Updated Exif Data File. Reloading...')                    
     # Re-Load existing data from file after update
     exifDataDict = ExifDialog.buildDictFromFile(exifFilePath)
 
     # Check if file needs rotation
     try:
-        exifDataAsStr = exifDataDict[localFile]
+        myprint('Checking if %s needs rotation' % os.path.basename(localFile))
+        exifDataAsStr = exifDataDict[os.path.basename(localFile)]
     except:
         myprint('No Exif data for %s' % localFile)
     else:
@@ -1225,7 +1235,7 @@ class Preferences():
         self.config['View Mode Preferences'][globs.SS_DELAY]     = str(globs.DEFAULT_SLIDESHOW_DELAY)
         self.config['View Mode Preferences'][globs.LAST_CAST_DEVICE_NAME] = ''
         self.config['View Mode Preferences'][globs.LAST_CAST_DEVICE_UUID] = ''
-
+        self.config['View Mode Preferences'][globs.ROT_IMG_CHOICE] = str(globs.DEFAULT_ROT_IMG_CHOICE)
         self.config['Networks'] = {}
         self.config['Networks'][globs.FAVORITE_NETWORK] = ''',''' #None,None
 
@@ -1282,6 +1292,7 @@ class Preferences():
             globs.ssDelay            = self.config['View Mode Preferences'][globs.SS_DELAY]
             globs.lastCastDeviceName = self.config['View Mode Preferences'][globs.LAST_CAST_DEVICE_NAME]
             globs.lastCastDeviceUuid = self.config['View Mode Preferences'][globs.LAST_CAST_DEVICE_UUID]
+            globs.rotImgChoice       = int(self.config['View Mode Preferences'][globs.ROT_IMG_CHOICE])
 
             sectionNetworks = self.config['Networks']
             s = sectionNetworks[globs.FAVORITE_NETWORK]
@@ -1338,6 +1349,7 @@ class Preferences():
                 globs.maxDownload = globs.MAX_OPERATIONS
 
             globs.ssDelay = self.config['View Mode Preferences'][globs.SS_DELAY]
+            globs.rotImgChoice = int(self.config['View Mode Preferences'][globs.ROT_IMG_CHOICE])
 
             self.config['Networks'] = {}
             globs.favoriteNetwork = ('None','None')
@@ -1382,6 +1394,7 @@ class Preferences():
         self.config['Sync Mode Preferences'][globs.MAX_DOWNLOAD]            = str(globs.DEFAULT_MAX_DOWNLOAD)
 
         self.config['View Mode Preferences'][globs.SS_DELAY] = str(globs.ssDelay)
+        self.config['View Mode Preferences'][globs.ROT_IMG_CHOICE] = str(globs.rotImgChoice)        
         if globs.castDevice:
             self.config['View Mode Preferences'][globs.LAST_CAST_DEVICE_NAME] = globs.castDevice.name
             self.config['View Mode Preferences'][globs.LAST_CAST_DEVICE_UUID] = str(globs.castDevice.device.uuid)
@@ -2569,10 +2582,7 @@ class OSVM(wx.Frame):
             remFileDate = f[1][globs.F_DATE]
 
             # Add 1 button for each available image
-            button = wx.Button(parent=tab, 
-                               id=wx.ID_ANY,
-                               name=remFileName,
-                               style=0)
+            button = wx.Button(parent=tab, name=remFileName, style=0)
             if globs.viewMode:
                 if globs.vlcVideoViewer:
                     button.Bind(wx.EVT_BUTTON, self.LaunchViewer)
@@ -2622,6 +2632,47 @@ class OSVM(wx.Frame):
         tab.SetSizer(sizer)
         return tab,firstRemFileDate,lastRemFileDate
 
+    # Filter the file list to select files matching globs.rotImgChoice value.
+    # ROT_IMG_ENTRIES = ['Show Rotated Only', 'Show Original Only', 'Show Both']
+    def _filterRotatedFiles(self, fileList):
+        myprint('Filter =',globs.ROT_IMG_ENTRIES[globs.rotImgChoice])
+        if globs.rotImgChoice == 0:
+            # Must show rotated images if available and original files if not
+            lrotonly = [x[1][0] for x in fileList if '-rot' in x[0]]     # list with rotated img only
+            #print(lrotonly)
+            l = list()
+            for e in fileList:
+                fileName = e[0]
+                field11  = e[1][1]
+                field12  = e[1][2]
+                filePath = e[1][3]
+            
+                prefix = fileName.split('.')[0]	# File prefix
+                #print(prefix)
+                if '-rot' in prefix: # Rotated file
+                    #print('skipping %s' % prefix)
+                    continue
+                n = [x for x in lrotonly if re.search('%s-rot[0-9]+.jpg' % prefix, x, re.IGNORECASE)]
+                #print('n=',n)
+                if n:
+                    # Build a new tuple
+                    t = (n[0], [ n[0],field11,field12,os.path.join(os.path.dirname(filePath),n[0])])
+                    #print('adding:', t)
+                    l.append(t)
+                else:
+                    #print('Adding %s' % e[1][0])
+                    l.append(e)
+            return l
+        
+        if globs.rotImgChoice == 1:
+            # Must show only original files even if some files have been rotated
+            l = [x for x in fileList if not '-rot' in x[0]] # only original files
+            return l
+        
+        if globs.rotImgChoice == 2:	# Show both rotated/not rotated files
+            # Must show both rotated and non-rotated files, e.g. all files
+            return fileList
+
     def _createThumbnailPanel(self):
         setBusyCursor(True)
 
@@ -2637,7 +2688,8 @@ class OSVM(wx.Frame):
         myprint('%d pages' % self._pageCount)
 
         if globs.viewMode:
-            fileListToUse = globs.localFilesSorted
+#            fileListToUse = globs.localFilesSorted
+            fileListToUse = self._filterRotatedFiles(globs.localFilesSorted)
             self.customPanel.setLogoPanelTopTitle('No Local File Detected')
         else:
             fileListToUse = globs.availRemoteFilesSorted
@@ -2701,7 +2753,8 @@ class OSVM(wx.Frame):
         self.thumbButtons = list()
 
         if globs.viewMode:
-            fileListToUse = globs.localFilesSorted
+#            fileListToUse = globs.localFilesSorted
+            fileListToUse = self._filterRotatedFiles(globs.localFilesSorted)            
         else:
             fileListToUse = globs.availRemoteFilesSorted
 
@@ -2908,6 +2961,10 @@ class OSVM(wx.Frame):
             wx.BITMAP_TYPE_JPEG: 'JPG',
             wx.BITMAP_TYPE_PNG: 'PNG',
             }
+        # Check if original thumbnail exists
+        if not os.path.exists(image):
+            return ''
+        
         d=os.path.dirname(image)
         f=os.path.basename(image)
         suffix = image.rsplit('.')[-1:][0]
@@ -2918,7 +2975,7 @@ class OSVM(wx.Frame):
 #            myprint('Using existing file %s' % newThumbnailPathname)
             return newThumbnailPathname
 
-        print('_overlayThumbnail(): Overlaying %s' % image)
+        myprint('Overlaying %s' % image)
         overlay = Image.open(image)
         background = Image.open(os.path.join(globs.imgDir, "play2-160x120.png"))
         background = background.convert("RGB")
@@ -2932,6 +2989,9 @@ class OSVM(wx.Frame):
         suffix = image.rsplit('.')[-1:][0]
         if suffix.lower() == 'mov':
             newThumbnailPathname = self._overlayThumbnail(image, type)
+            if not newThumbnailPathname:  # If thumbnail does not exist, use sad smiley
+                newThumbnailPathname = os.path.join(globs.imgDir, 'sad-smiley.png')
+                type = wx.BITMAP_TYPE_PNG
             Img = wx.Image(newThumbnailPathname, type)
         else:
             Img = wx.Image(image, type)
@@ -2941,7 +3001,8 @@ class OSVM(wx.Frame):
             (w,h) = Img.GetSize().Get()
         except:
 #            myprint('Invalid thumbnail file %s' % (image))
-            imgPath = os.path.join(globs.thumbDir, globs.imgDir, 'sad-smiley.png')
+#            imgPath = os.path.join(globs.thumbDir, globs.imgDir, 'sad-smiley.png')
+            imgPath = os.path.join(globs.imgDir, 'sad-smiley.png')            
             Img = wx.Image(imgPath, wx.BITMAP_TYPE_PNG)
             (w,h) = Img.GetSize().Get()
 
@@ -3396,7 +3457,7 @@ class OSVM(wx.Frame):
 
         self.btnQuit = wx.Button(id=wx.ID_EXIT, label='Quit', parent=self.panel1, style=0)
         self.btnQuit.SetToolTip('Quit Application')
-        self.btnQuit.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnQuit(evt))
+        self.btnQuit.Bind(wx.EVT_BUTTON, self.OnBtnQuit)
 
         if not globs.compactMode:
             self.staticBitmap1 = wx.StaticBitmap(bitmap=wx.NullBitmap, id=wx.ID_ANY, parent=self.panel1, style=0)
@@ -3783,7 +3844,7 @@ class OSVM(wx.Frame):
             ret = dlg.ShowModal()
             if ret == wx.ID_YES:
                 if globs.savePreferencesOnExit:
-                    self.prefs._savePreferences(globs)
+                    self.prefs._savePreferences()
                 if globs.httpServer:
                     globs.httpServer.kill()
                 self.Destroy()    # Bye Bye
