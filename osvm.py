@@ -2655,7 +2655,7 @@ class OSVM(wx.Frame):
                 n = [x for x in lrotonly if re.search('%s-rot[0-9]+.jpg' % prefix, x, re.IGNORECASE)]
                 #print('n=',n)
                 if n:
-                    # Build a new tuple
+                    # Build a new tuple and append to output list
                     t = (n[0], [ n[0],field11,field12,os.path.join(os.path.dirname(filePath),n[0])])
                     #print('adding:', t)
                     l.append(t)
@@ -4224,7 +4224,6 @@ class OSVM(wx.Frame):
             self._setOfflineMode()
             if not globs.viewMode:
                 msg += ',No remote file(s) detected'
-        print(msg)
 
         if globs.viewMode:
             lbl = ' Available Local Files: %d.  Page:' % globs.localFilesCnt
