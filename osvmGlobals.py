@@ -62,7 +62,8 @@ DEFAULT_OSVM_DOWNLOAD_DIR = os.path.join(expanduser("~"), osvmDir, 'download')
 DEFAULT_THUMB_GRID_NUM_COLS = 10
 DEFAULT_THUMB_SCALE_FACTOR = 0.59
 DEFAULT_SLIDESHOW_DELAY = 5
-DEFAULT_SORT_ORDER = True # Mean More recent first
+DEFAULT_ROT_IMG_CHOICE = 0 	# Show rotated image only
+DEFAULT_SORT_ORDER = True 	# Mean More recent first
 DEFAULT_SMTP_SERVER = ''
 DEFAULT_SMTP_SERVER_PROTOCOL = 'SMTP'
 DEFAULT_SMTP_SERVER_PORT = 25
@@ -87,6 +88,7 @@ MAX_DOWNLOAD = 'maxdownload'
 OVERWRITE_LOCAL_FILES = 'overwritelocalfiles'
 AUTO_SWITCH_TO_CAMERA_NETWORK = 'autoswitchtocameranetwork'
 SS_DELAY = 'slideshowdelay'
+ROT_IMG_CHOICE = 'rotimgchoice'
 LAST_CAST_DEVICE_NAME = 'lastcastdevicename'
 LAST_CAST_DEVICE_UUID = 'lastcastdeviceuuid'
 SORT_ORDER = 'filesortreverse'
@@ -117,6 +119,7 @@ autoSwitchToFavoriteNetwork = False
 rootUrl = DEFAULT_OSVM_ROOT_URL
 remBaseDir = DEFAULT_OSVM_REM_BASE_DIR
 ssDelay = DEFAULT_SLIDESHOW_DELAY
+rotImgChoice = DEFAULT_ROT_IMG_CHOICE
 favoriteNetwork = ('','')  # Favorite Network, e.g. Camera
 viewMode = False
 autoViewMode = False
@@ -263,6 +266,8 @@ FILE_TYPES_NOVLC = ['', FILE_IMAGES] # If No VLC detected
 FILE_SUFFIXES = { FILE_IMAGES:('JPG','jpg','JPEG', 'jpeg'),
                   FILE_MOVIES:('MOV', 'mov','mp4', 'MP4') }
 
+ROT_IMG_ENTRIES = ['Show Rotated Only', 'Show Original Only', 'Show Both']
+
 # LEDs colours
 LEDS_COLOURS = [['#929292', '#A8A8A8', '#9C9C9C', '#B7B7B7'], # grey
                      ['#0ADC0A', '#0CFD0C', '#0BEB0B', '#0DFF0D'], # green
@@ -310,6 +315,7 @@ def printGlobals():
     print('globs.osvmFilesDownloadUrl: %s' % osvmFilesDownloadUrl)
     print('globs.fileColors:', fileColors)
     print('globs.ssDelay:', ssDelay)
+    print('globs.rotImgChoice:', rotImgChoice)    
     print('globs.knownNetworks:', knownNetworks)
     print('globs.favoriteNetwork:', favoriteNetwork)
     print('globs.fileSortRecentFirst:', fileSortRecentFirst)
