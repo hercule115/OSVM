@@ -110,9 +110,13 @@ class PreferencesDialog(wx.Dialog):
     def _init_viewModeBoxSizer_Items(self, parent):
         parent.Add(self.staticText8, 0, border=5,
                    flag=wx.ALIGN_CENTER_VERTICAL | wx.BOTTOM | wx.LEFT | wx.TOP)
-        parent.Add(4, 8, border=0, flag=0)
+        parent.Add(4, 0, border=0, flag=0)
         parent.Add(self.ssDelayChoice, 0, border=5, flag=wx.ALL)
-
+        parent.AddStretchSpacer(prop=1)
+        parent.Add(self.rotImgLabel, 0, border=5, flag= wx.ALL | wx.EXPAND)
+        parent.Add(4, 0, border=0, flag=0)
+        parent.Add(self.rotImgChoice, border=5, flag=wx.ALL | wx.EXPAND | wx.ALIGN_RIGHT)
+        
     # local config items
     def _init_localConfigBoxSizer_Items(self, parent):
         parent.Add(self.configBoxSizer6, 0, border=0, flag= wx.ALL)
@@ -312,6 +316,12 @@ class PreferencesDialog(wx.Dialog):
         self.ssDelayChoice.SetStringSelection(str(globs.ssDelay))
         self.ssDelayChoice.Bind(wx.EVT_CHOICE, lambda evt: self.OnSsDelayChoice(evt))
 
+        self.rotImgLabel   = wx.StaticText(label='Rotated Images:', parent=self.panel1, style=0)
+        self.rotImgChoice  = wx.Choice(choices=[v for v in globs.ROT_IMG_ENTRIES], parent=self.panel1, style=0)
+        self.rotImgChoice.SetToolTip('Select if not rotated/rotated/both image files must be shown')
+        self.rotImgChoice.SetStringSelection(globs.ROT_IMG_ENTRIES[int(globs.rotImgChoice)])
+        self.rotImgChoice.Bind(wx.EVT_CHOICE, self.OnRotImgChoice)
+        
         # Configuration
         self.staticBox1 = wx.StaticBox(id=wx.ID_ANY,
               label=' Local Configuration ', parent=self.panel1, style=0)
@@ -553,6 +563,11 @@ class PreferencesDialog(wx.Dialog):
         self.btnApply.Enable()
         event.Skip()
 
+    def OnRotImgChoice(self, event):
+        globs.rotImgChoice = int(self.rotImgChoice.GetSelection())
+        self.btnApply.Enable()
+        event.Skip()
+    
     def OnDownLocTextCtrlText(self, event):
         self.tmpOsvmDownloadDir = self.downLocTextCtrl.GetValue()
         if os.path.exists(self.tmpOsvmDownloadDir):
