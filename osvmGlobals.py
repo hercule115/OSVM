@@ -5,7 +5,7 @@ from os.path import expanduser
 
 myName     = 'OSVM'
 myLongName = 'Olympus Sync & View Manager'
-myVersion  = '2.5.1'
+myVersion  = '2.6.0'
 
 disabledModules = list()
 pycc = True
