@@ -3,7 +3,7 @@
 # Create Globals instance
 import osvmGlobals as globs
 
-import wx.lib.platebtn as platebtn
+#import wx.lib.platebtn as platebtn
 
 import sys
 import platform
@@ -56,7 +56,7 @@ import inspect
 from os.path import expanduser
 from urllib.request import Request, urlopen
 from urllib.error import URLError
-import urllib.request, urllib.parse, urllib.error
+import urllib.request, urllib.error    # urllib.parse, 
 #from urllib.parse import urlparse
 import re
 import configparser
@@ -71,15 +71,19 @@ import tempfile
 import math
 import wx.lib.colourdb as wb
 import http.client
-from copy import deepcopy
+#from copy import deepcopy
 import io
-import wx.lib.scrolledpanel as scrolled
+#import wx.lib.scrolledpanel as scrolled
 import wx.adv
 import socket
 import datetime
-import glob
+#import glob
 import ctypes
 import ast
+from PIL import Image, ImageOps  # ExifTags, 
+
+import wx.lib.agw.flatnotebook as fnb
+import builtins as __builtin__
 
 # Local modules
 moduleList = (
@@ -133,10 +137,6 @@ except ImportError:
 else:
     globs.networkSelector = True
 
-from PIL import Image, ExifTags, ImageOps
-
-import wx.lib.agw.flatnotebook as fnb
-import builtins as __builtin__
 
 if globs.system == 'Windows':
     try:
@@ -733,6 +733,15 @@ def downloadFile(op, pDialog):
             modTime = time.mktime(dt.timetuple())
             os.utime(localFile, (modTime, modTime))
 
+    # Check if file needs rotation
+    try:
+        myprint('Checking if %s needs rotation' % os.path.basename(localFile))
+        exifDataAsStr = exifDataDict[os.path.basename(localFile)]
+    except:
+        myprint('No Exif data for %s' % localFile)
+    else:
+        rotateImage(localFile, ast.literal_eval(exifDataAsStr))
+            
     # Update Exif data cache file and re-load cache
     myprint('Updating Exif cache')
     exifFilePath = os.path.join(globs.osvmDownloadDir, globs.exifFile)
@@ -766,14 +775,6 @@ def downloadFile(op, pDialog):
     # Re-Load existing data from file after update
     exifDataDict = ExifDialog.buildDictFromFile(exifFilePath)
 
-    # Check if file needs rotation
-    try:
-        myprint('Checking if %s needs rotation' % os.path.basename(localFile))
-        exifDataAsStr = exifDataDict[os.path.basename(localFile)]
-    except:
-        myprint('No Exif data for %s' % localFile)
-    else:
-        rotateImage(localFile, ast.literal_eval(exifDataAsStr))
 
     return (ret, '')
 
@@ -1250,6 +1251,7 @@ class Preferences():
         self.config['Mail Preferences'][globs.SMTP_SERVER_USE_AUTH] = str(globs.DEFAULT_SMTP_SERVER_USE_AUTH)
         self.config['Mail Preferences'][globs.SMTP_SERVER_USER_NAME] = globs.DEFAULT_SMTP_SERVER_USER_NAME
         self.config['Mail Preferences'][globs.SMTP_SERVER_USER_PASSWD] = globs.DEFAULT_SMTP_SERVER_USER_PASSWD
+        self.config['Mail Preferences'][globs.SMTP_FROM_USER] = globs.DEFAULT_SMTP_FROM_USER
         
         # Writing our configuration file back to initFile
         with open(globs.initFilePath, 'w') as cfgFile:
@@ -1315,6 +1317,7 @@ class Preferences():
             globs.smtpServerUseAuth    = str2bool(sectionMail[globs.SMTP_SERVER_USE_AUTH])
             globs.smtpServerUserName   = sectionMail[globs.SMTP_SERVER_USER_NAME]
             globs.smtpServerUserPasswd = sectionMail[globs.SMTP_SERVER_USER_PASSWD]
+            globs.smtpFromUser         = sectionMail[globs.SMTP_FROM_USER]
             
             return False # Parsing OK
         
@@ -1368,7 +1371,8 @@ class Preferences():
             globs.smtpServerUseAuth    = str2bool(sectionMail[globs.SMTP_SERVER_USE_AUTH])
             globs.smtpServerUserName   = sectionMail[globs.SMTP_SERVER_USER_NAME]
             globs.smtpServerUserPasswd = sectionMail[globs.SMTP_SERVER_USER_PASSWD]
-
+            globs.smtpFromUser         = sectionMail[globs.SMTP_FROM_USER]
+            
             return True # Parsing KO, New file created
 
     def _saveInitFile(self):
@@ -1420,7 +1424,8 @@ class Preferences():
         sectionMail[globs.SMTP_SERVER_USE_AUTH]    = str(globs.smtpServerUseAuth)
         sectionMail[globs.SMTP_SERVER_USER_NAME]   = globs.smtpServerUserName
         sectionMail[globs.SMTP_SERVER_USER_PASSWD] = globs.smtpServerUserPasswd
-
+        sectionMail[globs.SMTP_FROM_USER]          = globs.smtpFromUser
+        
         # Writing our configuration file back to initFile
         with open(globs.initFilePath, 'w') as cfgFile:
             self.config.write(cfgFile)
@@ -2639,7 +2644,6 @@ class OSVM(wx.Frame):
         if globs.rotImgChoice == 0:
             # Must show rotated images if available and original files if not
             lrotonly = [x[1][0] for x in fileList if '-rot' in x[0]]     # list with rotated img only
-            #print(lrotonly)
             l = list()
             for e in fileList:
                 fileName = e[0]
@@ -2648,19 +2652,14 @@ class OSVM(wx.Frame):
                 filePath = e[1][3]
             
                 prefix = fileName.split('.')[0]	# File prefix
-                #print(prefix)
                 if '-rot' in prefix: # Rotated file
-                    #print('skipping %s' % prefix)
                     continue
                 n = [x for x in lrotonly if re.search('%s-rot[0-9]+.jpg' % prefix, x, re.IGNORECASE)]
-                #print('n=',n)
                 if n:
                     # Build a new tuple and append to output list
                     t = (n[0], [ n[0],field11,field12,os.path.join(os.path.dirname(filePath),n[0])])
-                    #print('adding:', t)
                     l.append(t)
                 else:
-                    #print('Adding %s' % e[1][0])
                     l.append(e)
             return l
         
