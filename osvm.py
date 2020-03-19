@@ -420,9 +420,46 @@ def localFilesInfo(dirName):
         fileDate = statinfo.st_mtime # in seconds
         globs.localFileInfos[fileName] = [fileName,localFileSize,fileDate,filePath]
         i += 1
-    globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst)
+#    globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst)
+    globs.localFilesSorted = filterRotatedFiles(sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst))
     return i
 
+#XXXXXXXXXXXXX
+def filterRotatedFiles(fileList):
+    myprint('Filter =',globs.ROT_IMG_ENTRIES[globs.rotImgChoice])
+    if globs.rotImgChoice == 0:
+        # Must show rotated images if available and original files if not
+        lrotonly = [x[1][0] for x in fileList if '-rot' in x[0]]     # list with rotated img only
+        l = list()
+        for e in fileList:
+            #print('###',e)
+            fileName = e[0]
+            field11  = e[1][1]
+            field12  = e[1][2]
+            filePath = e[1][3]
+
+            prefix = fileName.split('.')[0]	# File prefix
+            if '-rot' in prefix: # Rotated file
+                continue
+            n = [x for x in lrotonly if re.search('%s-rot[0-9]+.jpg' % prefix, x, re.IGNORECASE)]
+            if n:
+                # Build a new tuple and append to output list
+                t = (n[0], [ n[0],field11,field12,os.path.join(os.path.dirname(filePath),n[0])])
+                l.append(t)
+            else:
+                l.append(e)
+        return l
+
+    if globs.rotImgChoice == 1:
+        # Must show only original files even if some files have been rotated
+        l = [x for x in fileList if not '-rot' in x[0]] # only original files
+        return l
+
+    if globs.rotImgChoice == 2:	# Show both rotated/not rotated files
+        # Must show both rotated and non-rotated files, e.g. all files
+        return fileList
+#XXXXXXXXXXXXX
+        
 def downloadThumbnail(e):
     uri       = e[globs.F_THUMBURL]
     thumbFile = e[globs.F_NAME]
@@ -2639,38 +2676,39 @@ class OSVM(wx.Frame):
 
     # Filter the file list to select files matching globs.rotImgChoice value.
     # ROT_IMG_ENTRIES = ['Show Rotated Only', 'Show Original Only', 'Show Both']
-    def _filterRotatedFiles(self, fileList):
-        myprint('Filter =',globs.ROT_IMG_ENTRIES[globs.rotImgChoice])
-        if globs.rotImgChoice == 0:
-            # Must show rotated images if available and original files if not
-            lrotonly = [x[1][0] for x in fileList if '-rot' in x[0]]     # list with rotated img only
-            l = list()
-            for e in fileList:
-                fileName = e[0]
-                field11  = e[1][1]
-                field12  = e[1][2]
-                filePath = e[1][3]
+    # def _filterRotatedFiles(self, fileList):
+    #     myprint('Filter =',globs.ROT_IMG_ENTRIES[globs.rotImgChoice])
+    #     if globs.rotImgChoice == 0:
+    #         # Must show rotated images if available and original files if not
+    #         lrotonly = [x[1][0] for x in fileList if '-rot' in x[0]]     # list with rotated img only
+    #         l = list()
+    #         for e in fileList:
+    #             print('***',e)
+    #             fileName = e[0]
+    #             field11  = e[1][1]
+    #             field12  = e[1][2]
+    #             filePath = e[1][3]
             
-                prefix = fileName.split('.')[0]	# File prefix
-                if '-rot' in prefix: # Rotated file
-                    continue
-                n = [x for x in lrotonly if re.search('%s-rot[0-9]+.jpg' % prefix, x, re.IGNORECASE)]
-                if n:
-                    # Build a new tuple and append to output list
-                    t = (n[0], [ n[0],field11,field12,os.path.join(os.path.dirname(filePath),n[0])])
-                    l.append(t)
-                else:
-                    l.append(e)
-            return l
+    #             prefix = fileName.split('.')[0]	# File prefix
+    #             if '-rot' in prefix: # Rotated file
+    #                 continue
+    #             n = [x for x in lrotonly if re.search('%s-rot[0-9]+.jpg' % prefix, x, re.IGNORECASE)]
+    #             if n:
+    #                 # Build a new tuple and append to output list
+    #                 t = (n[0], [ n[0],field11,field12,os.path.join(os.path.dirname(filePath),n[0])])
+    #                 l.append(t)
+    #             else:
+    #                 l.append(e)
+    #         return l
         
-        if globs.rotImgChoice == 1:
-            # Must show only original files even if some files have been rotated
-            l = [x for x in fileList if not '-rot' in x[0]] # only original files
-            return l
+    #     if globs.rotImgChoice == 1:
+    #         # Must show only original files even if some files have been rotated
+    #         l = [x for x in fileList if not '-rot' in x[0]] # only original files
+    #         return l
         
-        if globs.rotImgChoice == 2:	# Show both rotated/not rotated files
-            # Must show both rotated and non-rotated files, e.g. all files
-            return fileList
+    #     if globs.rotImgChoice == 2:	# Show both rotated/not rotated files
+    #         # Must show both rotated and non-rotated files, e.g. all files
+    #         return fileList
 
     def _createThumbnailPanel(self):
         setBusyCursor(True)
@@ -2685,10 +2723,10 @@ class OSVM(wx.Frame):
 
         self._pageCount = self.noteBook.GetPageCount()
         myprint('%d pages' % self._pageCount)
-
+        
         if globs.viewMode:
-#            fileListToUse = globs.localFilesSorted
-            fileListToUse = self._filterRotatedFiles(globs.localFilesSorted)
+            fileListToUse = globs.localFilesSorted
+#            fileListToUse = self._filterRotatedFiles(globs.localFilesSorted)
             self.customPanel.setLogoPanelTopTitle('No Local File Detected')
         else:
             fileListToUse = globs.availRemoteFilesSorted
@@ -2752,8 +2790,8 @@ class OSVM(wx.Frame):
         self.thumbButtons = list()
 
         if globs.viewMode:
-#            fileListToUse = globs.localFilesSorted
-            fileListToUse = self._filterRotatedFiles(globs.localFilesSorted)            
+            fileListToUse = globs.localFilesSorted
+#            fileListToUse = self._filterRotatedFiles(globs.localFilesSorted)            
         else:
             fileListToUse = globs.availRemoteFilesSorted
 
@@ -4386,9 +4424,11 @@ class OSVM(wx.Frame):
                 self.resetOneRequest(op)
 
         i = 0
+        # DP Must use a filtered list !!!!!!!!!
         for f in globs.localFilesSorted[position:]:
-            fileName = f[globs.F_NAME]
-            fileDate = f[globs.F_DATE]
+            #print(f)
+            fileName = f[1][globs.F_NAME]
+            fileDate = f[1][globs.F_DATE]
             if not fileName.split('.')[1] in globs.FILE_SUFFIXES[fileType]:
                 continue
 
