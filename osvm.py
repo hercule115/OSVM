@@ -424,7 +424,6 @@ def localFilesInfo(dirName):
     globs.localFilesSorted = filterRotatedFiles(sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst))
     return i
 
-#XXXXXXXXXXXXX
 def filterRotatedFiles(fileList):
     myprint('Filter =',globs.ROT_IMG_ENTRIES[globs.rotImgChoice])
     if globs.rotImgChoice == 0:
@@ -458,7 +457,6 @@ def filterRotatedFiles(fileList):
     if globs.rotImgChoice == 2:	# Show both rotated/not rotated files
         # Must show both rotated and non-rotated files, e.g. all files
         return fileList
-#XXXXXXXXXXXXX
         
 def downloadThumbnail(e):
     uri       = e[globs.F_THUMBURL]
@@ -2016,6 +2014,7 @@ class OSVMConfig(wx.Frame):
 
     # Update titleStaticText2 (from thread)
     def setTitleStaticText2(self, msg):
+        myprint(msg)
         self.titleStaticText2.SetLabel(msg)
 
     # Set/unset busy cursor (from thread)
@@ -3594,8 +3593,10 @@ class OSVM(wx.Frame):
 
         # Compute length of 1st field of the status bar (to contain globs.myName)
         textWidth,dummy = dc.GetTextExtent(globs.myName)
+        # View Mode or Sync Mode
         modeWidth,dummy = dc.GetTextExtent('View Mode' if globs.viewMode else 'Sync Mode')
-        ssidWidth,dummy = dc.GetTextExtent(globs.iface.ssid())
+        # Current SSID
+        ssidWidth,dummy = dc.GetTextExtent(str(globs.iface.ssid()))
 
         self.statusBar1.SetStatusWidths([textWidth + 20, modeWidth + 20, ssidWidth + 40, -1])
         #print ('FieldRect:',(self.statusBar1.GetFieldRect(0)))
