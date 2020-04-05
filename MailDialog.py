@@ -7,6 +7,7 @@ import builtins as __builtin__
 import inspect
 import time
 import platform
+import socket
 
 # Import the email modules we'll need
 from email.message import EmailMessage
@@ -86,17 +87,26 @@ def sendMultiPartMail(smtpParams, sender, receiver, subject, textbody, attachmen
     wx.BeginBusyCursor(cursor=wx.HOURGLASS_CURSOR)
     try:
         smtp = smtplib.SMTP_SSL(smtpParams['smtpServer'],smtpParams['smtpServerPort'])
-#        smtp.set_debuglevel(1)
-        if smtpParams['smtpServerUseAuth']:
-            try:
-                smtp.login(smtpParams['smtpServerUserName'],smtpParams['smtpServerUserPasswd'])
-            except (smtplib.SMTPHeloError, smtplib.SMTPAuthenticationError) as e:
-                myprint('smtp.login Error: {0}'.format(e))
-                msg = 'Error while connecting to the SMTP Server. Check your Credentials'
-                dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
-                dlg.ShowModal()
-                wx.EndBusyCursor()
-                return(-1)
+    except (smtplib.SMTPException, socket.error, socket.gaierror) as e:
+        msg = "Error: %s" % ("{0}".format(e.strerror))
+        myprint(msg)
+        dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
+        dlg.ShowModal()
+        wx.EndBusyCursor()
+        return(-1)
+
+    # smtp.set_debuglevel(1)
+    
+    if smtpParams['smtpServerUseAuth']:
+        try:
+            smtp.login(smtpParams['smtpServerUserName'],smtpParams['smtpServerUserPasswd'])
+        except (smtplib.SMTPHeloError, smtplib.SMTPAuthenticationError) as e:
+            myprint('smtp.login Error: {0}'.format(e))
+            msg = 'Error while connecting to the SMTP Server. Check your Credentials'
+            dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            wx.EndBusyCursor()
+            return(-1)
         try:
             smtp.sendmail(sender, receiver, outer.as_string())
         except:
@@ -106,12 +116,6 @@ def sendMultiPartMail(smtpParams, sender, receiver, subject, textbody, attachmen
             dlg.ShowModal()
             wx.EndBusyCursor()
             return(-1)
-    except smtplib.SMTPException as e:
-        msg = "Error: %s" % ("{0}".format(e.strerror))
-        myprint(msg)
-        wx.EndBusyCursor()
-        return(-1)
-
     wx.EndBusyCursor()                    
     smtp.quit()
     return(0)
@@ -148,10 +152,10 @@ class MailDialog(wx.Dialog):
             self.mailHdrVal.append(wx.StaticText(self.panel1, label=self.mailHdrName[i]))
             self.mailHdrVal.append(wx.TextCtrl(self.panel1))
 
-        self.mailHdrVal[1].SetValue(globs.smtpServerUserName)
+        self.mailHdrVal[1].SetValue(globs.smtpFromUser)
         self.mailHdrVal[3].SetValue('')
 
-        if not globs.smtpServerUserName: 
+        if not globs.smtpFromUser: 
             self.mailHdrVal[1].SetFocus()    # Set focus to "From" field
         else:
             self.mailHdrVal[5].SetFocus()    # Set focus to "Subject" field
@@ -319,12 +323,6 @@ class MailDialog(wx.Dialog):
         # Mail Text
         text = self.msgTextCtrl.GetValue()
 
-        # Format mail body
-#        version = '%s: %s\n%s\nPython: %s wxpython: %s' % (globs.myName, globs.myVersion, (platform.platform()), globs.pythonVersion, wx.version())
-#        mailBody = '%s\n\n----\nCategory:%s\nPriority:%s\n%s' % (text, self.bugType[reportChoice], self.prioLevel[prioChoice], version)
-#        mailBody = '%s\n\n%s' % (text, version)
-#        myprint(mailBody)
-        
         # Build & Send the mail
         smtpParams = dict()
         smtpParams['smtpServer']           = globs.smtpServer
@@ -333,6 +331,7 @@ class MailDialog(wx.Dialog):
         smtpParams['smtpServerUseAuth']    = globs.smtpServerUseAuth
         smtpParams['smtpServerUserName']   = globs.smtpServerUserName
         smtpParams['smtpServerUserPasswd'] = globs.smtpServerUserPasswd
+        smtpParams['smtpFromUser']         = globs.smtpFromUser        
 
         if not sendMultiPartMail(smtpParams, sender, receiver, subject, text, self.attachmentList):
             self.Close()
@@ -417,7 +416,6 @@ def myprint(*args, **kwargs):
 class MyFrame(wx.Frame):
     def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
-        panel = wx.Panel(self)
 
         attachmentList = list()
         attachmentList.append(os.path.join(globs.osvmDownloadDir,'PB102070.JPG'))
@@ -425,8 +423,7 @@ class MyFrame(wx.Frame):
         dlg = MailDialog(self, attachmentlist=attachmentList)
         ret = dlg.ShowModal()
         dlg.Destroy()
-
-        self.Show()
+        self.Destroy()
 
 def main():
     # Init Globals instance
@@ -441,6 +438,7 @@ def main():
     globs.smtpServerUseAuth = True
     globs.smtpServerUserName   = 'dspoirot@gmail.com'
     globs.smtpServerUserPasswd = 'foobar'
+    globs.smtpFromUser   = 'Didier Poirot'
     
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
