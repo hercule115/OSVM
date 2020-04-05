@@ -113,16 +113,16 @@ class MediaViewerDialog(wx.Dialog):
 
         self.mainSizer.Add(self.imageCtrl, 0, wx.ALL|wx.CENTER, 5)
 
-        self.btnPrev = wx.Button(label='Prev', parent=self, style=0)
+        self.btnPrev = wx.Button(label='Prev', parent=self)
         self.btnPrev.SetToolTip('Load previous Image')
         self.btnPrev.Bind(wx.EVT_BUTTON, lambda evt: self.imageOnBtnPrev(evt))
 
-        self.btnPlay = wx.Button(label='Play', parent=self, style=0)
+        self.btnPlay = wx.Button(label='Play', parent=self)
         self.btnPlay.SetToolTip('Start the Slideshow')
         #        self.btnPlay.Bind(wx.EVT_BUTTON, self.imageOnBtnPlay)
         self.btnPlay.Bind(wx.EVT_BUTTON, lambda evt: self.imageOnBtnPlay(evt))
             
-        self.btnNext = wx.Button(label='Next', parent=self, style=0)
+        self.btnNext = wx.Button(label='Next', parent=self)
         self.btnNext.SetToolTip('Load Next Image')
         self.btnNext.Bind(wx.EVT_BUTTON, lambda evt: self.imageOnBtnNext(evt))
 
@@ -133,7 +133,7 @@ class MediaViewerDialog(wx.Dialog):
         self.ssDelayGauge = wx.Gauge(range=self.gaugeRange, parent=self, size=(200,15))
         self.ssDelayGauge.SetValue(self.gaugeRange)
 
-        self.btnQuit = wx.Button(id=wx.ID_EXIT, label='Quit', parent=self, style=0)
+        self.btnQuit = wx.Button(id=wx.ID_CLOSE, parent=self)
         self.btnQuit.SetToolTip('Quit Viewer')
         self.btnQuit.Bind(wx.EVT_BUTTON, self.imageOnBtnQuit)
 
@@ -299,7 +299,7 @@ class MediaViewerDialog(wx.Dialog):
         self.volSlider = wx.Slider(self, -1, 0, 0, 100)
         self.Bind(wx.EVT_SLIDER, self.videoOnVolSlider, self.volSlider)
 
-        self.btnQuit = wx.Button(self, id=wx.ID_EXIT, label='Quit')
+        self.btnQuit = wx.Button(self, id=wx.ID_CLOSE)
         self.btnQuit.SetToolTip('Quit Viewer')
         self.btnQuit.Bind(wx.EVT_BUTTON, self.videoOnBtnQuit)
         self.quitBoxSizer.Add(self.btnQuit, 0, border=5, flag=wx.EXPAND| wx.ALL)
