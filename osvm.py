@@ -4464,6 +4464,7 @@ class OSVM(wx.Frame):
         cnt = 0
         for suffix in globs.FILE_SUFFIXES.keys():
             cnt += self._unSelectFiles(suffix)
+        self.updateStatusBar('')
         # Clear action buttons
         self._disableActionButtons()
         self.Refresh()
