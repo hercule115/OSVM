@@ -1680,7 +1680,7 @@ class FileOperationMenu(wx.Menu):
 #        button.SetBackgroundColour(globs.fileColors[globs.FILE_OP_PENDING][0])
 #        button.SetForegroundColour(globs.fileColors[globs.FILE_OP_PENDING][1])
 
-        myprint(op)
+        #myprint(op)
 
 ####
 class OSVMConfigThread(threading.Thread):
@@ -2868,7 +2868,7 @@ class OSVM(wx.Frame):
                     button.SetBackgroundColour(globs.fileColors[globs.FILE_OP_PENDING][0])
                     button.SetForegroundColour(globs.fileColors[globs.FILE_OP_PENDING][1])
                     self.Refresh()
-        myprint(op)
+        #myprint(op)
 
     winDisabler = None
 
@@ -4167,6 +4167,7 @@ class OSVM(wx.Frame):
                     for suffix in globs.FILE_SUFFIXES.keys():
                         cnt += self._unSyncFiles(suffix)
                 myprint('%d selected files have been cleared' % (cnt))
+                self.updateStatusBar('')
                 self.Refresh()
                 button.Enable()
             else:
