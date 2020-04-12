@@ -2316,7 +2316,7 @@ class InstallDialog(wx.Dialog):
         import subprocess
 
         #myprint('Pinging %s' % (server))
-        ret = subprocess.call("ping -t 1 -c 1 %s" % server,
+        ret = subprocess.call("ping -t 10 -c 1 %s" % server,
                               shell=True,
                               stdout=open('/dev/null', 'w'),
                               stderr=subprocess.STDOUT)
@@ -3682,18 +3682,28 @@ class OSVM(wx.Frame):
 
         # Retrieve the button in self.thumbButtons
         # Each entry in thumbButtons[] is of form: [widget, file, fgcol, bgcol]
-        found = False
-        for entry in self.thumbButtons:
-            if entry[0] == button:
-                found = True
-                break
-        if not found:
+        # found = False
+        # for entry in self.thumbButtons:
+        #     if entry[0] == button:
+        #         found = True
+        #         break
+        # if not found:
+        #     myprint('Button not found')
+        #     FileOperationMenu(self, button, self.opList)
+        #     return
+
+        try:
+            e = [x for x in self.thumbButtons if x[0] == button]
+        except:
             myprint('Button not found')
-            FileOperationMenu(self, button, self.opList)
             return
+        else:
+            entry = e[0]
 
         FileOperationMenu(self, button, self.opList)
 
+        myprint(entry)
+        
         # Check if an operation is scheduled for this button and colorize the
         # button accordingly
         for op in self.opList:
