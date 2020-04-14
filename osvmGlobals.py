@@ -5,7 +5,7 @@ from os.path import expanduser
 
 myName     = 'OSVM'
 myLongName = 'Olympus Sync & View Manager'
-myVersion  = '2.6.0'
+myVersion  = '2.6.1'
 
 disabledModules = list()
 pycc = True
@@ -70,7 +70,9 @@ DEFAULT_SMTP_SERVER_PORT = 25
 DEFAULT_SMTP_SERVER_USE_AUTH = False
 DEFAULT_SMTP_SERVER_USER_NAME = ''
 DEFAULT_SMTP_SERVER_USER_PASSWD = ''                
-DEFAULT_MAIL_ADDR = None
+DEFAULT_SMTP_FROM_USER = ''
+DEFAULT_SMTP_RECIPIENTS_LIST = ''
+SMTP_RECIPIENTS_LIST_LEN = 5
 
 # Preferences file option keys in ini file
 INI_VERSION = 'iniversion'
@@ -99,6 +101,8 @@ SMTP_SERVER_PORT = 'smtpserverport'
 SMTP_SERVER_USE_AUTH = 'smtpserveruseauth'
 SMTP_SERVER_USER_NAME = 'smtpserverusername'
 SMTP_SERVER_USER_PASSWD = 'smtpserveruserpasswd'        
+SMTP_FROM_USER = 'smtpfromuser'
+SMTP_RECIPIENTS_LIST = 'smtprecipientslist'
 
 # Globals Managed by Preferences / Frame # In osvmDir
 htmlRootFile = 'htmlRootFile.html'
@@ -147,6 +151,8 @@ smtpServerPort = 25
 smtpServerUseAuth = False
 smtpServerUserName = ''
 smtpServerUserPasswd = ''
+smtpFromUser = ''
+smtpRecipientsList = list()
 
 # List of root directories on the camera
 rootDirList = []
@@ -325,3 +331,4 @@ def printGlobals():
     print('globs.smtpServerUseAuth:', smtpServerUseAuth)
     print('globs.smtpServerUserName:', smtpServerUserName)
     print('globs.smtpServerUserPasswd:', smtpServerUserPasswd)
+    print('globs.smtpRecipientsList:', smtpRecipientsList)
