@@ -1287,6 +1287,7 @@ class Preferences():
         self.config['Mail Preferences'][globs.SMTP_SERVER_USER_NAME] = globs.DEFAULT_SMTP_SERVER_USER_NAME
         self.config['Mail Preferences'][globs.SMTP_SERVER_USER_PASSWD] = globs.DEFAULT_SMTP_SERVER_USER_PASSWD
         self.config['Mail Preferences'][globs.SMTP_FROM_USER] = globs.DEFAULT_SMTP_FROM_USER
+        self.config['Mail Preferences'][globs.SMTP_RECIPIENTS_LIST] = globs.DEFAULT_SMTP_RECIPIENTS_LIST
         
         # Writing our configuration file back to initFile
         with open(globs.initFilePath, 'w') as cfgFile:
@@ -1353,7 +1354,7 @@ class Preferences():
             globs.smtpServerUserName   = sectionMail[globs.SMTP_SERVER_USER_NAME]
             globs.smtpServerUserPasswd = sectionMail[globs.SMTP_SERVER_USER_PASSWD]
             globs.smtpFromUser         = sectionMail[globs.SMTP_FROM_USER]
-            
+            globs.smtpRecipientsList   = list(filter(None, sectionMail[globs.SMTP_RECIPIENTS_LIST].split(',')))[:globs.SMTP_RECIPIENTS_LIST_LEN]
             return False # Parsing OK
         
         except:
@@ -1407,7 +1408,7 @@ class Preferences():
             globs.smtpServerUserName   = sectionMail[globs.SMTP_SERVER_USER_NAME]
             globs.smtpServerUserPasswd = sectionMail[globs.SMTP_SERVER_USER_PASSWD]
             globs.smtpFromUser         = sectionMail[globs.SMTP_FROM_USER]
-            
+            globs.smtpRecipientsList   = list(filter(None, sectionMail[globs.SMTP_RECIPIENTS_LIST].split(',')))[:globs.SMTP_RECIPIENTS_LIST_LEN]
             return True # Parsing KO, New file created
 
     def _saveInitFile(self):
@@ -1460,7 +1461,7 @@ class Preferences():
         sectionMail[globs.SMTP_SERVER_USER_NAME]   = globs.smtpServerUserName
         sectionMail[globs.SMTP_SERVER_USER_PASSWD] = globs.smtpServerUserPasswd
         sectionMail[globs.SMTP_FROM_USER]          = globs.smtpFromUser
-        
+        sectionMail[globs.SMTP_RECIPIENTS_LIST]    = ','.join(globs.smtpRecipientsList)
         # Writing our configuration file back to initFile
         with open(globs.initFilePath, 'w') as cfgFile:
             self.config.write(cfgFile)
@@ -3698,12 +3699,10 @@ class OSVM(wx.Frame):
             myprint('Button not found')
             return
         else:
-            entry = e[0]
+            entry = e[0] # Use first element
 
         FileOperationMenu(self, button, self.opList)
 
-        myprint(entry)
-        
         # Check if an operation is scheduled for this button and colorize the
         # button accordingly
         for op in self.opList:
