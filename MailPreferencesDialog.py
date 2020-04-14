@@ -281,8 +281,7 @@ class MyFrame(wx.Frame):
         dlg = MailPreferencesDialog(self)
         ret = dlg.ShowModal()
         dlg.Destroy()
-
-        self.Show()
+        self.Destroy()
 
 def main():
     # Init Globals instance
