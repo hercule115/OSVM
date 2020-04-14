@@ -72,7 +72,7 @@ DEFAULT_SMTP_SERVER_USER_NAME = ''
 DEFAULT_SMTP_SERVER_USER_PASSWD = ''                
 DEFAULT_SMTP_FROM_USER = ''
 DEFAULT_SMTP_RECIPIENTS_LIST = ''
-SMTP_RECIPIENTS_LIST_LEN = 5
+SMTP_RECIPIENTS_LIST_LEN = 5	# Keep only 5 entries
 
 # Preferences file option keys in ini file
 INI_VERSION = 'iniversion'

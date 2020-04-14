@@ -102,7 +102,7 @@ def sendMultiPartMail(smtpParams, sender, recipient, subject, textbody, attachme
             smtp.login(smtpParams['smtpServerUserName'],smtpParams['smtpServerUserPasswd'])
         except (smtplib.SMTPHeloError, smtplib.SMTPAuthenticationError) as e:
             myprint('smtp.login Error: {0}'.format(e))
-            msg = 'Error while connecting to the SMTP Server. Check your Credentials'
+            msg = 'Error while connecting to the SMTP Server.\nCheck your Credentials'
             dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
             dlg.ShowModal()
             wx.EndBusyCursor()
@@ -116,7 +116,7 @@ def sendMultiPartMail(smtpParams, sender, recipient, subject, textbody, attachme
             dlg.ShowModal()
             wx.EndBusyCursor()
             return(-1)
-    wx.EndBusyCursor()                    
+    wx.EndBusyCursor()
     smtp.quit()
     return(0)
 
@@ -146,13 +146,11 @@ class ToFieldMenu(wx.Menu):
         else:
             id = 0  
 
-        #myprint('globs.smtpRecipientsList:',globs.smtpRecipientsList)
-        
         for recv in globs.smtpRecipientsList:
             self.popupMenuEntries.append((id, recv))
             menuItem = wx.MenuItem(self.popupMenu, id, recv)
             self.popupMenu.Append(menuItem)
-            # Register Properties menu handler with EVT_MENU
+            # Register event handler with EVT_MENU
             self.popupMenu.Bind(wx.EVT_MENU, self._SelectRecipient, menuItem)
             id += 1
 
@@ -162,7 +160,6 @@ class ToFieldMenu(wx.Menu):
 
     def _SelectRecipient(self, event):
         recipient = self.popupMenuEntries[event.GetId()-1][1] # Platform dependance ??
-        #myprint(recipient)
         wx.CallAfter(self.parent.setToField, recipient)
         event.Skip()
         
@@ -215,9 +212,8 @@ class MailDialog(wx.Dialog):
 
         # Bind Mouse Click event in To: Field
         self.mailHdrVal[3].Bind(wx.EVT_TEXT, self.OnText)
-        
         self.mailHdrVal[3].Bind(wx.EVT_LEFT_DOWN, self.OnToFieldLeftDown)
-        self.mailHdrVal[3].SetDefaultStyle(wx.TextAttr(wx.BLUE))
+        #self.mailHdrVal[3].SetDefaultStyle(wx.TextAttr(wx.BLUE))
 
         self.mailHdrGrid.AddGrowableRow(rows-1, 1)
         self.mailHdrGrid.AddGrowableCol(cols-1, 1)
@@ -377,20 +373,9 @@ class MailDialog(wx.Dialog):
         tc = self.mailHdrVal[3]
         ToFieldMenu(self)
         myprint('Selected Entry:', tc.GetValue())
-        if tc.GetValue() == '':
-            myprint('Refreshing')
-            self.Refresh()
-        else:
-            # curPos = tc.GetInsertionPoint()
-            # insertionPointRowColumnPosition = tc.PositionToXY(curPos)
-            # print(insertionPointRowColumnPosition)
-            # lineNum = curRow
-            # lineText = tc.GetLineText(0)#lineNum)
-            # newPos = tc.XYToPosition(len(lineText), curRow)
-            # myprint(curPos,curVal,curCol,curRow,lineText,newPos)
-            # tc.SetInsertionPoint(newPos)
-            pass
-        #event.Skip()
+        # if tc.GetValue() == '':
+        #     myprint('Refreshing')
+        #     self.Refresh()
     
     def OnBtnSend(self, event):
         # Mail Headers
@@ -398,7 +383,7 @@ class MailDialog(wx.Dialog):
         recipient = self.mailHdrVal[3].GetValue()
         subject  = "[OSVM]: " + self.mailHdrVal[5].GetValue()
 
-        # Mail Text
+        # Mail Body Text
         text = self.msgTextCtrl.GetValue()
 
         # Build & Send the mail
