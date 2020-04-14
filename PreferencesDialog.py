@@ -112,7 +112,8 @@ class PreferencesDialog(wx.Dialog):
                    flag=wx.ALIGN_CENTER_VERTICAL | wx.BOTTOM | wx.LEFT | wx.TOP)
         parent.Add(4, 0, border=0, flag=0)
         parent.Add(self.ssDelayChoice, 0, border=5, flag=wx.ALL)
-        parent.AddStretchSpacer(prop=1)
+#        parent.AddStretchSpacer(prop=1)
+        parent.Add(8, 0, border=0, flag=0)
         parent.Add(self.rotImgLabel, 0, border=5, flag= wx.ALL | wx.EXPAND)
         parent.Add(4, 0, border=0, flag=0)
         parent.Add(self.rotImgChoice, border=5, flag=wx.ALL | wx.EXPAND | wx.ALIGN_RIGHT)
@@ -311,14 +312,14 @@ class PreferencesDialog(wx.Dialog):
                                          parent=self.panel1, style=0)
 
         self.ssDelayChoice = wx.Choice(choices=[str(i) for i in range(self.MIN_SS_DELAY, self.MAX_SS_DELAY)], 
-                                           id=wx.ID_ANY, parent=self.panel1, style=0)
+                                       parent=self.panel1, style=0)
         self.ssDelayChoice.SetToolTip('Delay interval')
         self.ssDelayChoice.SetStringSelection(str(globs.ssDelay))
         self.ssDelayChoice.Bind(wx.EVT_CHOICE, lambda evt: self.OnSsDelayChoice(evt))
 
         self.rotImgLabel   = wx.StaticText(label='Rotated Images:', parent=self.panel1, style=0)
         self.rotImgChoice  = wx.Choice(choices=[v for v in globs.ROT_IMG_ENTRIES], parent=self.panel1, style=0)
-        self.rotImgChoice.SetToolTip('Select if not rotated/rotated/both image files must be shown')
+        self.rotImgChoice.SetToolTip('Select if non rotated images/rotated images or both images must be shown')
         self.rotImgChoice.SetStringSelection(globs.ROT_IMG_ENTRIES[int(globs.rotImgChoice)])
         self.rotImgChoice.Bind(wx.EVT_CHOICE, self.OnRotImgChoice)
         
@@ -565,6 +566,7 @@ class PreferencesDialog(wx.Dialog):
 
     def OnRotImgChoice(self, event):
         globs.rotImgChoice = int(self.rotImgChoice.GetSelection())
+        self.needRescan = True
         self.btnApply.Enable()
         event.Skip()
     

@@ -138,12 +138,10 @@ class ColorPickerDialog(wx.Dialog):
 class MyFrame(wx.Frame):
     def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
-        panel = wx.Panel(self)
         dlg = ColorPickerDialog(self)
         ret = dlg.ShowModal()
         dlg.Destroy()
-
-        self.Show()
+        self.Destroy()
 
 def main():
     # Create DemoFrame frame, passing globals instance as parameter

@@ -247,12 +247,11 @@ def myprint(*args, **kwargs):
 class MyFrame(wx.Frame):
     def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
-        panel = wx.Panel(self)
         dlg = CleanDownloadDirDialog(self, download=globs.downloadDir)
         ret = dlg.ShowModal()
         dlg.Destroy()
-
-        self.Show()
+        self.Destroy()
+        #self.Show()
         
 def main():
     # Init Globals instance

@@ -194,9 +194,7 @@ def myprint(*args, **kwargs):
 class MyFrame(wx.Frame):
     def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
-        panel = wx.Panel(self)
 
-        #fileName = 'P2272477.JPG'
         fileName = '20200214_170528.jpg'
         filePath = os.path.join(globs.osvmDownloadDir, fileName)
         i = os.stat(filePath)
@@ -209,8 +207,8 @@ class MyFrame(wx.Frame):
         ret = dlg.ShowModal()
         dlg.Destroy()
 
-        self.Show()
-
+        self.Destroy()
+        
 def main():
     # Init Globals instance
     globs.system = platform.system()		# Linux or Windows or MacOS (Darwin)
@@ -222,6 +220,7 @@ def main():
     frame = MyFrame(None, -1, title="Test")
     frame.Show()
     app.MainLoop()
-
+    print('End of main loop')
+   
 if __name__ == "__main__":
     main()
