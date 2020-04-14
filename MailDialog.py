@@ -33,13 +33,13 @@ for k,v in moduleList.items():
 #print(__name__)
 
 # Send a MultiPart mail
-def sendMultiPartMail(smtpParams, sender, receiver, subject, textbody, attachments=[]):
+def sendMultiPartMail(smtpParams, sender, recipient, subject, textbody, attachments=[]):
    # Create the enclosing (outer) message
     outer = MIMEMultipart()    
 
     outer['Subject'] = subject
     outer['From']    = sender
-    outer['To']      = receiver
+    outer['To']      = recipient
     outer.preamble   = 'Files sent by OSVM'
 
     for path in attachments:
@@ -108,9 +108,9 @@ def sendMultiPartMail(smtpParams, sender, receiver, subject, textbody, attachmen
             wx.EndBusyCursor()
             return(-1)
         try:
-            smtp.sendmail(sender, receiver, outer.as_string())
+            smtp.sendmail(sender, recipient, outer.as_string())
         except:
-            msg = 'Error while sending mail. Check Mail Parameters'
+            msg = 'Error while sending mail.\nCheck Mail Parameters'
             myprint(msg)
             dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
             dlg.ShowModal()
@@ -120,6 +120,52 @@ def sendMultiPartMail(smtpParams, sender, receiver, subject, textbody, attachmen
     smtp.quit()
     return(0)
 
+class ToFieldMenu(wx.Menu):
+    """
+    Creates and displays a menu that allows the user to
+    select a recipient from a list
+    """
+    def __init__(self, parent):
+        """
+        Initialize the menu dialog box
+        """
+        self.parent = parent
+
+        super(ToFieldMenu,self).__init__()
+
+        # Get the mouse position
+        self.clickedPos = self.parent.panel1.ScreenToClient(wx.GetMousePosition())
+        
+        # Creates a Menu containing previous recipients:
+        self.popupMenu = wx.Menu()
+        self.popupMenuEntries = []
+
+        # Id of each menu entry. 
+        if globs.system == 'Darwin':
+            id = 1
+        else:
+            id = 0  
+
+        #myprint('globs.smtpRecipientsList:',globs.smtpRecipientsList)
+        
+        for recv in globs.smtpRecipientsList:
+            self.popupMenuEntries.append((id, recv))
+            menuItem = wx.MenuItem(self.popupMenu, id, recv)
+            self.popupMenu.Append(menuItem)
+            # Register Properties menu handler with EVT_MENU
+            self.popupMenu.Bind(wx.EVT_MENU, self._SelectRecipient, menuItem)
+            id += 1
+
+        # Displays the menu at the current mouse position
+        self.parent.panel1.PopupMenu(self.popupMenu, self.clickedPos)
+        self.popupMenu.Destroy() # destroy to avoid mem leak
+
+    def _SelectRecipient(self, event):
+        recipient = self.popupMenuEntries[event.GetId()-1][1] # Platform dependance ??
+        #myprint(recipient)
+        wx.CallAfter(self.parent.setToField, recipient)
+        event.Skip()
+        
 #### MailDialog
 class MailDialog(wx.Dialog):
     def __init__(self, parent, attachmentlist):
@@ -153,7 +199,7 @@ class MailDialog(wx.Dialog):
             self.mailHdrVal.append(wx.TextCtrl(self.panel1))
 
         self.mailHdrVal[1].SetValue(globs.smtpFromUser)
-        self.mailHdrVal[3].SetValue('')
+        self.mailHdrVal[3].SetValue('')    # Clear To: field
 
         if not globs.smtpFromUser: 
             self.mailHdrVal[1].SetFocus()    # Set focus to "From" field
@@ -166,6 +212,12 @@ class MailDialog(wx.Dialog):
                 self.mailHdrVal[i].Bind(wx.EVT_TEXT, self.OnMailHdrCtrlText)
             else:
                 self.mailHdrGrid.Add(self.mailHdrVal[i], proportion=1, flag=wx.CENTER)
+
+        # Bind Mouse Click event in To: Field
+        self.mailHdrVal[3].Bind(wx.EVT_TEXT, self.OnText)
+        
+        self.mailHdrVal[3].Bind(wx.EVT_LEFT_DOWN, self.OnToFieldLeftDown)
+        self.mailHdrVal[3].SetDefaultStyle(wx.TextAttr(wx.BLUE))
 
         self.mailHdrGrid.AddGrowableRow(rows-1, 1)
         self.mailHdrGrid.AddGrowableCol(cols-1, 1)
@@ -313,11 +365,37 @@ class MailDialog(wx.Dialog):
         else:
             self.btnSend.Enable(False)
 
+    def setToField(self, recipient):
+        self.mailHdrVal[3].SetValue(recipient)    # Set To: field
+        # myprint(self.mailHdrVal[3].GetValue())
+        
     ## Events
+    def OnText(self, event):
+        event.Skip()
+        
+    def OnToFieldLeftDown(self, event):
+        tc = self.mailHdrVal[3]
+        ToFieldMenu(self)
+        myprint('Selected Entry:', tc.GetValue())
+        if tc.GetValue() == '':
+            myprint('Refreshing')
+            self.Refresh()
+        else:
+            # curPos = tc.GetInsertionPoint()
+            # insertionPointRowColumnPosition = tc.PositionToXY(curPos)
+            # print(insertionPointRowColumnPosition)
+            # lineNum = curRow
+            # lineText = tc.GetLineText(0)#lineNum)
+            # newPos = tc.XYToPosition(len(lineText), curRow)
+            # myprint(curPos,curVal,curCol,curRow,lineText,newPos)
+            # tc.SetInsertionPoint(newPos)
+            pass
+        #event.Skip()
+    
     def OnBtnSend(self, event):
         # Mail Headers
         sender   = self.mailHdrVal[1].GetValue()
-        receiver = self.mailHdrVal[3].GetValue()
+        recipient = self.mailHdrVal[3].GetValue()
         subject  = "[OSVM]: " + self.mailHdrVal[5].GetValue()
 
         # Mail Text
@@ -333,8 +411,24 @@ class MailDialog(wx.Dialog):
         smtpParams['smtpServerUserPasswd'] = globs.smtpServerUserPasswd
         smtpParams['smtpFromUser']         = globs.smtpFromUser        
 
-        if not sendMultiPartMail(smtpParams, sender, receiver, subject, text, self.attachmentList):
+        if not globs.smtpServer or not globs.smtpServerPort or not globs.smtpServerProtocol:
+            msg = "SMTP Server Parameters not set.\nCheck Mail Preferences"
+            myprint(msg)
+            dlg = wx.MessageDialog(None, msg, 'ERROR', wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            event.Skip()
+            return
+        
+        if not sendMultiPartMail(smtpParams, sender, recipient, subject, text, self.attachmentList):
             self.Close()
+
+        # Add this recipient at head of the recipient list
+        myprint('Recipient list 0',globs.smtpRecipientsList)
+        globs.smtpRecipientsList.insert(0, recipient)
+        myprint('Recipient list 1',globs.smtpRecipientsList)
+        # Keep unique values
+        globs.smtpRecipientsList = unique(globs.smtpRecipientsList)[:globs.SMTP_RECIPIENTS_LIST_LEN]
+        myprint('Recipient list 2',globs.smtpRecipientsList)
         event.Skip()
 
     def OnBtnPrefs(self, event):
@@ -413,6 +507,13 @@ def myprint(*args, **kwargs):
     # are present in kwargs
     __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
 
+# Return a list with unique values, keeping original order. Input: a list
+def unique(sequence):
+    seen = list()
+    #[x for x in reversed(sequence) if not (x in seen or seen.insert(0,x))]
+    [x for x in sequence if not (x in seen or seen.append(x))]
+    return(seen)
+
 class MyFrame(wx.Frame):
     def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
@@ -432,14 +533,17 @@ def main():
 
     globs.osvmDownloadDir = '/Users/didier/SynologyDrive/Photo/Olympus TG4/'
 
-    globs.smtpServer = 'smtp.gmail.com'
-    globs.smtpServerProtocol = 'SSL'
-    globs.smtpServerPort = 465
-    globs.smtpServerUseAuth = True
+    globs.smtpServer           = 'smtp.gmail.com'
+    globs.smtpServerProtocol   = 'SSL'
+    globs.smtpServerPort       = 465
+    globs.smtpServerUseAuth    = True
     globs.smtpServerUserName   = 'dspoirot@gmail.com'
     globs.smtpServerUserPasswd = 'foobar'
-    globs.smtpFromUser   = 'Didier Poirot'
-    
+    globs.smtpFromUser         = 'Didier Poirot'
+    tmp='alain,bernard,cloe,didier,eric,fabrice'
+    globs.smtpRecipientsList   = list(filter(None, tmp.split(',')))[:globs.SMTP_RECIPIENTS_LIST_LEN]
+    # Create empty recipient list 
+    #globs.smtpRecipientsList   = list(filter(None, ''.split(',')))[:globs.SMTP_RECIPIENTS_LIST_LEN]
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
     frame = MyFrame(None, -1, title="Test")
