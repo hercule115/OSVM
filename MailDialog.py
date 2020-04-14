@@ -540,9 +540,10 @@ def main():
     globs.smtpServerUserName   = 'dspoirot@gmail.com'
     globs.smtpServerUserPasswd = 'foobar'
     globs.smtpFromUser         = 'Didier Poirot'
+    # Create an initialized recipient list
     tmp='alain,bernard,cloe,didier,eric,fabrice'
     globs.smtpRecipientsList   = list(filter(None, tmp.split(',')))[:globs.SMTP_RECIPIENTS_LIST_LEN]
-    # Create empty recipient list 
+    # -OR- Create empty recipient list 
     #globs.smtpRecipientsList   = list(filter(None, ''.split(',')))[:globs.SMTP_RECIPIENTS_LIST_LEN]
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
