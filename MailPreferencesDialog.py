@@ -37,12 +37,18 @@ class MailPreferencesDialog(wx.Dialog):
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self,
                                size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
 
-        self.sb1 = wx.StaticBox(label='Mail Server Parameters', id=wx.ID_ANY, parent=self.panel1, style=0)
+#        self.sb1 = wx.StaticBox(label='Mail Server Parameters', id=wx.ID_ANY, parent=self.panel1, style=0)
+        self.sb1 = wx.StaticBox(label='', parent=self.panel1, style=0)
 
         self.serverST = wx.StaticText(self.panel1)
         self.serverST.SetLabelMarkup("<span foreground='blue'>%s</span>" % 'SMTP Server')
         self.serverTC = wx.TextCtrl(self.panel1, value=globs.smtpServer, size=wx.Size(200, -1))
         self.serverTC.Bind(wx.EVT_TEXT, self.OnServerTC)
+
+        self.fromST = wx.StaticText(self.panel1)
+        self.fromST.SetLabelMarkup("<span foreground='blue'>%s</span>" % 'From Username')
+        self.fromTC = wx.TextCtrl(self.panel1, value=globs.smtpFromUser, size=wx.Size(200, -1))
+        self.fromTC.Bind(wx.EVT_TEXT, self.OnFromTC)
 
         # Store all protocol information in a list
         self.mailProps = list()
@@ -125,7 +131,10 @@ class MailPreferencesDialog(wx.Dialog):
         lineno = 0
         parent.Add(self.serverST, pos=(lineno,0), border=0, flag=wx.ALL|wx.EXPAND)
         parent.Add(self.serverTC, pos=(lineno,1), border=0, flag=wx.ALL|wx.EXPAND)
-        parent.Add(self.useAuthCB, pos=(lineno,2), border=0, flag=wx.ALL|wx.EXPAND)
+        parent.Add(self.fromST,   pos=(lineno,2), border=0, flag=wx.ALL|wx.EXPAND)
+        parent.Add(self.fromTC,   pos=(lineno,3), border=0, flag=wx.ALL|wx.EXPAND)
+
+        parent.Add(self.useAuthCB, pos=(2,2), border=0, flag=wx.ALL|wx.EXPAND)
 
         # Skip line #1
         
@@ -138,7 +147,7 @@ class MailPreferencesDialog(wx.Dialog):
                 colno += 1
             lineno += 1
 
-        lineno = 1
+        lineno = 3
         colno  = 2
         i = 0
         for i in range(2):
@@ -177,6 +186,9 @@ class MailPreferencesDialog(wx.Dialog):
     ## Events
     def OnServerTC(self, event):
         event.Skip()
+
+    def OnFromTC(self, event):
+        event.Skip()
         
     def OnRadioButton(self, event):
         for i in range(1,len(self.fields)):	# Loop thru all radio buttons
@@ -202,7 +214,8 @@ class MailPreferencesDialog(wx.Dialog):
             if self.fields[i][0].GetValue():	# Check if radio button is selected
                 globs.smtpServerProtocol = self.fields[i][0].GetLabel()
                 globs.smtpServerPort = int(self.fields[i][1].GetValue())
-
+        globs.smtpFromUser = self.fromTC.GetValue()
+        
         if self.useAuthCB.GetValue():
             globs.smtpServerUseAuth = True
             globs.smtpServerUserName   = self.authPrefs['Username'][1].GetValue()
@@ -278,6 +291,7 @@ def main():
 
     globs.smtpServer 		= 'smtp.gmail.com'
     globs.smtpServerProtocol	= 'SMTP'
+    globs.smtpFromUser		= 'Didier Poirot'
     globs.smtpServerPort	= 25
     globs.smtpServerUseAuth	= True
     globs.smtpServerUserName	= 'dspoirot@gmail.com'
