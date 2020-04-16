@@ -408,12 +408,12 @@ class MailDialog(wx.Dialog):
             self.Close()
 
         # Add this recipient at head of the recipient list
-        myprint('Recipient list 0',globs.smtpRecipientsList)
+        #myprint('Recipient list 0',globs.smtpRecipientsList)
         globs.smtpRecipientsList.insert(0, recipient)
-        myprint('Recipient list 1',globs.smtpRecipientsList)
+        #myprint('Recipient list 1',globs.smtpRecipientsList)
         # Keep unique values
         globs.smtpRecipientsList = unique(globs.smtpRecipientsList)[:globs.SMTP_RECIPIENTS_LIST_LEN]
-        myprint('Recipient list 2',globs.smtpRecipientsList)
+        myprint('Updated Recipient list 2',globs.smtpRecipientsList)
         event.Skip()
 
     def OnBtnPrefs(self, event):
