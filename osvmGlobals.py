@@ -153,6 +153,7 @@ smtpServerUserName = ''
 smtpServerUserPasswd = ''
 smtpFromUser = ''
 smtpRecipientsList = list()
+imagePathCmdLineArg = None
 
 # List of root directories on the camera
 rootDirList = []
