@@ -7,7 +7,8 @@ import builtins as __builtin__
 import inspect
 import time
 
-moduleList = {'osvmGlobals':'globs'}
+moduleList = {'osvmGlobals':'globs',
+              'ExifDialog':'ExifDialog'}
 
 for k,v in moduleList.items():
     print('Loading: %s as %s' % (k,v))
@@ -33,6 +34,13 @@ class MediaViewerDialog(wx.Dialog):
 
         self.mediaFileListOrPath = mediaFileListOrPath
         self.singleFile = False
+
+        exifFilePath = os.path.join(globs.osvmDownloadDir, globs.exifFile)
+        if not os.path.exists(exifFilePath):
+            myprint('%s does not exist. Creating' % exifFilePath)
+            ExifDialog.saveExifDataFromImages(exifFilePath)
+        # Load data from file
+        self.exifData = ExifDialog.buildDictFromFile(exifFilePath)
 
         if type(self.mediaFileListOrPath).__name__ == 'str':
             fileName = os.path.basename(self.mediaFileListOrPath)
@@ -87,13 +95,12 @@ class MediaViewerDialog(wx.Dialog):
             self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[0][globs.F_NAME])
             self._imageLoad(self.imgFilePath)
         else: # Single file
-            # Directory containing the images
-            self.imgDirName = os.path.dirname(self.imageFileListOrPath)
             # Get image index in localFilesSorted
             self.imgIdx = [x[0] for x in globs.localFilesSorted].index(os.path.basename(self.imageFileListOrPath))
-            self.listToUse = [globs.localFilesSorted[self.imgIdx]]            # Set list to use
-            self._imageLoad(self.imageFileListOrPath)
-        
+            self.listToUse = [globs.localFilesSorted[self.imgIdx]]  # Set list to use (single item)
+            self.imgFilePath = self.imageFileListOrPath
+            self._imageLoad(self.imgFilePath)
+            
     def _imageInitialize(self):
         """
         Layout the widgets on the panel
@@ -133,6 +140,11 @@ class MediaViewerDialog(wx.Dialog):
         self.ssDelayGauge = wx.Gauge(range=self.gaugeRange, parent=self, size=(200,15))
         self.ssDelayGauge.SetValue(self.gaugeRange)
 
+        # Exif Data button
+        self.btnExif = wx.Button(label='Exif Data', parent=self)
+        self.btnExif.SetToolTip('Show the Exif Data')
+        self.btnExif.Bind(wx.EVT_BUTTON, self.imageOnBtnExif)
+
         self.btnQuit = wx.Button(id=wx.ID_CLOSE, parent=self)
         self.btnQuit.SetToolTip('Quit Viewer')
         self.btnQuit.Bind(wx.EVT_BUTTON, self.imageOnBtnQuit)
@@ -142,7 +154,8 @@ class MediaViewerDialog(wx.Dialog):
         self.btnSizer.Add(self.btnNext, 0, border=10, flag=wx.EXPAND| wx.ALL)
         self.btnSizer.AddStretchSpacer(prop=1)
         self.btnSizer.Add(self.ssDelayGauge, 0, border=10, flag=wx.EXPAND| wx.ALL)
-
+        self.btnSizer.AddStretchSpacer(prop=1)
+        self.btnSizer.Add(self.btnExif, 0, border=10, flag=wx.EXPAND| wx.ALL)
         self.quitBoxSizer.Add(self.btnQuit, 0, border=10, flag=wx.EXPAND| wx.ALL)
 
         self.bottomBtnSizer.AddStretchSpacer(prop=1)
@@ -172,6 +185,12 @@ class MediaViewerDialog(wx.Dialog):
 
         self.imageCtrl.SetBitmap(wx.Bitmap(wximg))
         self.SetTitle(imageFileName)
+        try:
+            entry = self.exifData[imageFileName]    # Exif data don't exist for filename
+            self.btnExif.Enable()
+        except:
+            myprint('No Exif Data for file %s' % imageFileName)
+            self.btnExif.Disable()
         self.Refresh()
         
     def imageOnBtnNext(self, event):
@@ -226,7 +245,25 @@ class MediaViewerDialog(wx.Dialog):
             self.slideTimer.Stop()
             self.gaugeTimer.Stop()
             button.SetLabel('Play')
-       
+
+    def imageOnBtnExif(self, event):
+        btnPlayInfo = getattr(self, 'btnPlay')
+        evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, btnPlayInfo.GetId())
+        evt.SetEventObject(self.btnPlay)
+        wx.PostEvent(self.btnPlay, evt)
+
+        self.imgFilePath
+        #myprint(self.listToUse,self.imgIdx)
+        #myprint(self.listToUse[self.imgIdx])
+        #myprint(self.listToUse[0][globs.F_NAME])
+
+        fileName = os.path.basename(self.imgFilePath)
+        #filePath = os.path.join(self.imgDirName, fileName)
+        dlg = ExifDialog.ExifDialog(self, self.imgFilePath, self.exifData[fileName])
+        dlg.ShowModal()
+        dlg.Destroy()
+        event.Skip()
+            
     def imageOnBtnQuit(self, event):
         self.Destroy()
         self.EndModal(wx.ID_OK)
@@ -532,16 +569,16 @@ class MyFrame(wx.Frame):
         #filePath = os.path.join( os.getcwd(), 'images', 'plus-32.jpg')
         #filePath = '/Users/didier/SynologyDrive/Photo/TEST2/n.jpg'
         #filePath = '/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302742.MOV'
-
-        mediaList = list()
-        mediaList.append(['/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302741.MOV'])
-        mediaList.append(['/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302742.MOV'])
-        mediaList.append(['/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302739.MOV'])
-
-        filePath = '/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302742.MOV'
+        filePath = '/Users/didier/SynologyDrive/Photo/Galaxy S3/IMG_20190605_121158.jpg'
+        dlg = MediaViewerDialog(self, filePath)
         
-        dlg = MediaViewerDialog(self, mediaList)
-        #dlg = MediaViewerDialog(self, filePath)
+        # mediaList = list()
+        # mediaList.append(['/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302741.MOV'])
+        # mediaList.append(['/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302742.MOV'])
+        # mediaList.append(['/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302739.MOV'])
+        # filePath = '/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302742.MOV'
+        #dlg = MediaViewerDialog(self, mediaList)
+
         ret = dlg.ShowModal()
         dlg.Destroy()
 
@@ -554,13 +591,16 @@ def main():
     if not globs.vlcVideoViewer:
         globs.disabledModules.append(('VLC',msg))
 
+    globs.osvmDownloadDir = '/Users/didier/SynologyDrive/Photo/Galaxy S3'
+        
     # Create a list of image files containing a single file
     #globs.localFileInfos['plus-32.jpg'] = ['plus-32.jpg', 0, 0, '']
     #globs.localFileInfos['n.jpg'] = ['n.jpg', 0, 0, '']
+    globs.localFileInfos['IMG_20190605_121158.jpg'] = ['IMG_20190605_121158.jpg', 0, 0, '']
 
-    globs.localFileInfos['P3302741.MOV'] = ['P3302741.MOV', 0, 0, '']
-    globs.localFileInfos['P3302742.MOV'] = ['P3302742.MOV', 0, 0, '']
-    globs.localFileInfos['P3302739.MOV'] = ['P3302739.MOV', 0, 0, '']
+    #globs.localFileInfos['P3302741.MOV'] = ['P3302741.MOV', 0, 0, '']
+    #globs.localFileInfos['P3302742.MOV'] = ['P3302742.MOV', 0, 0, '']
+    #globs.localFileInfos['P3302739.MOV'] = ['P3302739.MOV', 0, 0, '']
 
     globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst)
     
