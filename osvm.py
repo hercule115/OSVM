@@ -611,7 +611,7 @@ def htmlRoot(): # XXX
 
     myprint("%d root dirs found" % len(globs.rootDirList))
     for d in globs.rootDirList:
-        print("Detected remote folder: %s" % d)
+        myprint("Detected remote folder: %s" % d)
     return len(globs.rootDirList)
 
 def clearDirectory(dir):
@@ -1232,6 +1232,7 @@ class Preferences():
         myprint("Loading preference file:", globs.initFilePath)
         self.config = configparser.ConfigParser()
         cf = self.config.read(globs.initFilePath)
+
         if self.config.sections() == []:
             # Create a new Init file, return TRUE
             self._createDefaultInitFile()
@@ -1317,9 +1318,12 @@ class Preferences():
             globs.autoSwitchToFavoriteNetwork = str2bool(sectionPreferences[globs.AUTO_SWITCH_TO_CAMERA_NETWORK])
             globs.thumbnailGridColumns  = int(sectionPreferences[globs.THUMB_GRID_COLUMNS])
             globs.thumbnailScaleFactor  = float(sectionPreferences[globs.THUMB_SCALE_FACTOR])
-            globs.osvmDownloadDir       = sectionPreferences[globs.OSVM_DOWNLOAD_DIR]
+            # If user has used the '-p' cmdline argument, override the osvmDownloadDir parameter
+            if globs.imagePathCmdLineArg:
+                globs.osvmDownloadDir   =  globs.imagePathCmdLineArg
+            else:
+                globs.osvmDownloadDir   = sectionPreferences[globs.OSVM_DOWNLOAD_DIR]
             globs.fileSortRecentFirst   = str2bool(sectionPreferences[globs.SORT_ORDER])
-
             sectionSyncModePref         = self.config['Sync Mode Preferences']
             globs.remBaseDir		= sectionSyncModePref[globs.REM_BASE_DIR]
             globs.osvmFilesDownloadUrl  = sectionSyncModePref[globs.OSVM_FILES_DOWNLOAD_URL]
@@ -1721,7 +1725,7 @@ class OSVMConfigThread(threading.Thread):
         if not os.path.exists(exifFilePath):
             myprint('%s does not exist. Creating' % exifFilePath)
             ExifDialog.saveExifDataFromImages(exifFilePath)
-        # Load data from file
+        # Load Exif data from file
         self.exifData = ExifDialog.buildDictFromFile(exifFilePath)
 
         # Create thumbnail image if needed
@@ -1734,8 +1738,11 @@ class OSVMConfigThread(threading.Thread):
         myprint('Updating file dictionaries')
         globs.localFilesCnt,globs.availRemoteFilesCnt = updateFileDicts()
 
-        msg = '%d local files, %d remote files' % (globs.localFilesCnt,
-                                                   globs.availRemoteFilesCnt)
+        if not globs.cameraConnected:
+            msg = '%d local files' % (globs.localFilesCnt)
+        else:
+            msg = '%d local files, %d remote files' % (globs.localFilesCnt, globs.availRemoteFilesCnt)
+        
         wx.CallAfter(self._pDialog.setTitleStaticText2, msg)
         wx.CallAfter(self._pDialog.setBusyCursor, 0)
 
@@ -2313,11 +2320,11 @@ class InstallDialog(wx.Dialog):
         self.Close()
         event.Skip()
 
-    def _ping(self, server):
+    def _ping(self, server, timeout=10):
         import subprocess
 
         #myprint('Pinging %s' % (server))
-        ret = subprocess.call("ping -t 10 -c 1 %s" % server,
+        ret = subprocess.call("ping -t %d -c 1 %s" % (timeout,server),
                               shell=True,
                               stdout=open('/dev/null', 'w'),
                               stderr=subprocess.STDOUT)
@@ -2344,7 +2351,7 @@ class InstallDialog(wx.Dialog):
 
     def OnTimer(self, event):
         server = globs.rootUrl.split('/')[2].split(':')[0] # Get IP address from URL of the camera
-        if not self._ping(server):
+        if not self._ping(server, 15):
             myprint('Lost connection with %s. Aborting download' % server)
             # Simulate a 'Cancel' event
             evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.btnCancel.GetId())
@@ -2540,6 +2547,7 @@ class OSVM(wx.Frame):
     downloadDir = ''
     timerCnt = 0
     ssThr = 0
+
     def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         self.parent = parent
@@ -2618,6 +2626,8 @@ class OSVM(wx.Frame):
 
         lastIdx = min(idx + (globs.thumbnailGridRows * globs.thumbnailGridColumns), len(listOfThumbnail))
         print('%s [%d : %d]\r' % (tab.GetName(), idx, lastIdx), end='', flush=True)
+        self.updateStatusBar(field=self.SB_COUNTER, msg='%d' % (lastIdx))
+
         for f in listOfThumbnail[idx:lastIdx]:
             remFileName = f[1][globs.F_NAME]
             remFileSize = f[1][globs.F_SIZE]
@@ -2736,7 +2746,7 @@ class OSVM(wx.Frame):
         if globs.noPanel:
             msg = 'Skipping loading of thumbnail panel'
             myprint(msg)
-            self.updateStatusBar(msg)
+            self.updateStatusBar(msg=msg)
             numTabs = 0
         else:
             numTabs = len(fileListToUse) / (globs.thumbnailGridRows * globs.thumbnailGridColumns)
@@ -2798,7 +2808,7 @@ class OSVM(wx.Frame):
         if globs.noPanel:
             msg = 'Skipping loading of thumbnail panel'
             myprint(msg)
-            self.updateStatusBar(msg)
+            self.updateStatusBar(msg=msg)
             numTabs = 0
         else:
             numTabs = len(fileListToUse) / (globs.thumbnailGridRows * globs.thumbnailGridColumns)
@@ -2855,7 +2865,7 @@ class OSVM(wx.Frame):
             
         pendingOpsCnt = self.pendingOperationsCount()
         statusBarMsg = 'File successfully marked. %d marked file(s)' % (pendingOpsCnt)
-        self.updateStatusBar(statusBarMsg)
+        self.updateStatusBar(msg=statusBarMsg)
         self._enableActionButtons()
         
         # Sanity check
@@ -2888,7 +2898,7 @@ class OSVM(wx.Frame):
                      ('File', 'Quit')]
 
         if mode == globs.MODE_ENABLED:
-            self.updateStatusBar(reason)
+            self.updateStatusBar(msg=reason)
 
             # handle events which may have been queued up
             wx.Yield() 
@@ -2911,7 +2921,7 @@ class OSVM(wx.Frame):
             # Enable all pkg buttons
             self.noteBook.Enable()
         else:
-            self.updateStatusBar(reason, fgcolor=wx.WHITE, bgcolor=wx.RED)
+            self.updateStatusBar(msg=reason, fgcolor=wx.WHITE, bgcolor=wx.RED)
 
             for item in menuItems:
                 id = self.menuBar.FindMenuItem(item[0],item[1])
@@ -2968,7 +2978,7 @@ class OSVM(wx.Frame):
                 entry[0].SetBackgroundColour(entry[3])
                 #entry[0].SetValue(False)
 
-    def updateStatusBar(self, msg=None, bgcolor=wx.NullColour, fgcolor=wx.BLACK):
+    def updateStatusBar(self, field=-1, msg=None, bgcolor=wx.NullColour, fgcolor=wx.BLACK):
         self.statusBar1.SetForegroundColour(fgcolor)
         self.statusBar1.SetBackgroundColour(bgcolor)
 
@@ -2977,14 +2987,19 @@ class OSVM(wx.Frame):
                 msg = '%d local files' % (globs.localFilesCnt)
             else:
                 msg = '%d local files, %d files available on camera' % (globs.localFilesCnt, globs.availRemoteFilesCnt)
-        #myprint(msg)
-        self.statusBar1.SetStatusText(msg, self.statusBarFieldsCount-1)
 
-        if self.statusBar1.GetStatusText(self.SB_SSID) != globs.iface.ssid():	# Check if SSID has changed
+        if int(field) < 0:
+            self.statusBar1.SetStatusText(msg, self.SB_MSG)
+        else:
+            self.statusBar1.SetStatusText(msg, field)
+
+        # Check if SSID has changed
+        if self.statusBar1.GetStatusText(self.SB_SSID) != globs.iface.ssid():
             myprint('SSID has changed: %s / %s' % (self.statusBar1.GetStatusText(self.SB_SSID), globs.iface.ssid()))
             if globs.iface.ssid():
                 self.statusBar1.SetStatusText(globs.iface.ssid(), self.SB_SSID)
-            
+        wx.Yield()
+        
     def _displayBitmap(self, widget, image, type):
         # load the image
         imgPath = os.path.join(globs.imgDir, image)
@@ -3441,17 +3456,19 @@ class OSVM(wx.Frame):
         self.statusBar1.SetToolTip('Status')
         self.statusBar1.SetFont(wx.Font(11, wx.SWISS, wx.ITALIC, wx.NORMAL, False, 'foo'))
 
-        # Configure the status bar with 3 fields
-        [self.SB_NAME, # globs.myName
-         self.SB_MODE, # Operating mode (View/Sync)
-         self.SB_SSID, # Current SSID
-         self.SB_MSG] = [i for i in range(4)] # Free field for msg
+        self.statusBarFieldsCount = 5
+        
+        [self.SB_MODE,		# Operating mode (View/Sync)
+         self.SB_SSID,		# Current SSID
+         self.SB_DIR,		# Current download directory
+         self.SB_COUNTER,	# Various counters
+         self.SB_MSG] = [i for i in range(self.statusBarFieldsCount)] # Free field for msg
 
-        self.statusBarFieldsCount = 4
         self.statusBar1.SetFieldsCount(self.statusBarFieldsCount)
-        self.statusBar1.SetStatusText(globs.myName, self.SB_NAME)
         self.statusBar1.SetStatusText('View Mode' if globs.viewMode else 'Sync Mode', self.SB_MODE)
         self.statusBar1.SetStatusText(globs.iface.ssid(), self.SB_SSID)
+        self.statusBar1.SetStatusText(globs.osvmDownloadDir, self.SB_DIR)
+        self.statusBar1.SetStatusText(' ', self.SB_COUNTER)
 
         self._createThumbnailPanel()
         
@@ -3464,7 +3481,7 @@ class OSVM(wx.Frame):
         else:
             msg = '%d local file(s), %d file(s) available on camera' % (globs.localFilesCnt, globs.availRemoteFilesCnt)
 
-        self.updateStatusBar(msg)
+        self.updateStatusBar(msg=msg)
 
         if globs.system == 'Windows':
             # Get win32api version
@@ -3585,21 +3602,22 @@ class OSVM(wx.Frame):
         event.Skip()
 
     def _initStatusBar1(self):
-        text = 'Processing pending operations...'
+        text = 'Processing pending requests...'
         self.textlen = len(text)
 
         f = self.statusBar1.GetFont()
         dc = wx.WindowDC(self.statusBar1)
         dc.SetFont(f)
 
-        # Compute length of 1st field of the status bar (to contain globs.myName)
-        textWidth,dummy = dc.GetTextExtent(globs.myName)
-        # View Mode or Sync Mode
+        # Compute length of 1st field of the status bar (View Mode or Sync Mode)
         modeWidth,dummy = dc.GetTextExtent('View Mode' if globs.viewMode else 'Sync Mode')
         # Current SSID
         ssidWidth,dummy = dc.GetTextExtent(str(globs.iface.ssid()))
-
-        self.statusBar1.SetStatusWidths([textWidth + 20, modeWidth + 20, ssidWidth + 40, -1])
+        # Current download dir
+        ddirWidth,dummy = dc.GetTextExtent(str(globs.osvmDownloadDir))
+        # Counters
+        counterWidth,dummy = dc.GetTextExtent('00000000')
+        self.statusBar1.SetStatusWidths([modeWidth + 20, ssidWidth + 20, ddirWidth + 10, counterWidth + 10, -1])
         #print ('FieldRect:',(self.statusBar1.GetFieldRect(0)))
         #print ('FieldRect:',(self.statusBar1.GetFieldRect(1)))
 
@@ -3624,7 +3642,7 @@ class OSVM(wx.Frame):
             self.timer.Stop()
 
         msg = 'All scheduled operations finished/Cancelled'
-        self.updateStatusBar(msg)
+        self.updateStatusBar(msg=msg)
 
     def _updateLEDs(self):
         for i in range(int(len(self.colorGrid) / 2)):
@@ -3711,7 +3729,7 @@ class OSVM(wx.Frame):
                 entry[0].SetForegroundColour(globs.fileColors[globs.FILE_OP_PENDING][1])
                 pendingOpsCnt = self.pendingOperationsCount()
                 statusBarMsg = 'File successfully marked. %d file(s) marked' % (pendingOpsCnt)
-                self.updateStatusBar(statusBarMsg)
+                self.updateStatusBar(msg=statusBarMsg)
                 self._enableActionButtons()
                 break
 
@@ -3782,7 +3800,7 @@ class OSVM(wx.Frame):
 
             # Update status message
             msg = 'Casting %s to %s' % (fname,globs.castDevice.name)
-            self.updateStatusBar(msg)
+            self.updateStatusBar(msg=msg)
 
             mediaFileType = { 'jpg':'image/jpg', 'mov':'video/mov', 'mp4':'video/mov' }
             globs.castMediaCtrl.play_media(fileURL, mediaFileType[suffix])
@@ -3813,12 +3831,13 @@ class OSVM(wx.Frame):
         # Use internal viewer
         # Update status message
         msg = 'Launching internal viewer...'
-        self.updateStatusBar(msg)
+        self.updateStatusBar(msg=msg)
 
         myprint('Launching MediaViewerDialog')
         dlg = MediaViewerDialog.MediaViewerDialog(self, filePath)
         ret = dlg.ShowModal()
         dlg.Destroy()
+        self.updateStatusBar(msg=None)
         #myprint('Exit of MediaViewerDialog. ret:%d' % ret)
 
     def OnBtnSwitchMode(self, event):
@@ -3833,7 +3852,7 @@ class OSVM(wx.Frame):
             if globs.autoSwitchToFavoriteNetwork and globs.favoriteNetwork != ('None','None'):
                 if WifiDialog.switchToFavoriteNetwork():
                     msg = 'Switch to favorite network has failed'
-                    self.updateStatusBar(msg)
+                    self.updateStatusBar(msg=msg)
                     print(msg)
                     self.panel1.Refresh()
 
@@ -3852,7 +3871,7 @@ class OSVM(wx.Frame):
             nssid = globs.iface.ssid()
             if ossid != nssid:
                 myprint('SSID has changed: %s/%s' % (ossid,nssid))
-                self.updateStatusBar(None)
+                self.updateStatusBar(msg=None)
             # Simulate a 'Rescan' event
             evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.btnRescan.GetId())
             evt.SetEventObject(self.btnRescan)
@@ -3938,7 +3957,7 @@ class OSVM(wx.Frame):
             cnt = self._syncFiles(fileType)
         pendingOpsCnt = self.pendingOperationsCount()
         msg = '%d requests successfully marked, %d in the queue' % (cnt, pendingOpsCnt)
-        self.updateStatusBar(msg)
+        self.updateStatusBar(msg=msg)
         self.panel1.Refresh()
         return cnt
 
@@ -3957,7 +3976,7 @@ class OSVM(wx.Frame):
             for suffix in globs.FILE_SUFFIXES.keys():
                 cnt += self._selectFiles(suffix)
             msg = '%d requests successfully marked' % (cnt)
-            self.updateStatusBar(msg)
+            self.updateStatusBar(msg=msg)
             self.fromCb.Enable()
             self.toCb.Enable()
         else:
@@ -3997,7 +4016,7 @@ class OSVM(wx.Frame):
                 cnt = self._syncFiles(self.fileType)
 #            pendingOpsCnt = self.pendingOperationsCount()
 #            msg = '%d requests successfully marked, %d in the queue' % (cnt, pendingOpsCnt)
-#            self.updateStatusBar(msg)
+#            self.updateStatusBar(msg=msg)
 #            self.panel1.Refresh()
         else:
             myprint('Must schedule a request for any available file matching interval')
@@ -4009,7 +4028,7 @@ class OSVM(wx.Frame):
                     cnt += self._syncFiles(suffix)
         pendingOpsCnt = self.pendingOperationsCount()
         msg = '%d requests successfully marked, %d in the queue' % (cnt, pendingOpsCnt)
-        self.updateStatusBar(msg)
+        self.updateStatusBar(msg=msg)
         self.panel1.Refresh()
 
         #dumpOperationList("Pending Request List", self.opList)
@@ -4043,7 +4062,7 @@ class OSVM(wx.Frame):
                 cnt = self._syncFiles(self.fileType)
             #pendingOpsCnt = self.pendingOperationsCount()
             #msg = '%d requests successfully marked, %d in the queue' % (cnt, pendingOpsCnt)
-            #self.updateStatusBar(msg)
+            #self.updateStatusBar(msg=msg)
             #self.panel1.Refresh()
         else:
             myprint('Must schedule a request for any available file matching interval')
@@ -4055,7 +4074,7 @@ class OSVM(wx.Frame):
                     cnt += self._syncFiles(suffix)
         pendingOpsCnt = self.pendingOperationsCount()
         msg = '%d requests successfully marked, %d in the queue' % (cnt, pendingOpsCnt)
-        self.updateStatusBar(msg)
+        self.updateStatusBar(msg=msg)
         self.panel1.Refresh()
 
         #dumpOperationList("Pending Request List", self.opList)
@@ -4083,7 +4102,7 @@ class OSVM(wx.Frame):
         cnt = self._syncFiles(self.fileType)
         pendingOpsCnt = self.pendingOperationsCount()
         msg = '%d requests successfully scheduled, %d in the queue' % (cnt, pendingOpsCnt)
-        self.updateStatusBar(msg)
+        self.updateStatusBar(msg=msg)
         self.panel1.Refresh()
 
         if self.fileType == 'ALL':
@@ -4093,7 +4112,7 @@ class OSVM(wx.Frame):
                 cnt += self._syncFiles(suffix)
             pendingOpsCnt = self.pendingOperationsCount()
             msg = '%d requests successfully scheduled, %d in the queue' % (cnt, pendingOpsCnt)
-            self.updateStatusBar(msg)
+            self.updateStatusBar(msg=msg)
             self.panel1.Refresh()
 
         #dumpOperationList("Pending Request List", self.opList)
@@ -4150,7 +4169,7 @@ class OSVM(wx.Frame):
 
             if not globs.castMediaCtrl:
                 msg = 'Starting Local Slideshow'
-                self.updateStatusBar(msg)
+                self.updateStatusBar(msg=msg)
 
                 button.Disable()
                 # If no image is selected, browse thru all the images
@@ -4176,12 +4195,12 @@ class OSVM(wx.Frame):
                     for suffix in globs.FILE_SUFFIXES.keys():
                         cnt += self._unSyncFiles(suffix)
                 myprint('%d selected files have been cleared' % (cnt))
-                self.updateStatusBar('')
+                self.updateStatusBar(msg='')
                 self.Refresh()
                 button.Enable()
             else:
                 msg = 'Starting Slideshow on %s' % (globs.castDevice.name)
-                self.updateStatusBar(msg)
+                self.updateStatusBar(msg=msg)
 
                 if not self.mediaFileList:
                     self.mediaFileList = globs.localFilesSorted
@@ -4193,11 +4212,11 @@ class OSVM(wx.Frame):
         else:
             # Must pause the Slideshow
             msg = 'Pausing the Slideshow'
-            self.updateStatusBar(msg)
+            self.updateStatusBar(msg=msg)
             self.ssThrLock.acquire()	# Block the thread
             print('Slideshow is paused')
             msg = ''
-            self.updateStatusBar(msg)
+            self.updateStatusBar(msg=msg)
             self._displayBitmap(button, 'play.png', wx.BITMAP_TYPE_PNG)
             button.SetName('btnPlay')
             button.SetToolTip('Start the Slideshow')
@@ -4205,12 +4224,12 @@ class OSVM(wx.Frame):
 
     def OnBtnStop(self, event):
         msg = 'Stopping the Slideshow'
-        self.updateStatusBar(msg)
+        self.updateStatusBar(msg=msg)
         if self.ssThrLock.acquire(blocking=False) == False:	# Block the thread if active
             print('Lock is already set, should have blocked, so... Slideshow is paused')
         print('Slideshow is stopped')
         msg = ''
-        self.updateStatusBar(msg)
+        self.updateStatusBar(msg=msg)
         self._displayBitmap(self.btnPlay, 'play.png', wx.BITMAP_TYPE_PNG)
         self.btnPlay.SetName('btnPlay')
         self.btnPlay.SetToolTip('Start the Slideshow')
@@ -4236,6 +4255,7 @@ class OSVM(wx.Frame):
         wx.BeginBusyCursor(cursor=wx.HOURGLASS_CURSOR)
         # Read in new parameters
         self._updateGlobalsFromGUI()
+        self.updateStatusBar(field=self.SB_DIR, msg=globs.osvmDownloadDir)
         # Set file sort choice
         self.fileSortChoice.SetStringSelection(self.sortTypes[0] if globs.fileSortRecentFirst else self.sortTypes[1])
         # Reset File type selector
@@ -4271,7 +4291,7 @@ class OSVM(wx.Frame):
         else:
             self._setOfflineMode()
             if not globs.viewMode:
-                msg += ',No remote file(s) detected'
+                msg += ', No remote file detected'
 
         if globs.viewMode:
             lbl = ' Available Local Files: %d.  Page:' % globs.localFilesCnt
@@ -4355,7 +4375,7 @@ class OSVM(wx.Frame):
             else:
                 msg = 'Max requests reached (%d).' % (globs.MAX_OPERATIONS)
                 print (msg)
-                self.updateStatusBar(msg, fgcolor=wx.WHITE, bgcolor=wx.RED)
+                self.updateStatusBar(msg=msg, fgcolor=wx.WHITE, bgcolor=wx.RED)
                 # Clear all pending requests
                 self.OnBtnCancel(1)
                 return 0
@@ -4420,7 +4440,7 @@ class OSVM(wx.Frame):
                 i += 1
             except:
                 msg = 'Maximum selection (%d) reached' % globs.MAX_OPERATIONS
-                self.updateStatusBar(msg, fgcolor=wx.WHITE, bgcolor=wx.RED)
+                self.updateStatusBar(msg=msg, fgcolor=wx.WHITE, bgcolor=wx.RED)
                 myprint(msg)
                 break
         return i
@@ -4449,7 +4469,7 @@ class OSVM(wx.Frame):
                 op = [x for x in self.opList if not x[globs.OP_STATUS]][0] # First free slot
             except:
                 msg = 'Maximum selection (%d) reached' % globs.MAX_OPERATIONS
-                self.updateStatusBar(msg, fgcolor=wx.WHITE, bgcolor=wx.RED)
+                self.updateStatusBar(msg=msg, fgcolor=wx.WHITE, bgcolor=wx.RED)
                 break
             self._scheduleOperation(op, e)
             i += 1
@@ -4474,7 +4494,7 @@ class OSVM(wx.Frame):
         cnt = 0
         for suffix in globs.FILE_SUFFIXES.keys():
             cnt += self._unSelectFiles(suffix)
-        self.updateStatusBar('')
+        self.updateStatusBar(msg='')
         # Clear action buttons
         self._disableActionButtons()
         self.Refresh()
@@ -4624,7 +4644,7 @@ class OSVM(wx.Frame):
             self.updateStatusBar1()
 
     def updateStatusBar1(self):
-        text = 'Processing pending operations...'
+        text = 'Processing pending requests...'
         textlen = len(text)
 
         #w1,h1 = self.statusBar1.GetSize()
@@ -4651,7 +4671,7 @@ class OSVM(wx.Frame):
             self.display[-1] = text[self.timerCnt % textlen]
 
         self.timerCnt += 1
-        self.updateStatusBar(''.join(self.display))
+        self.updateStatusBar(msg=''.join(self.display))
 
     def _updateConnectionStatus(self):
         if globs.cameraConnected or globs.viewMode:
@@ -4664,6 +4684,9 @@ def parse_argv():
     desc = 'Graphical UI to manage files (pictures, video) on a OLYMPUS camera over WIFI''Provides a Remote File viewer over GoogleCast'
 
     parser = argparse.ArgumentParser(description=desc)
+    parser.add_argument("-c", "--compact",
+                        action="store_true", dest="compactmode", default=False,
+                        help="Use Compact Layout")
     parser.add_argument("-d", "--debug",
                         action="store_true", dest="debug", default=False,
                         help="print debug messages (to stdout)")
@@ -4678,12 +4701,12 @@ def parse_argv():
     parser.add_argument("-i", "--info",
                         action="store_true", dest="version", default=False,
                         help="print version and exit")
-    parser.add_argument("-c", "--compact",
-                        action="store_true", dest="compactmode", default=False,
-                        help="Use Compact Layout")
     parser.add_argument("-n", "--nopanel",
                         action="store_true", dest="nopanel", default=False,
                         help="Skip loading of thumbnail panels (faster startup)")
+    parser.add_argument('-p', '--path',
+                        dest='imagedir',
+                        help="use directory (default to %s)" % (globs.osvmDownloadDir))
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-v", "--view", action="store_true", dest="viewmode", default=False,
                        help="Enter View/Cast Mode")
@@ -4743,6 +4766,10 @@ def main():
     # Get SVN Revision through svn:keywords
 #    rev = "$Revision: 1 $" # DONT TOUCH THIS LINE!!!
 #    globs.myVersion = "%s.%s" % (globs.myVersion, rev[rev.find(' ')+1:rev.rfind(' ')])
+
+    if args.imagedir:
+        myprint('Using Image Directory: %s' % args.imagedir)
+        globs.imagePathCmdLineArg = args.imagedir
 
     if args.version:
         print('%s: Version: %s' % (globs.myName, globs.myVersion))
