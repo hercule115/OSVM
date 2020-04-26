@@ -238,7 +238,7 @@ def getExifData(filename):
     else:
         return exif_data
 
-# Build a dict from data read from file    
+# Build a dict from data read from cahe file
 def buildDictFromFile(filename):
     tags = {}
     with open(filename) as fh:
