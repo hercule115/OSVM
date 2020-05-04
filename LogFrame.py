@@ -14,7 +14,6 @@ from wx.lib.newevent import NewEvent
 
 wxStdOut, EVT_STDOUT = NewEvent()
 wxWorkerDone, EVT_WORKER_DONE = NewEvent()
-wxLogWindowClosing, EVT_LOG_WINDOW_CLOSED = NewEvent()
 
 moduleList = {'osvmGlobals':'globs'}
 
@@ -70,7 +69,7 @@ class LogFrame(wx.Frame):
         self.logTC = wx.TextCtrl(parent=self.panel1, style=wx.TE_MULTILINE|wx.TE_READONLY)
         #self.logTC.SetDefaultStyle(wx.TextAttr(wx.NullColour, wx.LIGHT_GREY))
         #self._setTextCtrlSizeByChars(self.logTC, 80, 20)
-        font1 = wx.Font(12, wx.MODERN, wx.NORMAL, wx.NORMAL, False)#, u'SF Mono') #Consolas')
+        font1 = wx.Font(12, wx.MODERN, wx.NORMAL, wx.NORMAL, False)
         self.logTC.SetFont(font1)
         self.logTC.Bind(EVT_STDOUT, self.OnUpdateLogTC)
 
@@ -122,7 +121,6 @@ class LogFrame(wx.Frame):
     def OnUpdateLogTC(self, event):
         value = event.text
         self.logTC.AppendText(value)
-        #self.logTC.write(value.rstrip('\r\n'))
         event.Skip()
         
     def OnBtnCopy(self, event):
@@ -137,7 +135,6 @@ def rawprint(text):
         
 def LongRunningProcess(lines_of_output):
     #print('0123456789012345678901234567890123456789 123456789012345678901234567890123456789')
-
     for x in range(5):
         rawprint('%d\r' % x)
         time.sleep(0.5)
@@ -189,7 +186,7 @@ class MyFrame(wx.Frame):
 
     def OnLogFrameClose(self, event):
         self.logB.SetLabel('Show Log')
-        print('Log Frame has closed')
+        #print('Log Frame has closed')
         self.logFrame = None
         #event.Skip()
         
