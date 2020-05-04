@@ -4,6 +4,7 @@ import wx.html
 
 import sys
 import os
+import builtins as __builtin__
 import inspect
 
 moduleList = {'osvmGlobals':'globs'}
@@ -77,15 +78,22 @@ def module_path(local_function):
     Requires a function defined locally in the module.
     from http://stackoverflow.com/questions/729583/getting-file-path-of-imported-module'''
     return os.path.abspath(inspect.getsourcefile(local_function))
-        
+
+def myprint(*args, **kwargs):
+    """My custom print() function."""
+    # Adding new arguments to the print function signature 
+    # is probably a bad idea.
+    # Instead consider testing if custom argument keywords
+    # are present in kwargs
+    __builtin__.print('%s():' % inspect.stack()[1][3], *args, **kwargs)
+
 class MyFrame(wx.Frame):
     def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
-        panel = wx.Panel(self)
-        dlg = HelpDialog(self)
-        ret = dlg.ShowModal()
-        dlg.Destroy()
 
+        dlg = HelpDialog(self)
+        dlg.ShowModal()
+        dlg.Destroy()
         self.Destroy()
 
 def main():
@@ -93,7 +101,7 @@ def main():
     globs.modPath	= module_path(main)
     globs.helpPath	= os.path.join(os.path.dirname(globs.modPath), 'help.htm')
     
-    # Create DemoFrame frame, passing globals instance as parameter
+    # Create frame, passing globals instance as parameter
     app = wx.App(False)
     frame = MyFrame(None, -1, title="Test")
     frame.Show()
