@@ -2,10 +2,11 @@ import wx
 import os
 import platform
 from os.path import expanduser
+from wx.lib.newevent import NewEvent
 
 myName     = 'OSVM'
 myLongName = 'Olympus Sync & View Manager'
-myVersion  = '2.6.1'
+myVersion  = '2.6.2'
 
 disabledModules = list()
 pycc = True
@@ -307,6 +308,9 @@ cameraConnected = False
 
 ID_CONNECT_ERROR = 400
 
+wxLogFrameClose, EVT_LOG_FRAME_CLOSE = NewEvent()
+wxOsvmFrameClose, EVT_OSVM_FRAME_CLOSE = NewEvent()
+    
 def printGlobals():
     print('globs.compactMode: %s' % compactMode)
     print('globs.askBeforeCommit: %s' % askBeforeCommit)
