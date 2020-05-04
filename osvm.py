@@ -81,6 +81,7 @@ import datetime
 import ctypes
 import ast
 from PIL import Image, ImageOps  # ExifTags, 
+from wx.lib.newevent import NewEvent
 
 import wx.lib.agw.flatnotebook as fnb
 import builtins as __builtin__
@@ -93,6 +94,7 @@ moduleList = (
     'ExifDialog',
     'HelpDialog', 
     'LedControl', 
+    'LogFrame', 
     'LogoPanel', 
     'MailDialog',
     'MediaViewerDialog', 
@@ -156,6 +158,8 @@ if globs.system == 'Windows':
         root.mainloop()
         sys.exit()
         #raise ImportError,"The win32 modules are not installed."
+
+wxRescanNeeded, EVT_RESCAN_NEEDED = NewEvent()
 
 ########################################
 def myprint(*args, **kwargs):
@@ -970,6 +974,10 @@ def createImagesThumbnail():
             # Modify modification time
             os.utime(thumbnailFilePath, (0, os.path.getmtime(filePath)))
 
+def unbufprint(text):
+    sys.__stdout__.write(text)
+    sys.__stdout__.flush()
+
 ############# CLASSES #########################################################
 class InstallThread(threading.Thread):
     def __init__(self, name, dialog, thrLock, queueLock, workQueue):
@@ -1777,9 +1785,52 @@ class OSVMConfig(wx.Frame):
     def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         self.timerCnt = 0
+        self.parent = parent
+        self.osvmFrame = None
+        self.logFrame = None
+        
+        [self.MENUITEM_PREFERENCES,
+         self.MENUITEM_CLEAN,
+         self.MENUITEM_QUIT,
+         self.MENUITEM_ABOUT,
+         self.MENUITEM_LOG] = [i for i in range(100,105)]
+
+        if globs.logWin:
+            self._openLogFrame()
 
         self._initialize()
 
+    def _openLogFrame(self):
+        # Compute size of the Log Frame.
+        # Size it to provide a TextCtrl with 80x20 chars
+        dc = wx.WindowDC(self)
+        dc.SetFont(self.GetFont())
+        sz = dc.GetTextExtent('X') # Size of 'X'
+        sz = wx.Size(sz.x * 80, sz.y * 20) # Size of dialog
+        # Open the Log Frame
+        self.logFrame = LogFrame.LogFrame(title='Log Output', parent=self, size=sz)
+        # Handle CLOSE event from Log Frame
+        self.Bind(globs.EVT_LOG_FRAME_CLOSE, self.OnLogFrameClose) 
+        self.logFrame.Show()
+        # Redirect stdout
+        sys.stdout = LogFrame.SysOutListener(self)
+
+    def OnLogFrameClose(self, event):
+        myprint('Log Frame has Closed. Clearing Menu Flag (is %s)' % self.menuHelp.IsChecked(self.MENUITEM_LOG))
+        self.menuHelp.Check(self.MENUITEM_LOG, False)
+        
+    def _closeLogFrame(self):
+        if not self.logFrame:
+            return
+        # Send EVT_CLOSE to logFrame
+        wx.PostEvent(self.logFrame, wx.PyCommandEvent(wx.EVT_CLOSE.typeId, self.GetId()))
+        sys.stdout = sys.__stdout__
+        self.logFrame = None
+
+    # Is LogFrame open ?
+    def isLogFrame(self):
+        return self.logFrame != None
+    
     def _initialize(self):
         self.prefs = Preferences()
         self.prefs._loadPreferences()
@@ -1791,6 +1842,7 @@ class OSVMConfig(wx.Frame):
         globs.printGlobals()
 
         self._initGUI()
+        self._init_utils()
 
         self.Center()
         self.panel1.Layout()
@@ -1832,11 +1884,17 @@ class OSVMConfig(wx.Frame):
         parent.Add(self.pltfInfo, 0, border=0, flag=wx.ALIGN_BOTTOM | wx.ALIGN_LEFT)
         parent.AddStretchSpacer(prop=1)
         bottomButtonBoxSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
-        bottomButtonBoxSizer.Add(self.btnExit, 0, border=0, flag=wx.ALIGN_LEFT)
-        bottomButtonBoxSizer.Add(8, 4, proportion=1, border=0, flag=0)
-        bottomButtonBoxSizer.Add(self.btnEnterViewMode, 0, border=0, flag=wx.ALIGN_RIGHT)
+        # bottomButtonBoxSizer.Add(self.btnExit, 0, border=0, flag=wx.ALIGN_LEFT)
+        # bottomButtonBoxSizer.Add(8, 4, proportion=1, border=0, flag=0)
+        # bottomButtonBoxSizer.Add(self.btnEnterViewMode, 0, border=0, flag=wx.ALIGN_RIGHT)
+        # bottomButtonBoxSizer.Add(4, 4, proportion=1, border=0, flag=0)
+        # bottomButtonBoxSizer.Add(self.btnEnterSyncMode, 0, border=0, flag=wx.ALIGN_RIGHT)
+        bottomButtonBoxSizer.Add(self.btnEnterViewMode, 0, border=0)#, flag=wx.ALIGN_RIGHT)
         bottomButtonBoxSizer.Add(4, 4, proportion=1, border=0, flag=0)
-        bottomButtonBoxSizer.Add(self.btnEnterSyncMode, 0, border=0, flag=wx.ALIGN_RIGHT)
+        bottomButtonBoxSizer.Add(self.btnEnterSyncMode, 0, border=0)#, flag=wx.ALIGN_RIGHT)
+        bottomButtonBoxSizer.Add(12, 4, proportion=2, border=0, flag=0)
+        bottomButtonBoxSizer.Add(self.btnExit, 0, border=0)#, flag=wx.ALIGN_LEFT)
+
         parent.Add(bottomButtonBoxSizer, 0, border=0, flag=wx.ALIGN_BOTTOM | wx.ALIGN_RIGHT)
 
     # Create controls & Sizers
@@ -1875,15 +1933,6 @@ class OSVMConfig(wx.Frame):
                                       parent=self.panel1)
         self.pltfInfo.SetFont(wx.Font(7, wx.SWISS, wx.NORMAL, wx.NORMAL, False, 'Ubuntu'))
         
-#        self.btnDebug = wx.Button(id=wx.ID_EXIT, label=u'Debug',
-#                                  name=u'btnDebug', parent=self.panel1, style=0)
-#        self.btnDebug.SetToolTip(u'Use local files for debug')
-#        self.btnDebug.Bind(wx.EVT_BUTTON, self.OnBtnDebug)
-
-        self.btnExit = wx.Button(id=wx.ID_EXIT, label='Quit', parent=self.panel1, style=0)
-        self.btnExit.SetToolTip('No, Thanks. I want to escape')
-        self.btnExit.Bind(wx.EVT_BUTTON, self.OnBtnExit)
-
         self.btnEnterViewMode = wx.Button(id=wx.ID_ANY, 
                                           label='Enter View Mode', 
                                           parent=self.panel1, style=0)
@@ -1900,6 +1949,12 @@ class OSVMConfig(wx.Frame):
         self.btnEnterSyncMode.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnEnterSyncMode(evt))
         # Disable button. Will be enabled once configuration is loaded
         self.btnEnterSyncMode.Disable()
+
+        self.btnExit = wx.Button(id=wx.ID_EXIT, parent=self.panel1, style=0)
+        self.btnExit.SetToolTip('No, Thanks. I want to escape')
+        self.btnExit.Bind(wx.EVT_BUTTON, self.OnBtnExit)
+
+        self.Bind(globs.EVT_OSVM_FRAME_CLOSE, self.OnOsvmFrameClose)
         
         self._displayOSVMBitmap()
 
@@ -1926,6 +1981,142 @@ class OSVMConfig(wx.Frame):
         self.SetClientSize(self.topBoxSizer1.GetSize())
         self.Centre()
 
+    def _init_menuBar_Menus(self, parent):
+        parent.Append(self.menuFile, '&File')
+        parent.Append(self.menuHelp, '&Help')
+
+    def _init_menuFile_Items(self, parent):
+        menuItem0 = wx.MenuItem(parent, self.MENUITEM_PREFERENCES, '&Preferences\tCtrl+P') #wx.ID_PREFERENCES
+        parent.Append(menuItem0)
+        parent.Enable(menuItem0.Id,True)
+
+        menuItem1 = wx.MenuItem(parent, self.MENUITEM_CLEAN, '&Clean Download Directory...')#wx.ID_CLEAR
+        parent.Append(menuItem1)
+        parent.Enable(menuItem1.Id,True)
+
+        menuItem2 = wx.MenuItem(parent, self.MENUITEM_QUIT, '&Quit\tCtrl+Q')
+        parent.Append(menuItem2)
+        parent.Enable(menuItem2.Id,True)
+
+    def _init_menuHelp_Items(self, parent):
+        parent.AppendCheckItem(self.MENUITEM_LOG, item='&Log Window', help='Turn ON/OFF Log Window')
+        parent.Check(self.MENUITEM_LOG, self.isLogFrame()) # Set check mark
+
+        menuItem1 = wx.MenuItem(parent, self.MENUITEM_ABOUT, '&About')
+        parent.Append(menuItem1)
+        parent.Enable(menuItem1.Id,True)
+
+    def _init_utils(self):
+        self.menuBar = wx.MenuBar()
+        self.menuFile = wx.Menu()
+        self.menuHelp = wx.Menu()
+
+        self._init_menuFile_Items(self.menuFile)
+        self._init_menuHelp_Items(self.menuHelp)
+        self._init_menuBar_Menus(self.menuBar)
+
+        self.SetMenuBar(self.menuBar)
+
+        self.menuBar.Enable(self.MENUITEM_PREFERENCES, True)
+        self.menuBar.Enable(self.MENUITEM_CLEAN, True)
+        self.menuBar.Enable(self.MENUITEM_QUIT, True)
+        self.menuBar.Enable(self.MENUITEM_ABOUT, True)
+        self.menuBar.Enable(self.MENUITEM_LOG, True)
+
+        self.Bind(wx.EVT_MENU, lambda event: self._menuHdl(event))
+
+    def _menuHdl(self, event):
+        id = event.GetId() 
+        if id == self.MENUITEM_PREFERENCES:
+            self.OnBtnPreferences(event)
+        elif id == self.MENUITEM_CLEAN:
+            self.OnBtnCleanDownloadDir(event)
+        elif id == self.MENUITEM_QUIT:
+            self.OnBtnQuit(event)
+        elif id == self.MENUITEM_ABOUT:
+            self.OnBtnAbout(event)
+        elif id == self.MENUITEM_LOG:
+            self.OnBtnLog(event)
+
+    def OnBtnPreferences(self, event):
+        dlg = PreferencesDialog.PreferencesDialog(self.prefs)
+        ret = dlg.ShowModal()
+        # Check if a Rescan is required
+        self.needRescan = dlg.isRescanRequired()
+        dlg.Destroy()
+        print(ret,wx.ID_APPLY,self.needRescan)
+        if ret == wx.ID_APPLY and self.needRescan:
+            #evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.btnRescan.GetId())
+            #evt.SetEventObject(self.btnRescan)
+            #wx.PostEvent(self.btnRescan, evt)
+            if self.osvmFrame:
+                # Simulate a 'Rescan' event
+                myprint('Sending EVT_RESCAN_NEEDED Event')
+                evt = wxRescanNeeded()
+                wx.PostEvent(self.osvmFrame, evt)
+
+    def OnBtnCleanDownloadDir(self, event):
+        downloadDir = globs.osvmDownloadDir
+        dlg = CleanDownloadDirDialog.CleanDownloadDirDialog(self, download=downloadDir)
+        dlg.ShowModal()
+        dlg.Destroy()
+        event.Skip()
+
+    def _cleanAndQuit(self):
+        if globs.savePreferencesOnExit:
+            self.prefs._savePreferences()
+        if self.logFrame:
+            self._closeLogFrame()
+        if globs.httpServer:
+            globs.httpServer.kill()
+        self.Destroy()    # Bye Bye
+
+    def OnBtnQuit(self, event):
+        if globs.askBeforeExit:
+            dlg = wx.MessageDialog(None, 'Do you really want to quit?', 'Question',
+                                   wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
+            ret = dlg.ShowModal()
+            if ret == wx.ID_YES:
+                self._cleanAndQuit()
+        else:
+            self._cleanAndQuit()
+
+    def OnBtnAbout(self, event):
+        description = """Olympus Sync & View Manager (aka OSVM) is a powerful tool
+..... to manage files between a Olympus camera and your laptop....
+"""
+        license = """OSVM License Info HERE"""
+        info = wx.adv.AboutDialogInfo()
+
+        imgPath = os.path.join(globs.imgDir, 'butterfly-48x48x32.png')
+        info.SetIcon(wx.Icon(imgPath, wx.BITMAP_TYPE_PNG))
+        info.SetName(globs.myLongName)
+        info.SetVersion('%s' % globs.myVersion)
+        info.SetDescription(description)
+        info.SetCopyright('(C) 2018 Didier Poirot')
+        info.SetWebSite('https://github.com/hercule115/OSVM')
+        info.SetLicense(license)
+        info.AddDeveloper('Didier Poirot')
+        info.AddDocWriter('Didier Poirot')
+        #info.AddArtist('Didier Poirot')
+        #info.AddTranslator('Didier Poirot')
+
+        wx.adv.AboutBox(info)
+
+    def OnBtnLog(self, event):
+        if not self.logFrame:		# Open Log Window
+            self._openLogFrame()
+        else:
+            self._closeLogFrame()	# Close Log Window
+        event.Skip()
+
+    # Called when a EVT_CLOSE is received from the Log Frame
+    def OnLogFrameClosed(self, event):
+        self.menuHelp.Check(self.MENUITEM_LOG, False) # Clear check mark
+        sys.stdout = sys.__stdout__
+        self.logFrame = None
+        event.Skip()
+
     def restartTimer(self):
         self.timer.Stop()
         self.timer.Start(globs.TIMER2_FREQ)
@@ -1951,16 +2142,15 @@ class OSVMConfig(wx.Frame):
 
         self.setBusyCursor(True)
         myprint('Launching OSVM')
-        frame = OSVM(self, -1, globs.myLongName)
+        self.osvmFrame = OSVM(parent=self, id=-1, title=globs.myLongName)
         self.setBusyCursor(False)
         self.panel1.Enable(False)
-        frame.Show()
+        self.osvmFrame.Show()
         self.panel1.Enable(True)
         for b in [self.btnEnterViewMode, self.btnEnterSyncMode]:
             b.Disable()
         myprint('Timer status:',self.timer.IsRunning())
         
-
     def OnBtnEnterSyncMode(self, event):
         globs.viewMode = False
 
@@ -1985,18 +2175,24 @@ class OSVMConfig(wx.Frame):
                 globs.availRemoteFilesCnt = 0
 
         self.setBusyCursor(True)
-        frame = OSVM(self, -1, globs.myLongName)
+        self.osvmFrame = OSVM(parent=self, id=-1, title=globs.myLongName)
         self.setBusyCursor(False)
         self.panel1.Enable(False)
-#        frame.ShowModal()
-        frame.Show()
+        self.osvmFrame.Show()
         self.panel1.Enable(True)
         for b in [self.btnEnterViewMode, self.btnEnterSyncMode]:
             b.Disable()
         myprint('Stopping timer')
         self.timer.Stop()
-#        self.Destroy()
 
+    def OnOsvmFrameClose(self, event):
+        myprint('OSVM Frame has closed. Exiting')
+        # Simulate a 'Exit' button event
+        evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.btnExit.GetId())
+        wx.PostEvent(self.btnExit, evt)
+        event.Skip()
+    
+    # Bye Bye
     def OnBtnExit(self, event):
         self.Destroy()
 
@@ -2538,7 +2734,7 @@ class InstallDialog(wx.Dialog):
         op[globs.OP_INLEDCOL] = globs.LED_GREEN
         self._updateLeds(op)
         if step == 2:
-            #  Clear Remaining time widget
+            #  Clear emaining time widget
             self.subPanel[globs.INST_REMCNT].SetLabel('00:00:00')
 
 ####
@@ -2554,11 +2750,6 @@ class OSVM(wx.Frame):
 
         self.installDlg = None
         self.fileType = None
-
-        self.MENUITEM_PREFERENCES = 100
-        self.MENUITEM_CLEAN = 101
-        self.MENUITEM_QUIT = 102
-        self.MENUITEM_ABOUT = 103
 
         # Slideshow thread
         self.ssThrLock = threading.Lock()
@@ -2625,7 +2816,7 @@ class OSVM(wx.Frame):
         sizer = wx.GridSizer(rows=globs.thumbnailGridRows, cols=globs.thumbnailGridColumns, vgap=5, hgap=5)
 
         lastIdx = min(idx + (globs.thumbnailGridRows * globs.thumbnailGridColumns), len(listOfThumbnail))
-        print('%s [%d : %d]\r' % (tab.GetName(), idx, lastIdx), end='', flush=True)
+        unbufprint('%s [%d : %d]\r' % (tab.GetName(), idx, lastIdx)) #, end='', flush=True)
         self.updateStatusBar(field=self.SB_COUNTER, msg='%d' % (lastIdx))
 
         for f in listOfThumbnail[idx:lastIdx]:
@@ -2883,7 +3074,7 @@ class OSVM(wx.Frame):
 
     winDisabler = None
 
-    # Set mode to Enable/Disable. Prevent user using not uptodate information
+    # Set mode to Enable/Disable. Prevent user using out-dated information
     def _setMode(self, mode, reason):
         myprint('Setting mode %s' % mode)
         #print traceback.print_stack()
@@ -2893,9 +3084,9 @@ class OSVM(wx.Frame):
         # self.panel1.SetFocusIgnoringChildren()
 
         # Menu items to disable when mode == globs.MODE_DISABLED
-        menuItems = [('File', 'Preferences'),
-                     ('File', 'Clean Download Directory...'),
-                     ('File', 'Quit')]
+        # menuItems = [('File', 'Preferences'),
+        #              ('File', 'Clean Download Directory...'),
+        #              ('File', 'Quit')]
 
         if mode == globs.MODE_ENABLED:
             self.updateStatusBar(msg=reason)
@@ -2906,9 +3097,9 @@ class OSVM(wx.Frame):
             #del self.winDisabler
 
             # Allow user action
-            for item in menuItems:
-                id = self.menuBar.FindMenuItem(item[0],item[1])
-                self.menuBar.Enable(id, True)
+            # for item in menuItems:
+            #     id = self.menuBar.FindMenuItem(item[0],item[1])
+            #     self.menuBar.Enable(id, True)
 
             # Disable some menu items if no camera
             if not globs.cameraConnected:
@@ -2923,9 +3114,9 @@ class OSVM(wx.Frame):
         else:
             self.updateStatusBar(msg=reason, fgcolor=wx.WHITE, bgcolor=wx.RED)
 
-            for item in menuItems:
-                id = self.menuBar.FindMenuItem(item[0],item[1])
-                self.menuBar.Enable(id, False)
+            # for item in menuItems:
+            #     id = self.menuBar.FindMenuItem(item[0],item[1])
+            #     self.menuBar.Enable(id, False)
 
             # Disable all buttons
             self.noteBook.Disable()
@@ -3178,7 +3369,7 @@ class OSVM(wx.Frame):
     def _init_bottomBoxSizer1_Items(self, parent):
         parent.Add(self.btnHelp, 0, border=0, flag=0)
         parent.Add(8, 4, border=0, flag=0)
-        parent.Add(self.btnQuit, 0, border=0, flag=0)
+        parent.Add(self.btnClose, 0, border=0, flag=0)
 
     def _init_bottomBoxSizer2_Items(self, parent):
         parent.Add(self.pltfInfo, 0, border=0, flag=wx.ALL | wx.ALIGN_LEFT)
@@ -3197,55 +3388,6 @@ class OSVM(wx.Frame):
         parent.Add(0, 4, border=0, flag=0)
         parent.Add(self.bottomBoxSizer2, 0, border=5, flag=wx.ALL | wx.EXPAND)
 
-    def _init_menuBar_Menus(self, parent):
-        parent.Append(self.menuFile, '&File')
-        parent.Append(self.menuHelp, '&Help')
-
-    def _init_menuFile_Items(self, parent):
-        menuItem0 = wx.MenuItem(parent, self.MENUITEM_PREFERENCES, '&Preferences\tCtrl+P') #wx.ID_PREFERENCES
-        parent.Append(menuItem0)
-        parent.Enable(menuItem0.Id,True)
-
-        menuItem1 = wx.MenuItem(parent, self.MENUITEM_CLEAN, '&Clean Download Directory...')#wx.ID_CLEAR
-        parent.Append(menuItem1)
-        parent.Enable(menuItem1.Id,True)
-
-        menuItem2 = wx.MenuItem(parent, self.MENUITEM_QUIT, '&Quit\tCtrl+Q')#wx.ID_EXIT
-        parent.Append(menuItem2)
-        parent.Enable(menuItem2.Id,True)
-
-    def _init_menuHelp_Items(self, parent):
-        menuItem = wx.MenuItem(parent, self.MENUITEM_ABOUT, '&About')#wx.ID_ABOUT
-        parent.Append(menuItem)
-        parent.Enable(menuItem.Id,True)
-
-    def _init_utils(self):
-        self.menuBar = wx.MenuBar()
-        self.menuFile = wx.Menu()
-        self.menuHelp = wx.Menu()
-
-        self._init_menuFile_Items(self.menuFile)
-        self._init_menuHelp_Items(self.menuHelp)
-        self._init_menuBar_Menus(self.menuBar)
-
-        self.SetMenuBar(self.menuBar)
-
-        self.menuBar.Enable(100, True)
-        self.menuBar.Enable(101, True)
-        self.menuBar.Enable(102, True)
-        self.menuBar.Enable(103, True)
-        self.Bind(wx.EVT_MENU, lambda event: self._menuHdl(event))
-
-    def _menuHdl(self, event):
-        id = event.GetId() 
-        if id == self.MENUITEM_PREFERENCES:
-            self.OnBtnPreferences(event)
-        elif id == self.MENUITEM_CLEAN:
-            self.OnBtnCleanDownloadDir(event)
-        elif id == self.MENUITEM_QUIT:
-            self.OnBtnQuit(event)
-        elif id == self.MENUITEM_ABOUT:
-            self.OnBtnAbout(event)
 
     def _init_sizers(self):
         # Top Level BoxSizer
@@ -3322,8 +3464,6 @@ class OSVM(wx.Frame):
         # Load Preferences
         self.prefs = Preferences()
         self.prefs._loadPreferences()
-
-        self._init_utils()
 
         self.SetClientSize(wx.Size(1200, 680))
         self.Center()
@@ -3408,6 +3548,8 @@ class OSVM(wx.Frame):
                                    name='btnRescan', parent=self.panel1, style=0)
         self.btnRescan.SetToolTip('Rescan configuration')
         self.btnRescan.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnRescan(evt))
+        # Event received from our parent (OSVMConfig) asking for a rescan
+        self.Bind(EVT_RESCAN_NEEDED, self.OnBtnRescan)
 
         # Create the LEDS and Static Texts to show colors meaning
         for i in range(len(globs.FILE_COLORS_STATUS)):
@@ -3509,10 +3651,10 @@ class OSVM(wx.Frame):
         self.btnHelp = wx.Button(id=wx.ID_HELP, label='Help', parent=self.panel1, style=0)
         self.btnHelp.Bind(wx.EVT_BUTTON, lambda evt: self.OnBtnHelp(evt))
 
-        self.btnQuit = wx.Button(id=wx.ID_EXIT, label='Quit', parent=self.panel1, style=0)
-        self.btnQuit.SetToolTip('Quit Application')
-        self.btnQuit.Bind(wx.EVT_BUTTON, self.OnBtnQuit)
-
+        self.btnClose = wx.Button(id=wx.ID_CLOSE, parent=self.panel1, style=0)
+        self.btnClose.SetToolTip('Quit Application')
+        self.btnClose.Bind(wx.EVT_BUTTON, self.OnBtnClose)
+        
         if not globs.compactMode:
             self.staticBitmap1 = wx.StaticBitmap(bitmap=wx.NullBitmap, id=wx.ID_ANY, parent=self.panel1, style=0)
             self._displayBitmap(self.staticBitmap1, "OSVM5.png", wx.BITMAP_TYPE_PNG)
@@ -3521,6 +3663,9 @@ class OSVM(wx.Frame):
                                              id=wx.ID_ANY, parent=self.panel1, style=0)
         self.staticBitmap2.SetToolTip('Network Status:\nRED: No Network\nGREEN:Camera OK')
 
+        # Detect CLOSE event from Log Window (if any)
+        #self.Bind(LogFrame.EVT_LOG_WINDOW_CLOSED, self.OnLogFrameClosed)
+        
         # Update connection status indicator
         self._updateConnectionStatus()
 
@@ -3585,11 +3730,12 @@ class OSVM(wx.Frame):
 
     def _setOfflineMode(self):
         # Disable some menus
-        disableMenuItems = []
-        for item in disableMenuItems:
-            id = self.menuBar.FindMenuItem(item[0],item[1])
-            self.menuBar.Enable(id, False)
-
+        # disableMenuItems = []
+        # for item in disableMenuItems:
+        #     id = self.menuBar.FindMenuItem(item[0],item[1])
+        #     self.menuBar.Enable(id, False)
+        pass
+    
     def _setFocus(self, event):
         print ("focus given to panel")
         self.panel1.SetFocusIgnoringChildren()
@@ -3884,72 +4030,14 @@ class OSVM(wx.Frame):
         dlg.Destroy()
         event.Skip()
 
-    def OnBtnPreferences(self, event):
-        dlg = PreferencesDialog.PreferencesDialog(self.prefs)
-        ret = dlg.ShowModal()
-        # Check if a Rescan is required
-        self.needRescan = dlg.isRescanRequired()
-        dlg.Destroy()
-        if ret == wx.ID_APPLY and self.needRescan:
-            # Simulate a 'Rescan' event
-            evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.btnRescan.GetId())
-            evt.SetEventObject(self.btnRescan)
-            wx.PostEvent(self.btnRescan, evt)
-
-    def OnBtnCleanDownloadDir(self, event):
-        downloadDir = globs.osvmDownloadDir
-        dlg = CleanDownloadDirDialog.CleanDownloadDirDialog(self, download=downloadDir)
-        dlg.ShowModal()
-        dlg.Destroy()
+    def OnBtnClose(self, event):        
+        self.Close()
+        myprint('Closing OSVM Frame')
+        # Notify our parent
+        evt = globs.wxOsvmFrameClose()
+        wx.PostEvent(self.parent, evt)
         event.Skip()
-
-    def OnBtnQuit(self, event):
-        if globs.askBeforeExit:
-            dlg = wx.MessageDialog(None, 'Do you really want to quit?', 'Question',
-                                   wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
-            ret = dlg.ShowModal()
-            if ret == wx.ID_YES:
-                if globs.savePreferencesOnExit:
-                    self.prefs._savePreferences()
-                if globs.httpServer:
-                    globs.httpServer.kill()
-                self.Destroy()    # Bye Bye
-        else:
-            if globs.savePreferencesOnExit:
-                self.prefs._savePreferences()
-            self.parent.Destroy()
-#        self._MakeModal(False) # Re-enables parent window
-#        if self.eventLoop:
-#            self.eventLoop.Exit()
-#        self.Destroy()    # Bye Bye
-
-
-    def OnClose(self, event):
-        event.Skip()
-        self.Destroy()
-
-    def OnBtnAbout(self, event):
-        description = """Olympus Sync & View Manager (aka OSVM) is a powerful tool
-..... to manage files between a Olympus camera and your laptop....
-"""
-        license = """OSVM License Info HERE"""
-        info = wx.adv.AboutDialogInfo()
-
-        imgPath = os.path.join(globs.imgDir, 'butterfly-48x48x32.png')
-        info.SetIcon(wx.Icon(imgPath, wx.BITMAP_TYPE_PNG))
-        info.SetName(globs.myLongName)
-        info.SetVersion('%s' % globs.myVersion)
-        info.SetDescription(description)
-        info.SetCopyright('(C) 2018 Didier Poirot')
-        info.SetWebSite('https://github.com/hercule115/OSVM')
-        info.SetLicense(license)
-        info.AddDeveloper('Didier Poirot')
-        info.AddDocWriter('Didier Poirot')
-        #info.AddArtist('Didier Poirot')
-        #info.AddTranslator('Didier Poirot')
-
-        wx.adv.AboutBox(info)
-
+        
     def _selectFiles(self, fileType):
         if globs.viewMode:
             cnt = self._selectFilesByDate(fileType)
@@ -4237,6 +4325,8 @@ class OSVM(wx.Frame):
         event.Skip()
 
     def OnBtnRescan(self, event):
+        myprint('Rescanning')
+        
         found = False
         # Is there any pending operation? Warn user if needed
         try:
@@ -4701,6 +4791,9 @@ def parse_argv():
     parser.add_argument("-i", "--info",
                         action="store_true", dest="version", default=False,
                         help="print version and exit")
+    parser.add_argument("-l", "--logwin",
+                        action="store_true", dest="logwin", default=False,
+                        help="Open Log Window at startup")
     parser.add_argument("-n", "--nopanel",
                         action="store_true", dest="nopanel", default=False,
                         help="Skip loading of thumbnail panels (faster startup)")
@@ -4791,6 +4884,8 @@ def main():
         myprint('Using Compact Mode')
         globs.compactMode = True
 
+    globs.logWin = args.logwin
+        
     if args.nopanel:
         myprint('Skipping Panel load (faster startup)')
         globs.noPanel = True
