@@ -6,7 +6,7 @@ from wx.lib.newevent import NewEvent
 
 myName     = 'OSVM'
 myLongName = 'Olympus Sync & View Manager'
-myVersion  = '2.6.2'
+myVersion  = '2.6.3'
 
 disabledModules = list()
 pycc = True
@@ -46,6 +46,7 @@ osvmDir         = '.osvm'		# In home directory
 initFile        = 'osvm.ini'		# In osvmDir
 initFileBk      = 'osvm.ini.bk'		# In osvmDir
 logFile         = 'osvm-log.txt'	# In osvmDir
+logConsoleFile  = 'osvm-console.txt'	# In osvmDir
 exifFile        = '.exif-cache.txt'	# In osvmDownloadDir
 iniFileVersion  = '1'
 
