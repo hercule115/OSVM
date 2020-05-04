@@ -3,6 +3,7 @@ import wx
 
 import sys
 import os
+from os.path import expanduser
 import builtins as __builtin__
 import inspect
 import time
@@ -114,7 +115,8 @@ class LogFrame(wx.Frame):
         self.Destroy()
 
     def OnBtnSave(self, event):
-        self.logTC.SaveFile(filename='osvm.log')        
+        fp = os.path.join(os.path.join(expanduser("~"), globs.osvmDir, globs.logConsoleFile))
+        self.logTC.SaveFile(filename=fp)
         event.Skip()
         
     def OnUpdateLogTC(self, event):
@@ -282,6 +284,5 @@ class MyApp(wx.App):
 if __name__ == '__main__':
     # Init Globals instance
     globs.system = platform.system()		# Linux or Windows or MacOS (Darwin)
-
     app = MyApp(0)
     app.MainLoop()
