@@ -1270,6 +1270,7 @@ class Preferences():
         self.config['Preferences'][globs.THUMB_SCALE_FACTOR]     = str(globs.DEFAULT_THUMB_SCALE_FACTOR)
         self.config['Preferences'][globs.OSVM_DOWNLOAD_DIR]      = globs.DEFAULT_OSVM_DOWNLOAD_DIR
         self.config['Preferences'][globs.SORT_ORDER]             = str(globs.DEFAULT_SORT_ORDER)
+        self.config['Preferences'][globs.LOG_FRAME ]             = str(globs.DEFAULT_LOG_FRAME)
 
         self.config['Sync Mode Preferences'] = {}
         self.config['Sync Mode Preferences'][globs.REM_BASE_DIR] = globs.DEFAULT_OSVM_REM_BASE_DIR
@@ -1332,6 +1333,8 @@ class Preferences():
             else:
                 globs.osvmDownloadDir   = sectionPreferences[globs.OSVM_DOWNLOAD_DIR]
             globs.fileSortRecentFirst   = str2bool(sectionPreferences[globs.SORT_ORDER])
+            globs.logFrame              = str2bool(sectionPreferences[globs.LOG_FRAME])
+            
             sectionSyncModePref         = self.config['Sync Mode Preferences']
             globs.remBaseDir		= sectionSyncModePref[globs.REM_BASE_DIR]
             globs.osvmFilesDownloadUrl  = sectionSyncModePref[globs.OSVM_FILES_DOWNLOAD_URL]
@@ -1391,6 +1394,7 @@ class Preferences():
             globs.thumbnailScaleFactor  = float(sectionPreferences[globs.THUMB_SCALE_FACTOR])
             globs.osvmDownloadDir       = sectionPreferences[globs.OSVM_DOWNLOAD_DIR]
             globs.fileSortRecentFirst   = str2bool(sectionPreferences[globs.SORT_ORDER])
+            globs.logFrame              = str2bool(sectionPreferences[globs.LOG_FRAME])            
 
             sectionSyncModePref         = self.config['Sync Mode Preferences']
             globs.remBaseDir		= sectionSyncModePref[globs.REM_BASE_DIR]
@@ -1440,6 +1444,7 @@ class Preferences():
         self.config['Preferences'][globs.THUMB_SCALE_FACTOR]     = str(globs.thumbnailScaleFactor)
         self.config['Preferences'][globs.OSVM_DOWNLOAD_DIR]      = globs.osvmDownloadDir
         self.config['Preferences'][globs.SORT_ORDER]             = str(globs.fileSortRecentFirst)
+        self.config['Preferences'][globs.LOG_FRAME]              = str(globs.logFrame)
 
         self.config['Sync Mode Preferences'][globs.REM_BASE_DIR]            = globs.remBaseDir
         self.config['Sync Mode Preferences'][globs.OSVM_FILES_DOWNLOAD_URL] = globs.osvmFilesDownloadUrl
@@ -1779,7 +1784,6 @@ class OSVMConfigThread(threading.Thread):
 
         print("%s Exiting." % (self._name))
 
-
 ####
 class OSVMConfig(wx.Frame):
     def __init__(self, parent, id, title):
@@ -1795,42 +1799,8 @@ class OSVMConfig(wx.Frame):
          self.MENUITEM_ABOUT,
          self.MENUITEM_LOG] = [i for i in range(100,105)]
 
-        if globs.logWin:
-            self._openLogFrame()
-
         self._initialize()
 
-    def _openLogFrame(self):
-        # Compute size of the Log Frame.
-        # Size it to provide a TextCtrl with 80x20 chars
-        dc = wx.WindowDC(self)
-        dc.SetFont(self.GetFont())
-        sz = dc.GetTextExtent('X') # Size of 'X'
-        sz = wx.Size(sz.x * 80, sz.y * 20) # Size of dialog
-        # Open the Log Frame
-        self.logFrame = LogFrame.LogFrame(title='Log Output', parent=self, size=sz)
-        # Handle CLOSE event from Log Frame
-        self.Bind(globs.EVT_LOG_FRAME_CLOSE, self.OnLogFrameClose) 
-        self.logFrame.Show()
-        # Redirect stdout
-        sys.stdout = LogFrame.SysOutListener(self)
-
-    def OnLogFrameClose(self, event):
-        myprint('Log Frame has Closed. Clearing Menu Flag (is %s)' % self.menuHelp.IsChecked(self.MENUITEM_LOG))
-        self.menuHelp.Check(self.MENUITEM_LOG, False)
-        
-    def _closeLogFrame(self):
-        if not self.logFrame:
-            return
-        # Send EVT_CLOSE to logFrame
-        wx.PostEvent(self.logFrame, wx.PyCommandEvent(wx.EVT_CLOSE.typeId, self.GetId()))
-        sys.stdout = sys.__stdout__
-        self.logFrame = None
-
-    # Is LogFrame open ?
-    def isLogFrame(self):
-        return self.logFrame != None
-    
     def _initialize(self):
         self.prefs = Preferences()
         self.prefs._loadPreferences()
@@ -1838,6 +1808,9 @@ class OSVMConfig(wx.Frame):
 #        dlg = PreferencesDialog(self.prefs)
 #        ret = dlg.ShowModal()
 #        dlg.Destroy()
+
+        if globs.logFrame or globs.logWin:
+            self._openLogFrame()
 
         globs.printGlobals()
 
@@ -2044,11 +2017,7 @@ class OSVMConfig(wx.Frame):
         # Check if a Rescan is required
         self.needRescan = dlg.isRescanRequired()
         dlg.Destroy()
-        print(ret,wx.ID_APPLY,self.needRescan)
         if ret == wx.ID_APPLY and self.needRescan:
-            #evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.btnRescan.GetId())
-            #evt.SetEventObject(self.btnRescan)
-            #wx.PostEvent(self.btnRescan, evt)
             if self.osvmFrame:
                 # Simulate a 'Rescan' event
                 myprint('Sending EVT_RESCAN_NEEDED Event')
@@ -2228,6 +2197,37 @@ class OSVMConfig(wx.Frame):
         else:
             wx.EndBusyCursor()
 
+    def _openLogFrame(self):
+        # Compute size of the Log Frame.
+        # Size it to provide a TextCtrl with 80x20 chars
+        dc = wx.WindowDC(self)
+        dc.SetFont(self.GetFont())
+        sz = dc.GetTextExtent('X') # Size of 'X'
+        sz = wx.Size(sz.x * 80, sz.y * 20) # Size of dialog
+        # Open the Log Frame
+        self.logFrame = LogFrame.LogFrame(title='Log Output', parent=self, size=sz)
+        # Handle CLOSE event from Log Frame
+        self.Bind(globs.EVT_LOG_FRAME_CLOSE, self.OnLogFrameClose) 
+        self.logFrame.Show()
+        # Redirect stdout
+        sys.stdout = LogFrame.SysOutListener(self)
+
+    def OnLogFrameClose(self, event):
+        myprint('Log Frame has Closed. Clearing Menu Flag (is %s)' % self.menuHelp.IsChecked(self.MENUITEM_LOG))
+        self.menuHelp.Check(self.MENUITEM_LOG, False)
+        
+    def _closeLogFrame(self):
+        if not self.logFrame:
+            return
+        # Send EVT_CLOSE to logFrame
+        wx.PostEvent(self.logFrame, wx.PyCommandEvent(wx.EVT_CLOSE.typeId, self.GetId()))
+        sys.stdout = sys.__stdout__
+        self.logFrame = None
+
+    # Is LogFrame open ?
+    def isLogFrame(self):
+        return self.logFrame != None
+    
 ####
 class InstallDialog(wx.Dialog):
     def __init__(self, parent, download, oplist, title):
@@ -4325,8 +4325,6 @@ class OSVM(wx.Frame):
         event.Skip()
 
     def OnBtnRescan(self, event):
-        myprint('Rescanning')
-        
         found = False
         # Is there any pending operation? Warn user if needed
         try:
@@ -4335,8 +4333,7 @@ class OSVM(wx.Frame):
             pass
         else:
             msg = 'All pending request(s) will be lost'
-            dlg = wx.MessageDialog(None, msg , 'Warning',
-                                   wx.OK | wx.ICON_EXCLAMATION)
+            dlg = wx.MessageDialog(None, msg , 'WARNING', wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
         # Update status bar
         msg = 'Rescanning configuration. Please wait...'
