@@ -116,6 +116,9 @@ class LogFrame(wx.Frame):
     def OnBtnSave(self, event):
         fp = os.path.join(os.path.join(expanduser("~"), globs.osvmDir, globs.logConsoleFile))
         self.logTC.SaveFile(filename=fp)
+        msg = 'Output Log saved to %s' % fp
+        dlg = wx.MessageDialog(None, msg, '', wx.OK)
+        dlg.ShowModal()
         event.Skip()
         
     def OnUpdateLogTC(self, event):
