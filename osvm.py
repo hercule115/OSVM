@@ -50,6 +50,8 @@ except ImportError:
         ("%s has been developped and tested with python 3.6 and wxPython 4.0.1 (Cocoa)\n" % (globs.myName))
         exit()
 
+import wx.lib.inspection
+
 import argparse
 import os
 import inspect
@@ -1612,7 +1614,7 @@ class FileOperationMenu(wx.Menu):
         suffix = fileName.split('.')[1]	# File suffix
 
         # Get key in globs.FILE_SUFFIXES containing the suffix
-        fileType = [key  for (key, value) in globs.FILE_SUFFIXES.items() if suffix in value]
+        fileType = [key for (key, value) in globs.FILE_SUFFIXES.items() if suffix in value]
         if not fileType: # Key not found
             myprint('File type %s not supported' % suffix)
             return
@@ -2811,13 +2813,25 @@ class OSVM(wx.Frame):
         nlbl = '%s: %d.  Page: %d/%d' % (prefix, fileCnt, self.noteBook.GetSelection()+1,self._pageCount)
         self.staticBox3.SetLabel(nlbl)
 
+    def OnKeyPress(self, event):
+        #obj = event.GetEventObject()
+        keycode = event.GetKeyCode()
+        pos = event.GetPosition()
+        print(keycode,pos)
+        for i in range(3):
+            print(self.thumbButtons[i][0].GetScreenRect())
+        #event.Skip()
+        
     def _createThumbnailTab(self, parent, listOfThumbnail, idx):
         tab = wx.Panel(id=wx.ID_ANY, name='tab%d'%idx, parent=parent)
+
+#        tab.Bind(wx.EVT_KEY_DOWN, self.OnKeyPress)
+        
         sizer = wx.GridSizer(rows=globs.thumbnailGridRows, cols=globs.thumbnailGridColumns, vgap=5, hgap=5)
 
         lastIdx = min(idx + (globs.thumbnailGridRows * globs.thumbnailGridColumns), len(listOfThumbnail))
         unbufprint('%s [%d : %d]\r' % (tab.GetName(), idx, lastIdx)) #, end='', flush=True)
-        self.updateStatusBar(field=self.SB_COUNTER, msg='%d' % (lastIdx))
+        self.updateStatusBar(field=self.SB_COUNTER, msg='%d files' % (lastIdx))
 
         for f in listOfThumbnail[idx:lastIdx]:
             remFileName = f[1][globs.F_NAME]
@@ -2837,7 +2851,8 @@ class OSVM(wx.Frame):
                     button.Bind(wx.EVT_BUTTON, lambda evt: self.OnThumbButton(evt))
 #            button.Bind(wx.EVT_RIGHT_DOWN, self.OnThumbButtonRightDown)
             button.Bind(wx.EVT_RIGHT_DOWN, lambda evt: self.OnThumbButtonRightDown(evt))
-
+            button.Bind(wx.EVT_KEY_DOWN, self.OnThumbKeyDown)
+        
             remFileSizeString = humanBytes(remFileSize)
 
             # Display thumbnail (with scaling)
@@ -3189,7 +3204,8 @@ class OSVM(wx.Frame):
             myprint('SSID has changed: %s / %s' % (self.statusBar1.GetStatusText(self.SB_SSID), globs.iface.ssid()))
             if globs.iface.ssid():
                 self.statusBar1.SetStatusText(globs.iface.ssid(), self.SB_SSID)
-        wx.Yield()
+        # DP DP DP: Allow GUI to refresh the status bar. warning: Slow down !!!!
+        #wx.Yield()
         
     def _displayBitmap(self, widget, image, type):
         # load the image
@@ -3472,7 +3488,7 @@ class OSVM(wx.Frame):
                                size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
 #        self.panel1.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
 
-        self.panel1.Bind(wx.EVT_KEY_DOWN, self._onKeyPress)
+#        self.panel1.Bind(wx.EVT_KEY_DOWN, self._onKeyPress)
         self.panel1.SetFocusIgnoringChildren()
         self.panel1.Bind(wx.EVT_LEFT_UP, self._setFocus)
 
@@ -3745,7 +3761,12 @@ class OSVM(wx.Frame):
         keycode   = event.GetKeyCode()
         cmddown   = event.CmdDown()
         modifiers = event.GetModifiers()
-        event.Skip()
+        pos       = event.GetPosition()
+        panel_pos = self.panel1.ScreenToClient(wx.GetMousePosition())
+        print('***',keycode,wx.GetMousePosition()) #self.noteBook.GetScreenRect(),pos,panel_pos,
+        for i in range(3):
+            print(self.thumbButtons[i][0].GetScreenRect())
+        #event.Skip()
 
     def _initStatusBar1(self):
         text = 'Processing pending requests...'
@@ -3881,6 +3902,20 @@ class OSVM(wx.Frame):
 
         self.panel1.Refresh()
 
+    def OnThumbKeyDown(self, event):
+        button = event.GetEventObject()
+        try:
+            e = [x for x in self.thumbButtons if x[0] == button]
+        except:
+            myprint('Button not found')
+            event.Skip()
+            return
+        else:
+            entry = e[0] # Use first element
+        keycode = event.GetKeyCode()
+        myprint('keycode=%d' % keycode)
+        event.Skip()
+            
     def _OnFlatNoteBookPageChanged(self, event):
         self._updateStaticBox3Label('_OnFlatNoteBookPageChanged')
         event.Skip()
@@ -3980,7 +4015,13 @@ class OSVM(wx.Frame):
         self.updateStatusBar(msg=msg)
 
         myprint('Launching MediaViewerDialog')
-        dlg = MediaViewerDialog.MediaViewerDialog(self, filePath)
+        myprint("Searching %s in globs.localFilesSorted (%d files)" % (fname, len(globs.localFilesSorted)))
+        try:
+            idx = [x[0] for x in globs.localFilesSorted].index(fname)
+        except:
+            myprint('Unable to retrieve %s in globs.localFilesSorted' % fname)
+            idx = 0
+        dlg = MediaViewerDialog.MediaViewerDialog(self, globs.localFilesSorted, idx=idx, slideShow=False)
         ret = dlg.ShowModal()
         dlg.Destroy()
         self.updateStatusBar(msg=None)
@@ -4262,9 +4303,9 @@ class OSVM(wx.Frame):
                 button.Disable()
                 # If no image is selected, browse thru all the images
                 if self.mediaFileList:
-                    dlg = MediaViewerDialog.MediaViewerDialog(self, self.mediaFileList)
+                    dlg = MediaViewerDialog.MediaViewerDialog(self, self.mediaFileList, idx=0, slideShow=True)
                 else:
-                    dlg = MediaViewerDialog.MediaViewerDialog(self, globs.localFilesSorted)
+                    dlg = MediaViewerDialog.MediaViewerDialog(self, globs.localFilesSorted, idx=0, slideShow=True)
                 ret = dlg.ShowModal()
                 dlg.Destroy()
                 # Clear opList
@@ -4335,6 +4376,8 @@ class OSVM(wx.Frame):
             msg = 'All pending request(s) will be lost'
             dlg = wx.MessageDialog(None, msg , 'WARNING', wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
+        # Update statusbar configuration (lengths of fields)
+        self._initStatusBar1()
         # Update status bar
         msg = 'Rescanning configuration. Please wait...'
         # Disable User input
@@ -4546,10 +4589,10 @@ class OSVM(wx.Frame):
         for f in globs.localFilesSorted[position:]:
             #print(f)
             fileName = f[1][globs.F_NAME]
-            fileDate = f[1][globs.F_DATE]
             if not fileName.split('.')[1] in globs.FILE_SUFFIXES[fileType]:
                 continue
 
+            fileDate = f[1][globs.F_DATE]
             button = [x[0] for x in self.thumbButtons if x[1] == fileName]
             e = [button, fileName, globs.FILE_MARK, -1, fileDate]
             try:
@@ -4950,6 +4993,8 @@ RSSI:           %s""" % (iname, interface.ssid(), interface.bssid(),interface.tr
     frame = OSVMConfig(None, -1, globs.myLongName)
     frame.Show(True)
 
+    wx.lib.inspection.InspectionTool().Show()
+    
 #    app.SetTopWindow(frame)
     app.MainLoop()
     myprint('End of MainLoop')
