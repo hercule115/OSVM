@@ -29,10 +29,12 @@ else:
 
 ### class MediaViewer
 class MediaViewerDialog(wx.Dialog):
-    def __init__(self, parent, mediaFileListOrPath):
+    def __init__(self, parent, mediaFileListOrPath, idx=0, slideShow=True):
         wx.Dialog.__init__(self, None, wx.ID_ANY, title="Media Viewer")
 
         self.mediaFileListOrPath = mediaFileListOrPath
+        self.mediaListIdx = idx
+        self.mediaSlideShow = slideShow
         self.singleFile = False
 
         exifFilePath = os.path.join(globs.osvmDownloadDir, globs.exifFile)
@@ -46,7 +48,7 @@ class MediaViewerDialog(wx.Dialog):
             fileName = os.path.basename(self.mediaFileListOrPath)
             self.singleFile = True
         else:
-            fileName = self.mediaFileListOrPath[0][globs.F_NAME]
+            fileName = self.mediaFileListOrPath[self.mediaListIdx][globs.F_NAME]
         suffix = fileName.split('.')[1]
 
         if suffix.lower() == 'jpg' or suffix.lower() == 'png':
@@ -62,16 +64,18 @@ class MediaViewerDialog(wx.Dialog):
         self.SetClientSize(self.mainSizer.GetSize())
         self.Centre()
 
-        # Simulate a 'Play' event
-        self._btnPlayInfo = getattr(self, "btnPlay")
-        evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self._btnPlayInfo.GetId())
-        evt.SetEventObject(self.btnPlay)
-        wx.PostEvent(self.btnPlay, evt)
+        if self.mediaSlideShow:
+            # Simulate a 'Play' event
+            self._btnPlayInfo = getattr(self, "btnPlay")
+            evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self._btnPlayInfo.GetId())
+            evt.SetEventObject(self.btnPlay)
+            wx.PostEvent(self.btnPlay, evt)
 
     ######### Image Viewer ##########
     def imageViewer(self):
         myprint('Launching imageViewer')
         self.imageFileListOrPath = self.mediaFileListOrPath
+        self.imgIdx = self.mediaListIdx
 
         width, height = wx.DisplaySize()
         self.btn = list()
@@ -90,9 +94,9 @@ class MediaViewerDialog(wx.Dialog):
         if type(self.imageFileListOrPath).__name__ == 'list': # List of files
             self.listToUse = self.imageFileListOrPath	# Set list to use
             self.imgDirName = globs.osvmDownloadDir
-            self.imgIdx = 0
             # Load first image manually
-            self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[0][globs.F_NAME])
+            self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx][globs.F_NAME])
+            myprint('Loading first image %s (index %d)' % (self.imgFilePath, self.imgIdx))
             self._imageLoad(self.imgFilePath)
         else: # Single file
             # Get image index in localFilesSorted
@@ -165,9 +169,9 @@ class MediaViewerDialog(wx.Dialog):
 
         self.mainSizer.Add(self.bottomBtnSizer, 0, flag=wx.EXPAND| wx.ALL)
 
-    def _imageLoad(self, image):
-        imageFileName = os.path.basename(image)
-        wximg = wx.Image(image, wx.BITMAP_TYPE_ANY)
+    def _imageLoad(self, imagePath):
+        imageFileName = os.path.basename(imagePath)
+        wximg = wx.Image(imagePath, wx.BITMAP_TYPE_ANY)
         # scale the image, preserving the aspect ratio
         W = wximg.GetWidth()
         H = wximg.GetHeight()
@@ -212,6 +216,17 @@ class MediaViewerDialog(wx.Dialog):
         if self.imgIdx < 0:
             self.imgIdx = len(self.listToUse) - 1
         self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx][globs.F_NAME])
+        
+        # Skip over non JPG files
+        suffix = self.imgFilePath.rsplit('.')[-1:][0]
+        while suffix != 'JPG' and suffix != 'jpg':
+            myprint('Skipping over %s' % self.imgFilePath)
+            self.imgIdx = (self.imgIdx - 1)
+            if self.imgIdx < 0:
+                self.imgIdx = len(self.listToUse) - 1
+            self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx][globs.F_NAME])
+            suffix = self.imgFilePath.rsplit('.')[-1:][0]
+
         self._imageLoad(self.imgFilePath)
         
     def _imageNext(self, event):
@@ -566,11 +581,19 @@ class MyFrame(wx.Frame):
     def __init__(self, parent, id, title):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self)
+
         #filePath = os.path.join( os.getcwd(), 'images', 'plus-32.jpg')
         #filePath = '/Users/didier/SynologyDrive/Photo/TEST2/n.jpg'
         #filePath = '/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302742.MOV'
-        filePath = '/Users/didier/SynologyDrive/Photo/Galaxy S3/IMG_20190605_121158.jpg'
-        dlg = MediaViewerDialog(self, filePath)
+
+        #filePath = '/Users/didier/SynologyDrive/Photo/Galaxy S3/IMG_20190605_121158.jpg'
+        #dlg = MediaViewerDialog(self, filePath)
+
+        mediaList = list()
+        mediaList.append(['/Users/didier/SynologyDrive/Photo/Galaxy S3/IMG_20190605_121158.jpg'])
+        mediaList.append(['/Users/didier/SynologyDrive/Photo/Galaxy S3/20170907_142805.jpg'])
+        mediaList.append(['/Users/didier/SynologyDrive/Photo/Galaxy S3/IMG_20190526_185518.jpg'])
+        dlg = MediaViewerDialog(self, mediaList)
         
         # mediaList = list()
         # mediaList.append(['/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302741.MOV'])
