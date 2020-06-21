@@ -96,7 +96,7 @@ class MediaViewerDialog(wx.Dialog):
             self.imgDirName = globs.osvmDownloadDir
             # Load first image manually
             self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx][globs.F_NAME])
-            myprint('Loading first image %s (index %d)' % (self.imgFilePath, self.imgIdx))
+            myprint('Loading image %s (idx %d)' % (self.imgFilePath, self.imgIdx))
             self._imageLoad(self.imgFilePath)
         else: # Single file
             # Get image index in localFilesSorted
@@ -593,14 +593,14 @@ class MyFrame(wx.Frame):
         mediaList.append(['/Users/didier/SynologyDrive/Photo/Galaxy S3/IMG_20190605_121158.jpg'])
         mediaList.append(['/Users/didier/SynologyDrive/Photo/Galaxy S3/20170907_142805.jpg'])
         mediaList.append(['/Users/didier/SynologyDrive/Photo/Galaxy S3/IMG_20190526_185518.jpg'])
-        dlg = MediaViewerDialog(self, mediaList)
+        dlg = MediaViewerDialog(self, mediaList, idx=0, slideShow=True)
         
         # mediaList = list()
         # mediaList.append(['/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302741.MOV'])
         # mediaList.append(['/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302742.MOV'])
         # mediaList.append(['/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302739.MOV'])
         # filePath = '/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302742.MOV'
-        #dlg = MediaViewerDialog(self, mediaList)
+        #dlg = MediaViewerDialog(self, mediaList, idx=0, slideShow=True)
 
         ret = dlg.ShowModal()
         dlg.Destroy()
