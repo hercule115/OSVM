@@ -264,7 +264,8 @@ class PreferencesDialog(wx.Dialog):
         self.cb3 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Save Preferences on Exit')
         self.cb3.SetValue(globs.savePreferencesOnExit)
 
-        self.cb4 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Keep local folder in Sync')
+        self.cb4Id = wx.Window.NewControlId()
+        self.cb4 = wx.CheckBox(self.panel1, id=self.cb4Id, label='Keep local folder in Sync')
         self.cb4.SetValue(globs.keepLocalFolderInSync)
         self.cb4.SetToolTip('Keep download folder in Sync with camera. WARNING: This option will delete local files if the camera SD is formatted or files deleted on the camera.')
         
@@ -283,7 +284,7 @@ class PreferencesDialog(wx.Dialog):
         self.cb8.SetToolTip('Open Log Window at startup')
         
         for cb in [self.cb1,self.cb2,self.cb3,self.cb4,self.cb5,self.cb6,self.cb7,self.cb8]:
-            cb.Bind(wx.EVT_CHECKBOX, lambda evt:  self.OnCheckBox(evt))
+            cb.Bind(wx.EVT_CHECKBOX, lambda evt: self.OnCheckBox(evt))
             
         self.staticText7 = wx.StaticText(id=wx.ID_ANY, label='Max // Download:', 
                                          parent=self.panel1, style=0)
@@ -476,6 +477,11 @@ class PreferencesDialog(wx.Dialog):
     #### Events ####
     def OnCheckBox(self, event):
         self.btnApply.Enable()
+        w = event.GetEventObject()
+        if w.GetId() == self.cb4Id and w.GetValue():  # keepLocalFolderInSync
+            msg = 'This option, when activated, may delete file(s) from your local download folder if files are erased from the camera (Sync Mode Only).'
+            dlg = wx.MessageDialog(None, msg, 'Warning', wx.OK | wx.ICON_EXCLAMATION)
+            dlg.ShowModal()
         event.Skip()
 
     # Event Handler generator for the "Select Location" buttons
