@@ -322,15 +322,15 @@ def dumpOperationList(title, oplist):
 #
 # Remove a local file. return -1 in case of failure
 #
-def removeFile(pathname):
-    try:
-        myprint('Deleting:',pathname)
-        os.remove(pathname)
-    except OSError as e:
-        msg = "Cannot remove %s: %s" % (pathname, "{0}".format(e.strerror))
-        myprint(msg)
-        return -1
-    return 0
+# def removeFile(pathname):
+#     try:
+#         myprint('Deleting:',pathname)
+#         os.remove(pathname)
+#     except OSError as e:
+#         msg = "Cannot remove %s: %s" % (pathname, "{0}".format(e.strerror))
+#         myprint(msg)
+#         return -1
+#     return 0
 
 #
 # Create a symbolic link on source. return -1 in case of failure
@@ -403,7 +403,9 @@ def localFilesInfo(dirName):
                 except:
                     # Local file does not exist anymore on remote/camera. Probably deleted...
                     myprint('File %s not found on remote/camera. Deleting' % (fileName))
-                    os.remove(filePath)
+                    if globs.keepLocalFolderInSync:
+                        print('deleting %s' % filePath)
+                        #os.remove(filePath)
                     continue
 
 #        if not globs.viewMode:
@@ -415,7 +417,7 @@ def localFilesInfo(dirName):
 #                print('File %s not found on remote/camera' % (fileName))
 #                if not remFileSize:
 #                    print('MUST DELETE EMPTY LOCAL FILE %s' % (fileName))
-##os.remove(filePath)
+#		     #os.remove(filePath)
 #                    continue
 #            else:
 #                if localFileSize != remFileSize:
@@ -1265,6 +1267,7 @@ class Preferences():
         self.config['Preferences'][globs.COMPACT_MODE]           = str(globs.DEFAULT_COMPACT_MODE)
         self.config['Preferences'][globs.ASK_BEFORE_COMMIT]      = str(globs.DEFAULT_ASK_BEFORE_COMMIT)
         self.config['Preferences'][globs.ASK_BEFORE_EXIT]        = str(globs.DEFAULT_ASK_BEFORE_EXIT)
+        self.config['Preferences'][globs.KEEP_LOCAL_FOLDER_IN_SYNC] = str(globs.DEFAULT_KEEP_LOCAL_FOLDER_IN_SYNC)        
         self.config['Preferences'][globs.SAVE_PREFS_ON_EXIT]     = str(globs.DEFAULT_SAVE_PREFERENCES_ON_EXIT)
         self.config['Preferences'][globs.OVERWRITE_LOCAL_FILES]  = str(globs.DEFAULT_OVERWRITE_LOCAL_FILES)
         self.config['Preferences'][globs.AUTO_SWITCH_TO_CAMERA_NETWORK] = str(globs.AUTO_SWITCH_TO_CAMERA_NETWORK)
@@ -1324,6 +1327,7 @@ class Preferences():
                 globs.thumbnailGridRows = 5
             globs.askBeforeCommit       = str2bool(sectionPreferences[globs.ASK_BEFORE_COMMIT])
             globs.askBeforeExit         = str2bool(sectionPreferences[globs.ASK_BEFORE_EXIT])
+            globs.keepLocalFolderInSync = str2bool(sectionPreferences[globs.KEEP_LOCAL_FOLDER_IN_SYNC])
             globs.savePreferencesOnExit = str2bool(sectionPreferences[globs.SAVE_PREFS_ON_EXIT])
             globs.overwriteLocalFiles   = str2bool(sectionPreferences[globs.OVERWRITE_LOCAL_FILES])
             globs.autoSwitchToFavoriteNetwork = str2bool(sectionPreferences[globs.AUTO_SWITCH_TO_CAMERA_NETWORK])
@@ -1389,6 +1393,7 @@ class Preferences():
             globs.compactMode           = str2bool(sectionPreferences[globs.COMPACT_MODE])
             globs.askBeforeCommit       = str2bool(sectionPreferences[globs.ASK_BEFORE_COMMIT])
             globs.askBeforeExit         = str2bool(sectionPreferences[globs.ASK_BEFORE_EXIT])
+            globs.keepLocalFolderInSync = str2bool(sectionPreferences[globs.KEEP_LOCAL_FOLDER_IN_SYNC])
             globs.savePreferencesOnExit = str2bool(sectionPreferences[globs.SAVE_PREFS_ON_EXIT])
             globs.overwriteLocalFiles   = str2bool(sectionPreferences[globs.OVERWRITE_LOCAL_FILES])
             globs.autoSwitchToFavoriteNetwork = str2bool(sectionPreferences[globs.AUTO_SWITCH_TO_CAMERA_NETWORK])
@@ -1439,6 +1444,7 @@ class Preferences():
         self.config['Preferences'][globs.COMPACT_MODE]           = str(globs.compactMode)
         self.config['Preferences'][globs.ASK_BEFORE_COMMIT]      = str(globs.askBeforeCommit)
         self.config['Preferences'][globs.ASK_BEFORE_EXIT]        = str(globs.askBeforeExit)
+        self.config['Preferences'][globs.KEEP_LOCAL_FOLDER_IN_SYNC] = str(globs.keepLocalFolderInSync)
         self.config['Preferences'][globs.SAVE_PREFS_ON_EXIT]     = str(globs.savePreferencesOnExit)
         self.config['Preferences'][globs.OVERWRITE_LOCAL_FILES]  = str(globs.overwriteLocalFiles)
         self.config['Preferences'][globs.AUTO_SWITCH_TO_CAMERA_NETWORK] = str(globs.autoSwitchToFavoriteNetwork)
@@ -4019,7 +4025,7 @@ class OSVM(wx.Frame):
         try:
             idx = [x[0] for x in globs.localFilesSorted].index(fname)
         except:
-            myprint('Unable to retrieve %s in globs.localFilesSorted' % fname)
+            myprint('Unable to retrieve %s in globs.localFilesSorted. Starting from 0' % fname)
             idx = 0
         dlg = MediaViewerDialog.MediaViewerDialog(self, globs.localFilesSorted, idx=idx, slideShow=False)
         ret = dlg.ShowModal()
@@ -4993,7 +4999,7 @@ RSSI:           %s""" % (iname, interface.ssid(), interface.bssid(),interface.tr
     frame = OSVMConfig(None, -1, globs.myLongName)
     frame.Show(True)
 
-    wx.lib.inspection.InspectionTool().Show()
+    #wx.lib.inspection.InspectionTool().Show()
     
 #    app.SetTopWindow(frame)
     app.MainLoop()
