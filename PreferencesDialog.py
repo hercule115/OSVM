@@ -72,12 +72,12 @@ class PreferencesDialog(wx.Dialog):
         parent.Add(self.cb1, 0, border=0, flag=wx.EXPAND)
         parent.Add(self.cb2, 0, border=0, flag=wx.EXPAND)
         parent.Add(self.cb3, 0, border=0, flag=wx.EXPAND)
+        parent.Add(self.cb4, 0, border=0, flag=wx.EXPAND)
         parent.Add(self.cb5, 0, border=0, flag=wx.EXPAND)
         parent.Add(self.cb6, 0, border=0, flag=wx.EXPAND)
         parent.Add(self.cb7, 0, border=0, flag=wx.EXPAND)
-
-        parent.Add(self.dummySizer1, 0, border=0, flag= wx.EXPAND) # Empty placeholder
-        parent.Add(self.dummySizer2, 0, border=0, flag= wx.EXPAND) # Empty placeholder
+        parent.Add(self.cb8, 0, border=0, flag=wx.EXPAND)        
+        #parent.Add(self.dummySizer1, 0, border=0, flag= wx.EXPAND) # Empty placeholder
         
         parent.Add(self.maxDownloadSizer, 0, border=0, flag= wx.EXPAND)
         parent.Add(self.fileSortSizer, 0, border=0, flag= wx.EXPAND)
@@ -264,6 +264,10 @@ class PreferencesDialog(wx.Dialog):
         self.cb3 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Save Preferences on Exit')
         self.cb3.SetValue(globs.savePreferencesOnExit)
 
+        self.cb4 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Keep local folder in Sync')
+        self.cb4.SetValue(globs.keepLocalFolderInSync)
+        self.cb4.SetToolTip('Keep download folder in Sync with camera. WARNING: This option will delete local files if the camera SD is formatted or files deleted on the camera.')
+        
         self.cb5 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Ask Before Exit')
         self.cb5.SetValue(globs.askBeforeExit)
 
@@ -274,7 +278,11 @@ class PreferencesDialog(wx.Dialog):
         self.cb7.SetValue(globs.autoSwitchToFavoriteNetwork)
         self.cb7.SetToolTip('Automatically switch to favorite network (if set) when entering Sync Mode')
 
-        for cb in [self.cb1,self.cb2,self.cb3,self.cb5,self.cb6,self.cb7]:
+        self.cb8 = wx.CheckBox(self.panel1, id=wx.ID_ANY, label='Log Window')
+        self.cb8.SetValue(globs.logFrame)
+        self.cb8.SetToolTip('Open Log Window at startup')
+        
+        for cb in [self.cb1,self.cb2,self.cb3,self.cb4,self.cb5,self.cb6,self.cb7,self.cb8]:
             cb.Bind(wx.EVT_CHECKBOX, lambda evt:  self.OnCheckBox(evt))
             
         self.staticText7 = wx.StaticText(id=wx.ID_ANY, label='Max // Download:', 
@@ -362,7 +370,6 @@ class PreferencesDialog(wx.Dialog):
         self.btnSelectDownLoc.SetToolTip('Select local download directory')
         self.btnSelectDownLoc.Bind(wx.EVT_BUTTON, self.getOnClick(self.downLocTextCtrl))
 
-        
         self.staticText4 = wx.StaticText(id=wx.ID_ANY, label='Camera HTTP URL:', parent=self.panel1, style=0)
         self.staticText5 = wx.StaticText(id=wx.ID_ANY, label='Camera Base Directory:', parent=self.panel1, style=0)
 
@@ -427,6 +434,7 @@ class PreferencesDialog(wx.Dialog):
         self.cb1.SetValue(globs.DEFAULT_COMPACT_MODE)
         self.cb2.SetValue(globs.DEFAULT_ASK_BEFORE_COMMIT)
         self.cb3.SetValue(globs.DEFAULT_SAVE_PREFERENCES_ON_EXIT)
+        self.cb4.SetValue(globs.DEFAULT_KEEP_LOCAL_FOLDER_IN_SYNC)
         self.cb5.SetValue(globs.DEFAULT_ASK_BEFORE_EXIT)
         self.cb6.SetValue(globs.DEFAULT_OVERWRITE_LOCAL_FILES)
         self.cb7.SetValue(globs.DEFAULT_AUTO_SWITCH_TO_CAMERA_NETWORK)
@@ -444,18 +452,25 @@ class PreferencesDialog(wx.Dialog):
         globs.compactMode           = self.cb1.GetValue()
         globs.askBeforeCommit       = self.cb2.GetValue()
         globs.savePreferencesOnExit = self.cb3.GetValue()
+        globs.keepLocalFolderInSync = self.cb4.GetValue()
         globs.askBeforeExit         = self.cb5.GetValue()
         globs.overwriteLocalFiles   = self.cb6.GetValue()
         globs.autoSwitchToFavoriteNetwork = self.cb7.GetValue()
+        globs.logFrame              = self.cb8.GetValue()
         globs.maxDownload           = int(self.maxDownloadChoice.GetSelection())
         globs.remBaseDir            = self.remBaseDirTextCtrl.GetValue()
         globs.ssDelay               = int(self.ssDelayChoice.GetSelection()) + self.MIN_SS_DELAY
         globs.fileSortRecentFirst   = not (int(self.fileSortChoice.GetSelection()))
 
         # Update from temporary variables
-        globs.osvmDownloadDir      = self.tmpOsvmDownloadDir
-        globs.osvmFilesDownloadUrl = self.tmpOsvmPkgFtpUrl
+        if globs.osvmDownloadDir != self.tmpOsvmDownloadDir:
+            globs.osvmDownloadDir = self.tmpOsvmDownloadDir
+            self.needRescan = True
 
+        if globs.osvmFilesDownloadUrl != self.tmpOsvmPkgFtpUrl:
+            globs.osvmFilesDownloadUrl = self.tmpOsvmPkgFtpUrl
+            self.needRescan = True
+            
         #globs.printGlobals()
 
     #### Events ####
@@ -537,17 +552,17 @@ class PreferencesDialog(wx.Dialog):
         self.EndModal(wx.ID_APPLY)
         event.Skip()
 
-    def SavePrefsOnExit(self, event):
-        self.btnApply.Enable()
-        event.Skip()
+    # def SavePrefsOnExit(self, event):
+    #     self.btnApply.Enable()
+    #     event.Skip()
 
-    def AskBeforeCommit(self, event):
-        self.btnApply.Enable()
-        event.Skip()
+    # def AskBeforeCommit(self, event):
+    #     self.btnApply.Enable()
+    #     event.Skip()
 
-    def AskBeforeExit(self, event):
-        self.btnApply.Enable()
-        event.Skip()
+    # def AskBeforeExit(self, event):
+    #     self.btnApply.Enable()
+    #     event.Skip()
 
     def OnMaxDownloadChoice(self, event):
         globs.maxDownload = int(self.maxDownloadChoice.GetSelection())
@@ -630,9 +645,8 @@ class MyFrame(wx.Frame):
         dlg = PreferencesDialog(self)
         ret = dlg.ShowModal()
         dlg.Destroy()
-
-        self.Show()
-
+        self.Destroy()
+        
     def _savePreferences(self):	# dummy
         pass
     
