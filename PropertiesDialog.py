@@ -73,6 +73,11 @@ class PropertiesDialog(wx.Dialog):
         self.btnClose.SetToolTip('Close this Dialog')
         self.btnClose.Bind(wx.EVT_BUTTON, self.OnBtnClose)
 
+        # self.btnClose.Bind(wx.EVT_KEY_DOWN, self.OnThumbKeyDown)
+        # ac = [(wx.ACCEL_NORMAL, ord(' '), wx.ID_CLOSE)]
+        # tbl = wx.AcceleratorTable(ac)
+        # self.SetAcceleratorTable(tbl)
+    
         # Retrieve information to display from the globals
         try:
             pkginfo1 = globs.availRemoteFiles[self.fileName]
@@ -173,6 +178,11 @@ class PropertiesDialog(wx.Dialog):
     def OnBtnClose(self, event):
         self.Close()
 
+    def OnThumbKeyDown(self, event):
+        keycode = event.GetKeyCode()
+        myprint('keycode=%d' % keycode)
+        event.Skip()
+        
 ########################
 def humanBytes(size):
     power = float(2**10)     # 2**10 = 1024
@@ -218,7 +228,7 @@ def main():
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)
     frame = MyFrame(None, -1, title="Test")
-    frame.Show()
+    frame.Show(True)
     app.MainLoop()
     print('End of main loop')
    
