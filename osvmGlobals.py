@@ -6,7 +6,7 @@ from wx.lib.newevent import NewEvent
 
 myName     = 'OSVM'
 myLongName = 'Olympus Sync & View Manager'
-myVersion  = '2.6.3'
+myVersion  = '2.6.4'
 
 disabledModules = list()
 pycc = True
@@ -55,6 +55,7 @@ DEFAULT_COMPACT_MODE = False
 DEFAULT_ASK_BEFORE_COMMIT = True
 DEFAULT_ASK_BEFORE_EXIT = True
 DEFAULT_SAVE_PREFERENCES_ON_EXIT = True
+DEFAULT_KEEP_LOCAL_FOLDER_IN_SYNC = False
 DEFAULT_MAX_DOWNLOAD = 1
 DEFAULT_OVERWRITE_LOCAL_FILES = False
 DEFAULT_AUTO_SWITCH_TO_CAMERA_NETWORK = False
@@ -66,6 +67,7 @@ DEFAULT_THUMB_SCALE_FACTOR = 0.59
 DEFAULT_SLIDESHOW_DELAY = 5
 DEFAULT_ROT_IMG_CHOICE = 0 	# Show rotated image only
 DEFAULT_SORT_ORDER = True 	# Mean More recent first
+DEFAULT_LOG_FRAME = False
 DEFAULT_SMTP_SERVER = ''
 DEFAULT_SMTP_SERVER_PROTOCOL = 'SMTP'
 DEFAULT_SMTP_SERVER_PORT = 25
@@ -82,6 +84,7 @@ HTML_ROOT_FILE = 'htmlrootfile'
 COMPACT_MODE = 'compactmode'
 ASK_BEFORE_COMMIT = 'askbeforecommit'
 ASK_BEFORE_EXIT = 'askbeforeexit'
+KEEP_LOCAL_FOLDER_IN_SYNC = 'keeplocalfolderinsync'
 SAVE_PREFS_ON_EXIT = 'savepreferencesonexit'
 THUMB_GRID_COLUMNS = 'thumbnailgridcolumns'
 THUMB_SCALE_FACTOR = 'thumbnailscalefactor'
@@ -96,6 +99,7 @@ ROT_IMG_CHOICE = 'rotimgchoice'
 LAST_CAST_DEVICE_NAME = 'lastcastdevicename'
 LAST_CAST_DEVICE_UUID = 'lastcastdeviceuuid'
 SORT_ORDER = 'filesortreverse'
+LOG_FRAME = 'logframe'
 FAVORITE_NETWORK = 'favoritenetwork'
 SMTP_SERVER = 'smtpserver'
 SMTP_SERVER_PROTOCOL = 'smtpserverprotocol'
@@ -114,6 +118,7 @@ online = True
 askBeforeCommit = True
 askBeforeExit = True
 savePreferencesOnExit = True
+keepLocalFolderInSync = False
 thumbnailGridColumns = DEFAULT_THUMB_GRID_NUM_COLS
 thumbnailGridRows = 3
 thumbnailScaleFactor = DEFAULT_THUMB_SCALE_FACTOR
@@ -146,6 +151,7 @@ iface = None
 allNetWorks = list() # List of all available networks
 knownNetworks = list()
 fileSortRecentFirst = DEFAULT_SORT_ORDER
+logFrame = DEFAULT_LOG_FRAME
 installSubPanelsCount = 5
 smtpServer = ''
 smtpServerProtocol = ''
@@ -319,6 +325,7 @@ def printGlobals():
     print('globs.overwriteLocalFiles: %s' % overwriteLocalFiles)
     print('globs.autoSwitchToFavoriteNetwork: %s' % autoSwitchToFavoriteNetwork)
     print('globs.cameraConnected: %s' % cameraConnected)
+    print('globs.logFrame: %s' % logFrame)    
     print('globs.maxDownload: %s' % maxDownload)
     print('globs.localFilesCnt: %s' % localFilesCnt)
     print('globs.availRemoteFilesCnt: %s' % availRemoteFilesCnt)
