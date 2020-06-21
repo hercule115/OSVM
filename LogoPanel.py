@@ -90,7 +90,6 @@ class LogoPanel(wx.Panel):
         xpos = int((w - tw)/2)
         ypos = int(2*h/3 + 4*th/2)
         dc.DrawText(self.bottomTitle, xpos, ypos)
-        
 
 ####
 def myprint(*args, **kwargs):
