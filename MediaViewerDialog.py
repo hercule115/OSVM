@@ -7,6 +7,8 @@ import builtins as __builtin__
 import inspect
 import time
 
+testImg = False # Test image or video ?
+
 moduleList = {'osvmGlobals':'globs',
               'ExifDialog':'ExifDialog'}
 
@@ -48,7 +50,7 @@ class MediaViewerDialog(wx.Dialog):
             fileName = os.path.basename(self.mediaFileListOrPath)
             self.singleFile = True
         else:
-            fileName = self.mediaFileListOrPath[self.mediaListIdx][globs.F_NAME]
+            fileName = self.mediaFileListOrPath[self.mediaListIdx]#286
         suffix = fileName.split('.')[1]
 
         if suffix.lower() == 'jpg' or suffix.lower() == 'png':
@@ -95,7 +97,7 @@ class MediaViewerDialog(wx.Dialog):
             self.listToUse = self.imageFileListOrPath	# Set list to use
             self.imgDirName = globs.osvmDownloadDir
             # Load first image manually
-            self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx][globs.F_NAME])
+            self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx])#286
             myprint('Loading image %s (idx %d)' % (self.imgFilePath, self.imgIdx))
             self._imageLoad(self.imgFilePath)
         else: # Single file
@@ -199,14 +201,14 @@ class MediaViewerDialog(wx.Dialog):
         
     def imageOnBtnNext(self, event):
         self.imgIdx = (self.imgIdx + 1) % len(self.listToUse)
-        self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx][globs.F_NAME])
+        self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx])#286
 
         # Skip over non JPG files
-        suffix = self.imgFilePath.rsplit('.')[-1:][0]
-        while suffix != 'JPG' and suffix != 'jpg':
+        suffix = self.imgFilePath.rsplit('.')[-1:][0].upper()
+        while suffix != 'JPG':
             myprint('Skipping over %s' % self.imgFilePath)
             self.imgIdx = (self.imgIdx + 1) % len(self.listToUse)
-            self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx][globs.F_NAME])
+            self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx])#286
             suffix = self.imgFilePath.rsplit('.')[-1:][0]
 
         self._imageLoad(self.imgFilePath)
@@ -215,17 +217,17 @@ class MediaViewerDialog(wx.Dialog):
         self.imgIdx = self.imgIdx - 1
         if self.imgIdx < 0:
             self.imgIdx = len(self.listToUse) - 1
-        self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx][globs.F_NAME])
+        self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx])#286
         
         # Skip over non JPG files
-        suffix = self.imgFilePath.rsplit('.')[-1:][0]
-        while suffix != 'JPG' and suffix != 'jpg':
+        suffix = self.imgFilePath.rsplit('.')[-1:][0].upper()
+        while suffix != 'JPG':
             myprint('Skipping over %s' % self.imgFilePath)
             self.imgIdx = (self.imgIdx - 1)
             if self.imgIdx < 0:
                 self.imgIdx = len(self.listToUse) - 1
-            self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx][globs.F_NAME])
-            suffix = self.imgFilePath.rsplit('.')[-1:][0]
+            self.imgFilePath = os.path.join(self.imgDirName, self.listToUse[self.imgIdx])#286
+            suffix = self.imgFilePath.rsplit('.')[-1:][0].upper()
 
         self._imageLoad(self.imgFilePath)
         
@@ -388,7 +390,12 @@ class MediaViewerDialog(wx.Dialog):
         # Create a VLC Media List Instance
         self.mediaList = self.vlcInstance.media_list_new() #ml
         for e in self.listToUse: # each entry is a list containing filename as first field
-            filePath = os.path.join(self.videoDirName, e[globs.F_NAME])
+            # Skip over non MOV files
+            suffix = e[globs.F_NAME].rsplit('.')[-1:][0].upper()
+            if suffix != 'MOV':
+                #myprint('Skipping over %s' % (e[globs.F_NAME]))
+                continue
+            filePath = os.path.join(self.videoDirName, e)#286
             myprint('Adding %s' % filePath)
             media = vlc.Media(filePath)
             self.mediaList.add_media(media)
@@ -528,7 +535,6 @@ class MediaViewerDialog(wx.Dialog):
             self.vlcMLPlayer.audio_set_volume(self.oVolume)
             self.volSlider.SetValue(self.oVolSlider)
             myprint('Unmuting:', 'ovolume=',self.oVolume,'pos=',self.oVolSlider)
-            myprint('1:',self.oVolume,self.oVolSlider)
 
     def videoOnTimeSlider(self, event):
         """Set the time according to the time sider."""
@@ -589,18 +595,19 @@ class MyFrame(wx.Frame):
         #filePath = '/Users/didier/SynologyDrive/Photo/Galaxy S3/IMG_20190605_121158.jpg'
         #dlg = MediaViewerDialog(self, filePath)
 
-        mediaList = list()
-        mediaList.append(['/Users/didier/SynologyDrive/Photo/Galaxy S3/IMG_20190605_121158.jpg'])
-        mediaList.append(['/Users/didier/SynologyDrive/Photo/Galaxy S3/20170907_142805.jpg'])
-        mediaList.append(['/Users/didier/SynologyDrive/Photo/Galaxy S3/IMG_20190526_185518.jpg'])
-        dlg = MediaViewerDialog(self, mediaList, idx=0, slideShow=True)
-        
-        # mediaList = list()
-        # mediaList.append(['/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302741.MOV'])
-        # mediaList.append(['/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302742.MOV'])
-        # mediaList.append(['/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302739.MOV'])
-        # filePath = '/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302742.MOV'
-        #dlg = MediaViewerDialog(self, mediaList, idx=0, slideShow=True)
+        if testImg:
+            mediaList = list()
+            mediaList.append('/Users/didier/SynologyDrive/Photo/Galaxy S3/IMG_20190605_121158.jpg')
+            mediaList.append('/Users/didier/SynologyDrive/Photo/Galaxy S3/20170907_142805.jpg')
+            mediaList.append('/Users/didier/SynologyDrive/Photo/Galaxy S3/IMG_20190526_185518.jpg')
+            dlg = MediaViewerDialog(self, mediaList, idx=0, slideShow=True)
+        else:
+            mediaList = list()
+            mediaList.append('/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302741.MOV')
+            mediaList.append('/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302742.MOV')
+            mediaList.append('/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302739.MOV')
+            filePath = '/Users/didier/SynologyDrive/Photo/Olympus TG4/P3302742.MOV'
+            dlg = MediaViewerDialog(self, mediaList, idx=0, slideShow=True)
 
         ret = dlg.ShowModal()
         dlg.Destroy()
