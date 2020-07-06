@@ -402,7 +402,7 @@ def localFilesInfo(dirName):
                     remFileName = globs.availRemoteFiles[fileName][globs.F_NAME]
                 except:
                     # Local file does not exist anymore on remote/camera. Probably deleted...
-                    myprint('File %s not found on remote/camera. Deleting' % (fileName))
+                    myprint('File %s not found on remote/camera. Deleting.' % (fileName))
                     if globs.keepLocalFolderInSync:
                         print('deleting %s' % filePath)
                         #os.remove(filePath)
@@ -3988,7 +3988,8 @@ class OSVM(wx.Frame):
             # Update status message
             msg = 'Casting %s to %s' % (fname,globs.castDevice.name)
             self.updateStatusBar(msg=msg)
-
+            myprint(msg)
+            
             mediaFileType = { 'jpg':'image/jpg', 'mov':'video/mov', 'mp4':'video/mov' }
             globs.castMediaCtrl.play_media(fileURL, mediaFileType[suffix])
             if suffix == 'mov' or suffix == 'mp4':
@@ -4020,14 +4021,17 @@ class OSVM(wx.Frame):
         msg = 'Launching internal viewer...'
         self.updateStatusBar(msg=msg)
 
-        myprint('Launching MediaViewerDialog')
+        myprint('Generating file list')
+        fileList = [x[0] for x in globs.localFilesSorted]
+        
         myprint("Searching %s in globs.localFilesSorted (%d files)" % (fname, len(globs.localFilesSorted)))
         try:
             idx = [x[0] for x in globs.localFilesSorted].index(fname)
         except:
             myprint('Unable to retrieve %s in globs.localFilesSorted. Starting from 0' % fname)
             idx = 0
-        dlg = MediaViewerDialog.MediaViewerDialog(self, globs.localFilesSorted, idx=idx, slideShow=False)
+        myprint('Launching MediaViewerDialog. (idx=%d)' % (idx))
+        dlg = MediaViewerDialog.MediaViewerDialog(self, fileList, idx=idx, slideShow=False) #286
         ret = dlg.ShowModal()
         dlg.Destroy()
         self.updateStatusBar(msg=None)
@@ -4299,7 +4303,7 @@ class OSVM(wx.Frame):
             for i in range(len(self.opList)):
                 if self.opList[i][globs.OP_STATUS] and self.opList[i][globs.OP_TYPE] == globs.FILE_MARK:
                     fileName = self.opList[i][globs.OP_FILENAME]
-                    self.mediaFileList.append([fileName]) # a tuple
+                    self.mediaFileList.append(fileName) # 286
             myprint('%d files selected' % len(self.mediaFileList))
 
             if not globs.castMediaCtrl:
@@ -4311,7 +4315,8 @@ class OSVM(wx.Frame):
                 if self.mediaFileList:
                     dlg = MediaViewerDialog.MediaViewerDialog(self, self.mediaFileList, idx=0, slideShow=True)
                 else:
-                    dlg = MediaViewerDialog.MediaViewerDialog(self, globs.localFilesSorted, idx=0, slideShow=True)
+                    fileList = [x[0] for x in globs.localFilesSorted]
+                    dlg = MediaViewerDialog.MediaViewerDialog(self, fileList, idx=0, slideShow=True)#286                    
                 ret = dlg.ShowModal()
                 dlg.Destroy()
                 # Clear opList
