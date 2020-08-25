@@ -94,6 +94,7 @@ moduleList = (
     'CleanDownloadDirDialog', 
     'DateDialog', 
     'ExifDialog',
+    'FileListDialog',
     'HelpDialog', 
     'LedControl', 
     'LogFrame', 
@@ -428,8 +429,7 @@ def localFilesInfo(dirName):
         fileDate = statinfo.st_mtime # in seconds
         globs.localFileInfos[fileName] = [fileName,localFileSize,fileDate,filePath]
         i += 1
-#    globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst)
-    globs.localFilesSorted = filterRotatedFiles(sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst))
+    globs.localFilesSorted = filterRotatedFiles(sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATEINSECS]), reverse=globs.fileSortRecentFirst))
     return i
 
 def filterRotatedFiles(fileList):
@@ -559,7 +559,9 @@ def getRootDirInfo(rootDir, uri):
         dirName,fileName,fileSize,fileAttr,fileDate,t = fields
         fileTime = int(t[:len(t)-2])		    	# remove trailing "; characters
         thumbnailUrl = "%s/get_thumbnail.cgi?DIR=%s/%s" % (globs.rootUrl,dirName,fileName) # e.g: http://192.168.0.10:80/get_thumbnail.cgi?DIR=/DCIM/100OLYMP/PC020065.JPG
-        globs.availRemoteFiles[fileName] = [fileName, int(fileSize), int(fileDate), '', dirName, int(fileAttr), int(dateInSeconds(int(fileDate), int(fileTime))), int(fileTime), thumbnailUrl]
+
+#        globs.availRemoteFiles[fileName] = [fileName, int(fileSize), int(fileDate), '', dirName, int(fileAttr), int(dateInSeconds(int(fileDate), int(fileTime))), int(fileTime), thumbnailUrl]
+        globs.availRemoteFiles[fileName] = [fileName, int(fileSize), int(dateInSeconds(int(fileDate), '', dirName, int(fileAttr), int(fileDate), int(fileTime))), int(fileTime), thumbnailUrl]
 
         i += 1
 
@@ -567,8 +569,8 @@ def getRootDirInfo(rootDir, uri):
 
     # Sort the dict by date: Latest file first
     globs.availRemoteFilesSorted = sorted(list(globs.availRemoteFiles.items()), key=lambda x: int(x[1][globs.F_DATEINSECS]), reverse=globs.fileSortRecentFirst)
-#    for e in globs.availRemoteFilesSorted:
-#        print("Found remote file: %s size %d created %s %s %d" % (e[1][globs.F_NAME],e[1][globs.F_SIZE],getHumanDate(e[1][globs.F_DATE]),getHumanTime(e[1][globs.F_TIME]),int(e[1][globs.F_DATEINSECS])))
+    #    for e in globs.availRemoteFilesSorted:
+    #        print("Found remote file: %s size %d created %s %s %d" % (e[1][globs.F_NAME],e[1][globs.F_SIZE],getHumanDate(e[1][globs.F_DATE]),getHumanTime(e[1][globs.F_TIME]),int(e[1][globs.F_DATEINSECS])))
     return i
 
 def htmlRoot(): # XXX
@@ -765,7 +767,7 @@ def downloadFile(op, pDialog):
             os.remove(localFile)
             return (ret, msg)
         elif statinfo.st_size == remSize:
-            # Set modifiction date to date of media file
+            # Set modification date to date of media file
             d1 = getHumanDate(globs.availRemoteFiles[fileName][globs.F_DATE])
             t1 = getHumanTime(globs.availRemoteFiles[fileName][globs.F_TIME])
 
@@ -1099,7 +1101,7 @@ class MainInstallThread(threading.Thread):
             if thr.isAlive():
                 myprint('Stopping thread: %s' % (thr.name))
                 thr.stopIt()
-                thr.raiseException()
+                #thr.raiseException()
                 thr.join()
         myprint('All child threads now stopped')
         
@@ -1801,11 +1803,12 @@ class OSVMConfig(wx.Frame):
         self.osvmFrame = None
         self.logFrame = None
         
-        [self.MENUITEM_PREFERENCES,
+        [self.MENUITEM_FILELIST,
+         self.MENUITEM_PREFERENCES,
          self.MENUITEM_CLEAN,
          self.MENUITEM_QUIT,
          self.MENUITEM_ABOUT,
-         self.MENUITEM_LOG] = [i for i in range(100,105)]
+         self.MENUITEM_LOG] = [i for i in range(100,106)]
 
         self._initialize()
 
@@ -1967,13 +1970,17 @@ class OSVMConfig(wx.Frame):
         parent.Append(self.menuHelp, '&Help')
 
     def _init_menuFile_Items(self, parent):
-        menuItem0 = wx.MenuItem(parent, self.MENUITEM_PREFERENCES, '&Preferences\tCtrl+P') #wx.ID_PREFERENCES
+        menuItem0 = wx.MenuItem(parent, self.MENUITEM_FILELIST, '&File List\tCtrl+L')
         parent.Append(menuItem0)
         parent.Enable(menuItem0.Id,True)
 
-        menuItem1 = wx.MenuItem(parent, self.MENUITEM_CLEAN, '&Clean Download Directory...')#wx.ID_CLEAR
+        menuItem1 = wx.MenuItem(parent, self.MENUITEM_PREFERENCES, '&Preferences\tCtrl+P') #wx.ID_PREFERENCES
         parent.Append(menuItem1)
         parent.Enable(menuItem1.Id,True)
+
+        menuItem2 = wx.MenuItem(parent, self.MENUITEM_CLEAN, '&Clean Download Directory...')#wx.ID_CLEAR
+        parent.Append(menuItem2)
+        parent.Enable(menuItem2.Id,True)
 
         menuItem2 = wx.MenuItem(parent, self.MENUITEM_QUIT, '&Quit\tCtrl+Q')
         parent.Append(menuItem2)
@@ -1998,6 +2005,7 @@ class OSVMConfig(wx.Frame):
 
         self.SetMenuBar(self.menuBar)
 
+        self.menuBar.Enable(self.MENUITEM_FILELIST, globs.autoSyncMode)
         self.menuBar.Enable(self.MENUITEM_PREFERENCES, True)
         self.menuBar.Enable(self.MENUITEM_CLEAN, True)
         self.menuBar.Enable(self.MENUITEM_QUIT, True)
@@ -2008,7 +2016,10 @@ class OSVMConfig(wx.Frame):
 
     def _menuHdl(self, event):
         id = event.GetId() 
-        if id == self.MENUITEM_PREFERENCES:
+
+        if id == self.MENUITEM_FILELIST:
+            self.OnBtnFileList(event)
+        elif id == self.MENUITEM_PREFERENCES:
             self.OnBtnPreferences(event)
         elif id == self.MENUITEM_CLEAN:
             self.OnBtnCleanDownloadDir(event)
@@ -2019,6 +2030,12 @@ class OSVMConfig(wx.Frame):
         elif id == self.MENUITEM_LOG:
             self.OnBtnLog(event)
 
+    def OnBtnFileList(self, event):
+        dlg = FileListDialog.FileListDialog(self)
+        ret = dlg.ShowModal()
+        dlg.Destroy()
+        event.Skip()
+        
     def OnBtnPreferences(self, event):
         dlg = PreferencesDialog.PreferencesDialog(self.prefs)
         ret = dlg.ShowModal()
@@ -4040,6 +4057,9 @@ class OSVM(wx.Frame):
     def OnBtnSwitchMode(self, event):
         button = event.GetEventObject()
         myprint('Switching to: %s Mode' % ('Sync' if globs.viewMode else 'View'))
+
+        self.parent.menuBar.Enable(self.parent.MENUITEM_FILELIST, globs.viewMode)
+        
         globs.viewMode = not globs.viewMode
         if globs.viewMode:
             button.SetLabel('Switch to Sync Mode')
@@ -4052,7 +4072,7 @@ class OSVM(wx.Frame):
                     self.updateStatusBar(msg=msg)
                     print(msg)
                     self.panel1.Refresh()
-
+                    
         # Simulate a 'Rescan' event
         evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.btnRescan.GetId())
         evt.SetEventObject(self.btnRescan)
