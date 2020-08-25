@@ -33,7 +33,7 @@ def buildHTMLTable(fList, sortField, sortDir):
     
     headerList = ['#', 'FILENAME', 'SIZE', 'DATE', 'TIME', 'TOTAL SIZE']
 
-    items.append('<tr style="background-color: #7cc3a97d">')
+    items.append('<tr style="background-color: #fedcba">')
     for h in headerList:
         items.append('<th style="color: white">%s</th>' % h)
     items.append('</tr>')
@@ -50,8 +50,9 @@ def buildHTMLTable(fList, sortField, sortDir):
             items.append('<tr style="background-color: #c2d4e4">')
         rows += 1
         totalSize += v[1][globs.F_SIZE]
-        for f in rows,v[1][globs.F_NAME],humanBytes(v[1][globs.F_SIZE]),d1,t1,humanBytes(totalSize):
+        for f in rows,v[1][globs.F_NAME],humanBytes(v[1][globs.F_SIZE]),d1,t1:
             items.append('<td>%s</td>' % f)
+        items.append('<td style="background-color: #abcdef">%s</td>' % humanBytes(totalSize))
         items.append('</tr>')
 
     items.append('</table>')
@@ -185,8 +186,8 @@ class FileListDialog(wx.Dialog):
             remoteFilesList = [(x[1][0],x[1][1]) for x in globs.availRemoteFiles.items()]
             #print(remoteFilesList)
             # Get missing files list
-            tmp = listDiff(localFilesList, remoteFilesList)
-            # Build a dictionary containing elements from availRemoteFiles
+            tmp = listDiff2(remoteFilesList, localFilesList)
+            # Build a dictionary from list above
             dictDiff = dict()
             for e in tmp:
                 dictDiff[e[0]] = globs.availRemoteFiles[e[0]]
@@ -234,6 +235,11 @@ def humanBytes(size):
 # Build a list containing elements NOT in common to parameters
 def listDiff(li1, li2): 
     l = [i for i in li1 + li2 if i not in li1 or i not in li2] 
+    return l
+
+# Build a list containing elements of list1 NOT in list2
+def listDiff2(li1, li2): 
+    l = [i for i in li1 if i not in li2] 
     return l
 
 class MyFrame(wx.Frame):
