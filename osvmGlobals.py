@@ -206,10 +206,10 @@ DEFAULT_FILE_COLORS = []
 # Dictionary of local files
 # key: fileName, value: [fileName, fileSize, fileDate, filePath]
 localFileInfos = {}
-[FINFO_NAME,
- FINFO_SIZE,
- FINFO_DATE,
- FINFO_PATH] = [i for i in range(4)]
+# [FINFO_NAME,
+#  FINFO_SIZE,
+#  FINFO_DATE,
+#  FINFO_PATH] = [i for i in range(4)]
 localFilesCnt = 0
 localFilesSorted = {}	# Sorted copy of the dict above
 
