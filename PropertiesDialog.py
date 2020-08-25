@@ -90,7 +90,7 @@ class PropertiesDialog(wx.Dialog):
 
         # Local file attrs
         if pkginfo2[globs.F_NAME]:
-            ldate = time.strftime('%d-%b-%Y %H:%M', time.localtime(pkginfo2[globs.F_DATE]))
+            ldate = time.strftime('%d-%b-%Y %H:%M', time.localtime(pkginfo2[globs.F_DATEINSECS]))
             localFileSizeString1 = humanBytes(pkginfo2[globs.F_SIZE])
             localFileSizeString2 = '(%s bytes)' % str(pkginfo2[globs.F_SIZE])
         else:
@@ -211,7 +211,7 @@ class MyFrame(wx.Frame):
         fileSize = i.st_size
         fileDate = i.st_mtime # in seconds
         globs.localFileInfos[fileName] = [fileName,fileSize,fileDate,filePath]
-        globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst)
+        globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATEINSECS]), reverse=globs.fileSortRecentFirst)
         
         dlg = PropertiesDialog(self, fileName)
         ret = dlg.ShowModal()
