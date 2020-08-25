@@ -94,7 +94,7 @@ moduleList = (
     'CleanDownloadDirDialog', 
     'DateDialog', 
     'ExifDialog',
-    'FileListDialog',
+    'FileListFrame',
     'HelpDialog', 
     'LedControl', 
     'LogFrame', 
@@ -288,7 +288,19 @@ def cleanup():
         except:
             myprint('Failed to remove %s' % (globs.htmlDirFile))
 
-
+    myprint('Removing corrupted/partial files')
+    for v in globs.localFileInfos.values():
+        filePath = v[globs.F_PATH]
+        try:
+            localFileSize = os.stat(filePath).st_size
+        except:
+            myprint('Error: os.stat()')
+            continue
+        else:
+            if localFileSize == 0:
+                myprint('Removing empty file %s' % filePath)
+                os.remove(filePath)
+    
 def getTmpFile():
     f = tempfile.NamedTemporaryFile(delete=False)
     return f.name
@@ -395,7 +407,7 @@ def localFilesInfo(dirName):
         except:
             myprint('Error: os.stat()')
             continue
-
+        
         # Check if local file exists on camera. Rotated images are bypassed
         if not '-rot' in fileName:
             if not globs.viewMode and globs.cameraConnected:
@@ -561,7 +573,7 @@ def getRootDirInfo(rootDir, uri):
         thumbnailUrl = "%s/get_thumbnail.cgi?DIR=%s/%s" % (globs.rootUrl,dirName,fileName) # e.g: http://192.168.0.10:80/get_thumbnail.cgi?DIR=/DCIM/100OLYMP/PC020065.JPG
 
 #        globs.availRemoteFiles[fileName] = [fileName, int(fileSize), int(fileDate), '', dirName, int(fileAttr), int(dateInSeconds(int(fileDate), int(fileTime))), int(fileTime), thumbnailUrl]
-        globs.availRemoteFiles[fileName] = [fileName, int(fileSize), int(dateInSeconds(int(fileDate), '', dirName, int(fileAttr), int(fileDate), int(fileTime))), int(fileTime), thumbnailUrl]
+        globs.availRemoteFiles[fileName] = [fileName, int(fileSize), int(dateInSeconds(int(fileDate), int(fileTime))), '', dirName, int(fileAttr), int(fileDate), int(fileTime), thumbnailUrl]
 
         i += 1
 
@@ -2031,9 +2043,11 @@ class OSVMConfig(wx.Frame):
             self.OnBtnLog(event)
 
     def OnBtnFileList(self, event):
-        dlg = FileListDialog.FileListDialog(self)
-        ret = dlg.ShowModal()
-        dlg.Destroy()
+        flFrame = FileListDialog.FileListFrame(None, -1, 'List of Files')
+        flFrame.Show(True)
+        #dlg = FileListDialog.FileListDialog(self)
+        #ret = dlg.Show()
+        #dlg.Destroy()
         event.Skip()
         
     def OnBtnPreferences(self, event):
@@ -2886,7 +2900,8 @@ class OSVM(wx.Frame):
             if globs.viewMode:
                 toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,secondsTodmY(remFileDate))
             else:
-                toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,getHumanDate(remFileDate))
+#                toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,getHumanDate(remFileDate))
+                toolTipString = 'File: %s\nSize: %s\nDate: %s' % (remFileName,remFileSizeString,secondsTodmY(remFileDate))
             button.SetToolTip(toolTipString)
 
             # Colorize button if file is available locally
