@@ -6,7 +6,7 @@ from wx.lib.newevent import NewEvent
 
 myName     = 'OSVM'
 myLongName = 'Olympus Sync & View Manager'
-myVersion  = '2.6.5'
+myVersion  = '2.6.6'
 
 disabledModules = list()
 pycc = True
@@ -177,11 +177,11 @@ availRemoteFiles = {}
 # Common indexes to availRemoteFiles and localFileInfos.
 [F_NAME, # common
  F_SIZE, # common
- F_DATE, # common
- F_PATH,
+ F_DATEINSECS, # common
+ F_PATH, # common
  F_DIRNAME,
  F_ATTR,
- F_DATEINSECS,
+ F_DATE,
  F_TIME,
  F_THUMBURL] = [i for i in range(9)]
 
