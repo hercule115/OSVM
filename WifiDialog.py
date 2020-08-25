@@ -743,8 +743,7 @@ class MyFrame(wx.Frame):
         dlg = WifiDialog(self)
         ret = dlg.ShowModal()
         dlg.Destroy()
-
-        self.Show()
+        self.Destroy()
 
 def main():
     # Init Globals instance
