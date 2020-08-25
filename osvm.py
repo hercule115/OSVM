@@ -2859,7 +2859,7 @@ class OSVM(wx.Frame):
         for f in listOfThumbnail[idx:lastIdx]:
             remFileName = f[1][globs.F_NAME]
             remFileSize = f[1][globs.F_SIZE]
-            remFileDate = f[1][globs.F_DATE]
+            remFileDate = f[1][globs.F_DATEINSECS]
 
             # Add 1 button for each available image
             button = wx.Button(parent=tab, name=remFileName, style=0)
@@ -2904,8 +2904,8 @@ class OSVM(wx.Frame):
             self.thumbButtons.append(newEntry)
 
         if globs.viewMode:
-            firstRemFileDate = '%s' % (secondsTodmy(listOfThumbnail[idx][1][globs.F_DATE]))
-            lastRemFileDate  = '%s' % (secondsTodmy(listOfThumbnail[lastIdx-1][1][globs.F_DATE]))
+            firstRemFileDate = '%s' % (secondsTodmy(listOfThumbnail[idx][1][globs.F_DATEINSECS]))
+            lastRemFileDate  = '%s' % (secondsTodmy(listOfThumbnail[lastIdx-1][1][globs.F_DATEINSECS]))
         else:
             firstRemFileDate = '%s' % (getHumanDate(listOfThumbnail[idx][1][globs.F_DATE]))
             lastRemFileDate  = '%s' % (getHumanDate(listOfThumbnail[lastIdx-1][1][globs.F_DATE]))
@@ -3727,10 +3727,10 @@ class OSVM(wx.Frame):
                 myprint('globs.remOldestDate:',globs.remOldestDate)
                 myprint('globs.remNewestDate:',globs.remNewestDate)
             else:
-                globs.remNewestDate = secondsTomdY(globs.localFilesSorted[0][1][globs.F_DATE])
-                globs.remOldestDate = secondsTomdY(globs.localFilesSorted[-1][1][globs.F_DATE])
-                myprint('globs.remOldestDate:',globs.remOldestDate,globs.localFilesSorted[0][1][globs.F_DATE])
-                myprint('globs.remNewestDate:',globs.remNewestDate,globs.localFilesSorted[-1][1][globs.F_DATE])
+                globs.remNewestDate = secondsTomdY(globs.localFilesSorted[0][1][globs.F_DATEINSECS])
+                globs.remOldestDate = secondsTomdY(globs.localFilesSorted[-1][1][globs.F_DATEINSECS])
+                myprint('globs.remOldestDate:',globs.remOldestDate,globs.localFilesSorted[0][1][globs.F_DATEINSECS])
+                myprint('globs.remNewestDate:',globs.remNewestDate,globs.localFilesSorted[-1][1][globs.F_DATEINSECS])
         else:
             if not globs.availRemoteFilesCnt:	# No remote file available
                 today = datetime.date.today()
