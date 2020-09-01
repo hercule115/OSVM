@@ -238,15 +238,30 @@ def getExifData(filename):
     else:
         return exif_data
 
-# Build a dict from data read from cahe file
+# Build a dict from data read from cache file
 def buildDictFromFile(filename):
     tags = {}
-    with open(filename) as fh:
-        for line in fh:
-            tag,value = line.strip().split(':', 1)
-            tags[tag] = value.strip()
-    #myprint('Exif Dict Length:%d' % len(tags))
-    return tags
+    try:
+        fh = open(filename, "r")
+        try:
+            for line in fh:
+                tag,value = line.strip().split(':', 1)
+                tags[tag] = value.strip()
+            myprint('Exif Dict Length:%d' % len(tags))
+        finally:
+            fh.close()
+            return tags
+    except IOError as e:
+        msg = "I/O error: %s %s" % ("({0}): {1}".format(e.errno, e.strerror),link)
+        myprint(msg)
+        return tags
+
+    # with open(filename) as fh:
+    #     for line in fh:
+    #         tag,value = line.strip().split(':', 1)
+    #         tags[tag] = value.strip()
+    # #myprint('Exif Dict Length:%d' % len(tags))
+    # return tags
 
 def saveFileFromDict(exifDataDict, exifFilePath):
     # Update exif data cache file
@@ -254,21 +269,6 @@ def saveFileFromDict(exifDataDict, exifFilePath):
     with open(exifFilePath, 'w') as fh:
         for (k,v) in exifDataDict.items():
             fh.write('%s:%s\r\n' % (k,v))
-
-def getDecimalCoordinates(gpsInfo):
-    gpsCoords = dict()
-    for key in ['Latitude', 'Longitude']:
-        if 'GPS'+key in gpsInfo and 'GPS'+key+'Ref' in gpsInfo:
-            e = gpsInfo['GPS'+key]
-            ref = gpsInfo['GPS'+key+'Ref']
-            gpsCoords[key] = (e[0][0]/e[0][1] +
-                              e[1][0]/e[1][1] / 60 +
-                              e[2][0]/e[2][1] / 3600 ) * (-1 if ref in ['S','W'] else 1)
-
-    if 'Latitude' in gpsCoords and 'Longitude' in gpsCoords:
-        return [gpsCoords['Latitude'], gpsCoords['Longitude']]
-    else:
-        return None
 
 def saveExifDataFromImages(exifFilePath):
     exifDataDict = dict()
@@ -287,6 +287,22 @@ def saveExifDataFromImages(exifFilePath):
     # with open(exifFilePath, 'w') as fh:
     #     for (k,v) in exifDataDict.items():
     #         fh.write('%s:%s\r\n' % (k,v))
+
+def getDecimalCoordinates(gpsInfo):
+    gpsCoords = dict()
+    for key in ['Latitude', 'Longitude']:
+        if 'GPS'+key in gpsInfo and 'GPS'+key+'Ref' in gpsInfo:
+            e = gpsInfo['GPS'+key]
+            ref = gpsInfo['GPS'+key+'Ref']
+            gpsCoords[key] = (e[0][0]/e[0][1] +
+                              e[1][0]/e[1][1] / 60 +
+                              e[2][0]/e[2][1] / 3600 ) * (-1 if ref in ['S','W'] else 1)
+
+    if 'Latitude' in gpsCoords and 'Longitude' in gpsCoords:
+        return [gpsCoords['Latitude'], gpsCoords['Longitude']]
+    else:
+        return None
+
 
 def deg2num(lat_deg, lon_deg, zoom):
     lat_rad = math.radians(lat_deg)
