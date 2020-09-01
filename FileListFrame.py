@@ -23,7 +23,6 @@ def buildHTMLTable(fList, sortField, sortDir):
     myprint('Sorting criteria: Field: %d. Direction: %s' % (sortField, sortDir))
     # Sort data by sortField
     fileList = sorted(fList, key=lambda x: int(x[1][sortField]), reverse=sortDir)
-    #print(fileList)
     
     items = list()
     items.append('<html>')
@@ -267,4 +266,3 @@ def main():
 # Entry point    
 if __name__ == "__main__":
     main()
-        
