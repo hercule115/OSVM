@@ -264,18 +264,7 @@ class MediaViewerDialog(wx.Dialog):
             button.SetLabel('Play')
 
     def imageOnBtnExif(self, event):
-        btnPlayInfo = getattr(self, 'btnPlay')
-        evt = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, btnPlayInfo.GetId())
-        evt.SetEventObject(self.btnPlay)
-        wx.PostEvent(self.btnPlay, evt)
-
-        self.imgFilePath
-        #myprint(self.listToUse,self.imgIdx)
-        #myprint(self.listToUse[self.imgIdx])
-        #myprint(self.listToUse[0][globs.F_NAME])
-
         fileName = os.path.basename(self.imgFilePath)
-        #filePath = os.path.join(self.imgDirName, fileName)
         dlg = ExifDialog.ExifDialog(self, self.imgFilePath, self.exifData[fileName])
         dlg.ShowModal()
         dlg.Destroy()
