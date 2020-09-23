@@ -176,7 +176,7 @@ class ExifDialog(wx.Dialog):
         img.save(mapPath)
 
         globs.localFileInfos['im1.png'] = ['im1.png', 0, 0, '']    
-        globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst)
+        globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATEINSECS]), reverse=globs.fileSortRecentFirst)
         
         dlg = MediaViewerDialog.MediaViewerDialog(self, mapPath)
         dlg.ShowModal()
@@ -252,7 +252,7 @@ def buildDictFromFile(filename):
             fh.close()
             return tags
     except IOError as e:
-        msg = "I/O error: %s %s" % ("({0}): {1}".format(e.errno, e.strerror),link)
+        msg = "I/O error: %s %s" % ("({0}): {1}".format(e.errno, e.strerror),filename)
         myprint(msg)
         return tags
 
