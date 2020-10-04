@@ -1145,13 +1145,13 @@ class FileOperationMenu(wx.Menu):
     Creates and displays a file menu that allows the user to
     select an operation to perform on a given file
     """
-    def __init__(self, parent, button, oplist):
+    def __init__(self, parent, button):
         """
         Initialize the Package menu dialog box
         """
         self.parent = parent
         self.button = button
-        self.opList = oplist
+        #globs.opList = oplist
 
         super(FileOperationMenu,self).__init__()
 
@@ -1199,7 +1199,7 @@ class FileOperationMenu(wx.Menu):
         else:
             filePath = globs.localFileInfos[fileName][globs.F_PATH]
             found = False
-            for op in self.opList:
+            for op in globs.opList:
                 if op[globs.OP_STATUS] and op[globs.OP_FILENAME] == fileName:
                     found = True
                     menuEntry = [fileName, globs.FILE_UNMARK, self.button, filePath]
@@ -1306,7 +1306,7 @@ class FileOperationMenu(wx.Menu):
         myprint('fileName=%s what=%d' % (fileName,what))
         
         if what == globs.FILE_UNMARK:
-            op = [x for x in self.opList if x[globs.OP_FILENAME] == fileName][0]
+            op = [x for x in globs.opList if x[globs.OP_FILENAME] == fileName][0]
             self.parent.resetOneButton(fileName)
             self.parent.resetOneRequest(op)
 
@@ -1316,13 +1316,13 @@ class FileOperationMenu(wx.Menu):
             return
             
         # Check if one operation is already pending for this file and re-use it
-        for op in self.opList:
+        for op in globs.opList:
             if op[globs.OP_FILENAME] == fileName:
                 self._scheduleOperation(op, menuEntry)
                 return
 
         # Loop thru opList[] looking for a free slot, schedule an operation
-        for op in self.opList:
+        for op in globs.opList:
             if op[globs.OP_STATUS] == 0:
                 self._scheduleOperation(op, menuEntry)
                 break
@@ -1675,9 +1675,23 @@ class OSVMConfig(wx.Frame):
         elif id == self.MENUITEM_LOG:
             self.OnBtnLog(event)
 
+    def OnFLFResults(self, resultData):
+        myprint("Result data gathered: %s" % resultData)
+        #retCode, needRefresh = resultData.split('-')
+        retCode, needRefresh = (int(x) for x in resultData.split('-'))
+        if retCode == wx.ID_OK and needRefresh:
+            if self.osvmFrame:
+                # Send a 'Rescan' event
+                myprint('Sending EVT_RESCAN_NEEDED Event')
+                evt = wxRescanNeeded()
+                wx.PostEvent(self.osvmFrame, evt)
+
     def OnBtnFileList(self, event):
-        flFrame = FileListFrame.FileListFrame(None, -1, 'List of Files')
-        flFrame.Show(True)
+        eventTrackerHdl = FileListFrame.FileListFrameEventTracker(self.OnFLFResults)
+        self.flFrame = FileListFrame.FileListFrame(None, -1, 'List of Files')
+        self.flFrame.PushEventHandler(eventTrackerHdl)
+        
+        self.flFrame.Show(True)
         event.Skip()
         
     def OnBtnPreferences(self, event):
@@ -2318,20 +2332,20 @@ class OSVM(wx.Frame):
 
     def pendingOperationsCount(self):
         cnt = 0
-        for i in range(len(self.opList)):
-            if self.opList[i][globs.OP_STATUS]:
+        for i in range(len(globs.opList)):
+            if globs.opList[i][globs.OP_STATUS]:
                 cnt += 1
         return cnt
 
     def _clearAllRequests(self):
         # Loop thru opList[]: Clear all slots
-        for i in range(len(self.opList)):
-            opStatus = self.opList[i][globs.OP_STATUS]
+        for i in range(len(globs.opList)):
+            opStatus = globs.opList[i][globs.OP_STATUS]
             # If this operation is in used, reset associated button
             if opStatus:
-                fileName = self.opList[i][globs.OP_FILENAME]
+                fileName = globs.opList[i][globs.OP_FILENAME]
                 self.resetOneButton(fileName)
-            self.resetOneRequest(self.opList[i])
+            self.resetOneRequest(globs.opList[i])
             
     # Reset a package button associated with pkgnum
     def resetOneButton(self, fileName):
@@ -2634,7 +2648,7 @@ class OSVM(wx.Frame):
         # op[globs.OP_INTH|12]       = Installation thread
         # op[globs.OP_INTICKS|13]    = Installation elapsed time
 
-        self.opList = [[0] * globs.OP_LASTIDX for i in range(globs.MAX_OPERATIONS)]
+        #self.opList = [[0] * globs.OP_LASTIDX for i in range(globs.MAX_OPERATIONS)]
 
         # Load Preferences
         self.prefs = Preferences()
@@ -3034,7 +3048,7 @@ class OSVM(wx.Frame):
         #         break
         # if not found:
         #     myprint('Button not found')
-        #     FileOperationMenu(self, button, self.opList)
+        #     FileOperationMenu(self, button)
         #     return
 
         try:
@@ -3045,11 +3059,11 @@ class OSVM(wx.Frame):
         else:
             entry = e[0] # Use first element
 
-        FileOperationMenu(self, button, self.opList)
+        FileOperationMenu(self, button)
 
         # Check if an operation is scheduled for this button and colorize the
         # button accordingly
-        for op in self.opList:
+        for op in globs.opList:
             if op[globs.OP_STATUS] and op[globs.OP_FILENAME] == entry[1]:
                 entry[0].SetBackgroundColour(globs.fileColors[globs.FILE_OP_PENDING][0])
                 entry[0].SetForegroundColour(globs.fileColors[globs.FILE_OP_PENDING][1])
@@ -3326,7 +3340,7 @@ class OSVM(wx.Frame):
         self.updateStatusBar(msg=msg)
         self.panel1.Refresh()
 
-        #dumpOperationList("Pending Request List", self.opList)
+        #dumpOperationList("Pending Request List")
         event.Skip()
 
     def OnToDate(self, event):
@@ -3372,7 +3386,7 @@ class OSVM(wx.Frame):
         self.updateStatusBar(msg=msg)
         self.panel1.Refresh()
 
-        #dumpOperationList("Pending Request List", self.opList)
+        #dumpOperationList("Pending Request List")
         event.Skip()
 
     def OnDateChanged(self, event):
@@ -3410,7 +3424,7 @@ class OSVM(wx.Frame):
             self.updateStatusBar(msg=msg)
             self.panel1.Refresh()
 
-        #dumpOperationList("Pending Request List", self.opList)
+        #dumpOperationList("Pending Request List")
         event.Skip()
 
     def OnFileSortChoice(self, event):
@@ -3456,9 +3470,9 @@ class OSVM(wx.Frame):
 
             # Build a list of selected files
             self.mediaFileList = list()
-            for i in range(len(self.opList)):
-                if self.opList[i][globs.OP_STATUS] and self.opList[i][globs.OP_TYPE] == globs.FILE_MARK:
-                    fileName = self.opList[i][globs.OP_FILENAME]
+            for i in range(len(globs.opList)):
+                if globs.opList[i][globs.OP_STATUS] and globs.opList[i][globs.OP_TYPE] == globs.FILE_MARK:
+                    fileName = globs.opList[i][globs.OP_FILENAME]
                     self.mediaFileList.append(fileName) # 286
             myprint('%d files selected' % len(self.mediaFileList))
 
@@ -3536,11 +3550,11 @@ class OSVM(wx.Frame):
         found = False
         # Is there any pending operation? Warn user if needed
         try:
-            op = [x for x in self.opList if x[globs.OP_STATUS]][0] # Search for busy slot
+            op = [x for x in globs.opList if x[globs.OP_STATUS]][0] # Search for busy slot
         except IndexError:
             pass
         else:
-            msg = 'All pending request(s) will be lost'
+            msg = 'Rescanning: All pending request(s) will be lost'
             dlg = wx.MessageDialog(None, msg , 'WARNING', wx.OK | wx.ICON_EXCLAMATION)
             dlg.ShowModal()
         # Update statusbar configuration (lengths of fields)
@@ -3611,7 +3625,7 @@ class OSVM(wx.Frame):
     def _unSyncFiles(self, fileType=''): # Clear all requests associated to a given file type (JPG, MOV)
         myprint('Must clear all requests for %s. Suffixes: %s' % (fileType,globs.FILE_SUFFIXES[fileType]))
         i = 0
-        for op in self.opList:
+        for op in globs.opList:
             if op[globs.OP_STATUS] and op[globs.OP_FILETYPE] in globs.FILE_SUFFIXES[fileType]:
                 i += 1
                 self.resetOneButton(op[globs.OP_FILENAME])
@@ -3664,7 +3678,7 @@ class OSVM(wx.Frame):
 
             e = [button, remFileName, globs.FILE_DOWNLOAD, remFileSize, remFileDate]
             # Loop thru opList[] looking for a free slot, schedule an operation
-            for op in self.opList:
+            for op in globs.opList:
                 if op[globs.OP_STATUS] == 0:
                     self._scheduleOperation(op, e)
                     i += 1
@@ -3681,7 +3695,7 @@ class OSVM(wx.Frame):
     def _unSelectFiles(self, fileType=''): # Clear all requests for a given file type (JPG, MOV)
         myprint('Must clear all requests for %s. Suffixes: %s' % (fileType, globs.FILE_SUFFIXES[fileType]))
         i = 0
-        for op in self.opList:
+        for op in globs.opList:
             if op[globs.OP_STATUS] and op[globs.OP_FILETYPE] in globs.FILE_SUFFIXES[fileType]:
                 i += 1
                 self.resetOneButton(op[globs.OP_FILENAME])
@@ -3732,7 +3746,7 @@ class OSVM(wx.Frame):
 
             e = [button, fileName, globs.FILE_MARK, -1, fileDate]
             try:
-                op = [x for x in self.opList if not x[globs.OP_STATUS]][0] # First free slot
+                op = [x for x in globs.opList if not x[globs.OP_STATUS]][0] # First free slot
                 self._scheduleOperation(op, e)
                 i += 1
             except:
@@ -3745,7 +3759,7 @@ class OSVM(wx.Frame):
     def selectFilesByPosition(self, fileType='', position=0):	# fileType could be : JPG, MOV
         myprint('Selecting %s files, position=%d. Suffixes: %s' % (fileType, position, globs.FILE_SUFFIXES[fileType]))
         # Loop thru opList[]: Clear all slots marked as MARK
-        for op in self.opList:
+        for op in globs.opList:
             if op[globs.OP_STATUS] and op[globs.OP_TYPE] == globs.FILE_MARK:
                 fileName = op[globs.OP_FILENAME]
                 self.resetOneButton(fileName)
@@ -3763,7 +3777,7 @@ class OSVM(wx.Frame):
             button = [x[0] for x in self.thumbButtons if x[1] == fileName]
             e = [button, fileName, globs.FILE_MARK, -1, fileDate]
             try:
-                op = [x for x in self.opList if not x[globs.OP_STATUS]][0] # First free slot
+                op = [x for x in globs.opList if not x[globs.OP_STATUS]][0] # First free slot
             except:
                 msg = 'Maximum selection (%d) reached' % globs.MAX_OPERATIONS
                 self.updateStatusBar(msg=msg, fgcolor=wx.WHITE, bgcolor=wx.RED)
@@ -3775,9 +3789,9 @@ class OSVM(wx.Frame):
     def OnBtnShare(self, event):
         shareList = list()
 
-        #dumpOperationList("Global Operation List", self.opList)
+        #dumpOperationList("Global Operation List")
         
-        for op in self.opList:
+        for op in globs.opList:
             if op[globs.OP_STATUS]:
                 filePath = op[globs.OP_FILEPATH]
                 shareList.append(filePath)
@@ -3811,7 +3825,7 @@ class OSVM(wx.Frame):
             return
 
         needRefresh = False
-        for op in self.opList:
+        for op in globs.opList:
             if op[globs.OP_STATUS]:
                 filePath = op[globs.OP_FILEPATH]
                 try:
@@ -3871,7 +3885,7 @@ class OSVM(wx.Frame):
         self.timerCnt = 0
         self.timer.Start(globs.TIMER3_FREQ)
 
-        self.installDlg = InstallDialog.InstallDialog(self, download=self.downloadDir, oplist=self.opList, title='Downloading Files')
+        self.installDlg = InstallDialog.InstallDialog(self, download=self.downloadDir, title='Downloading Files')
         self.installDlg.ShowModal()
         self.installDlg.Destroy()
         self.installDlg = None
