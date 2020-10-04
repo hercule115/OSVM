@@ -6,7 +6,7 @@ from wx.lib.newevent import NewEvent
 
 myName     = 'OSVM'
 myLongName = 'Olympus Sync & View Manager'
-myVersion  = '2.6.8'
+myVersion  = '2.7.0'
 
 disabledModules = list()
 pycc = True
@@ -224,7 +224,7 @@ FILE_SLIDESHOW  = -4
 # Max # of operations to commit in a single click
 MAX_OPERATIONS = 5000
 
-# opList fields index
+# List of scheduled operations on files. Format:
 [OP_STATUS,	# status (busy=1/free=0)
  OP_FILENAME,	# remote file name (camera)
  OP_FILETYPE,	# JPG, MOV,...
@@ -241,6 +241,8 @@ MAX_OPERATIONS = 5000
  OP_INTH,	# Installation thread
  OP_INTICKS,	# Installation elapsed time
  OP_LASTIDX] = [i for i in range(16)]    # LASTIDX must be last field
+
+opList = [[0] * OP_LASTIDX for i in range(MAX_OPERATIONS)]
 
 # Execution Mode
 MODE_DISABLED = 0
