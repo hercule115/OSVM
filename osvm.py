@@ -1151,7 +1151,6 @@ class FileOperationMenu(wx.Menu):
         """
         self.parent = parent
         self.button = button
-        #globs.opList = oplist
 
         super(FileOperationMenu,self).__init__()
 
