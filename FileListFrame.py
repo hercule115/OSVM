@@ -10,6 +10,7 @@ import os
 import builtins as __builtin__
 import inspect
 import time
+import csv
 
 from wx.lib.newevent import NewEvent
 
@@ -256,7 +257,7 @@ class FileListFrame(wx.Frame):
         
         # Sorting Selector
         self.sb2 = wx.StaticBox(label='Sorting Parameters...', parent=self.panel1, style=0)
-        self.sortBS = wx.StaticBoxSizer(box=self.sb2, orient=wx.HORIZONTAL)
+        self.sortBS = wx.StaticBoxSizer(box=self.sb2, orient=wx.VERTICAL)
 
         self.sortFieldChoice = wx.Choice(choices=[v[0] for v in self.FILE_SORT_FIELD],
                                          parent=self.panel1, style=0)
@@ -264,7 +265,8 @@ class FileListFrame(wx.Frame):
         self.sortFieldChoice.SetStringSelection(self.FILE_SORT_FIELD[1][0]) # By Date
         self.sortFieldChoice.Bind(wx.EVT_CHOICE, lambda evt: self._OnParamsSelector(evt))
         self.sortBS.Add(self.sortFieldChoice, 0, border=0, flag=wx.EXPAND)
-        self.sortBS.Add(8, 0, 0, border=0, flag=wx.EXPAND)
+
+        self.sortBS.Add(0, 8, 0, border=0, flag=wx.EXPAND)
 
         # Sorting Order Selector
         self.sortOrderChoice = wx.Choice(choices=[v for v in self.FILE_SORT_ORDER],
@@ -273,7 +275,6 @@ class FileListFrame(wx.Frame):
         self.sortOrderChoice.SetStringSelection(self.FILE_SORT_ORDER[0])
         self.sortOrderChoice.Bind(wx.EVT_CHOICE, lambda evt: self._OnParamsSelector(evt))
         self.sortBS.Add(self.sortOrderChoice, 0, border=0, flag=wx.EXPAND)
-        self.sortBS.Add(8, 0, 0, border=0, flag=wx.EXPAND)
 
         # Markers buttons
         self.sb3 = wx.StaticBox(label='Markers...', parent=self.panel1, style=0)
@@ -282,33 +283,50 @@ class FileListFrame(wx.Frame):
         self.btnClearAll = wx.Button(label='Clear All', parent=self.panel1, style=0)
         self.btnClearAll.Bind(wx.EVT_BUTTON, self._OnDeSelectAll)
         self.markerBS.Add(self.btnClearAll, 0, border=0, flag=wx.EXPAND)
-        self.markerBS.Add(0, 4, border=0, flag=wx.EXPAND)
+
+        self.markerBS.Add(0, 8, border=0, flag=wx.EXPAND)
 
         self.btnMarkAll = wx.Button(label='Mark All', parent=self.panel1, style=0)
         self.btnMarkAll.Bind(wx.EVT_BUTTON, self._OnSelectAll)
         self.markerBS.Add(self.btnMarkAll, 0, border=0, flag=wx.EXPAND)
-        self.markerBS.Add(0, 4, 0, border=0, flag=wx.EXPAND)
+
+        self.markerBS.Add(0, 8, 0, border=0, flag=wx.EXPAND)
 
         self.btnDownload = wx.Button(label='Download...', parent=self.panel1, style=0)
         self.btnDownload.Bind(wx.EVT_BUTTON, self._OnBtnDownload)
         self.btnDownload.Enable(False)
         self.markerBS.Add(self.btnDownload, 0, border=0, flag=wx.EXPAND)
+        
+        # Button to save the list
+        self.sb4 = wx.StaticBox(label='...', parent=self.panel1, style=0)
+        self.rightBS = wx.StaticBoxSizer(box=self.sb4, orient=wx.VERTICAL)
 
-        # Add static boxes to btnBS
-        self.btnBS.Add(self.fileTypesBS, 0, border=0, flag=wx.EXPAND)
-        self.btnBS.Add(self.sortBS, 0, border=0, flag=wx.EXPAND)
-        self.btnBS.Add(self.markerBS, 0, border=0, flag=wx.EXPAND)
-        self.btnBS.Add(12, 0, 0, border=0, flag=wx.EXPAND)
+        self.btnSave = wx.Button(label='Save List', parent=self.panel1, style=0)
+        self.btnSave.Bind(wx.EVT_BUTTON, self._OnBtnSave)
+        #self.rightBS.Add(self.btnSave, 0, border=0, flag=wx.EXPAND|wx.ALIGN_RIGHT)
+        self.rightBS.Add(self.btnSave, 0, border=0, flag=wx.EXPAND)
+
+        self.rightBS.Add(0, 8, 0, border=0, flag=wx.EXPAND)
         
         # Button to close the frame
         self.btnClose = wx.Button(label='Close', id=wx.ID_CLOSE, parent=self.panel1, style=0)
         self.btnClose.Bind(wx.EVT_BUTTON, self._OnBtnClose)
-        self.btnBS.Add(self.btnClose, 0, border=0, flag=wx.EXPAND|wx.ALIGN_RIGHT)
+        #self.btnBS.Add(self.btnClose, 0, border=0, flag=wx.EXPAND|wx.ALIGN_RIGHT)
+        self.rightBS.Add(self.btnClose, 0, border=0, flag=wx.EXPAND)
 
+        #self.rightBS.Add(0, 8, border=0, flag=wx.EXPAND)
+        
+        # Add all button boxes to btnBS
+        self.btnBS.Add(self.fileTypesBS, 0, border=0, flag=wx.EXPAND)
+        self.btnBS.Add(self.sortBS, 0, border=0, flag=wx.EXPAND)
+        self.btnBS.Add(self.markerBS, 0, border=0, flag=wx.EXPAND)
+        self.btnBS.Add(8, 0, 0, border=0, flag=wx.EXPAND)
+        self.btnBS.Add(self.rightBS, 0, border=0, flag=wx.EXPAND)
+        
         # Buttons boxsizer in the topBoxSizer
         self.topBS = wx.BoxSizer(orient=wx.VERTICAL)
         self.topBS.Add(self.btnBS, 0, border=5, flag=wx.EXPAND|wx.ALL)
-        self.topBS.Add(4, 4, 0, border=0, flag=0)
+        self.topBS.Add(0, 4, 0, border=0, flag=0)
 
         # ListCtrl to contain file list
         self.fileListCtrl = MyListCtrl(self.panel1, len(self.HEADERLIST), self.fileListDict)
@@ -496,7 +514,10 @@ class FileListFrame(wx.Frame):
             for f in self.checkedItems:
                 checkedItemsDict[f] = globs.availRemoteFiles[f]
             myprint(checkedItemsDict)
-            self.fileListDict, self.fileList = buildFileListDict(list(checkedItemsDict.items()), c1, c2)            
+            self.fileListDict, self.fileList = buildFileListDict(list(checkedItemsDict.items()), c1, c2)
+        print('D',self.fileListDict)
+        print('L',self.fileList)
+        
         # Update ListCtrl data
         cnt, size = self._populateFileListCtrl(self.fileList)
         self._update1StatusBar(cnt, size)
@@ -517,6 +538,22 @@ class FileListFrame(wx.Frame):
             self.GetEventHandler().ProcessEvent(event)
             self.Close()
 
+    def _OnBtnSave(self, event):
+        listType = self.FILE_TYPES[self.fileTypesChoice.GetSelection()][0]
+        currentDate = time.strftime('%m%d%y', time.localtime())
+        filePath = '%s-%s.csv' % (listType,currentDate) #'foobar'
+
+        myprint('Saving list: %s to %s' % (listType, filePath))
+        #myprint(self.fileList)
+        with open(filePath, 'w') as f:
+            wr = csv.writer(f, quoting=csv.QUOTE_ALL)
+            wr.writerow(self.COL_HDRS)
+            wr.writerows(self.fileList)
+        dlg = wx.MessageDialog(self, "List saved to file %s" % (filePath), 'Information', wx.OK)
+        dlg.ShowModal()
+        dlg.Destroy()
+        event.Skip()
+        
     def _OnClose(self, event):
         myprint("Closing")
         self.PopEventHandler(True)
@@ -535,14 +572,23 @@ class FileListFrame(wx.Frame):
             #print(item.GetBackgroundColour())
             col += 1
                 
-        [self.FL_IDX,
-         self.FL_FILENAME,
-         self.FL_SIZEINMB,
-         self.FL_SIZERAW,
-         self.FL_DATE,
-         self.FL_DATERAW,
-         self.FL_TIME,
-         self.FL_SIZETOTAL] = [i for i in range(8)]
+        self.FL_LIST = [self.FL_IDX,
+                        self.FL_FILENAME,
+                        self.FL_SIZEINMB,
+                        self.FL_SIZERAW,
+                        self.FL_DATE,
+                        self.FL_DATERAW,
+                        self.FL_TIME,
+                        self.FL_SIZETOTAL] = [i for i in range(8)]
+
+        self.COL_HDRS = ["Index",
+                         "Filename",
+                         "Size",
+                         "Raw Size",
+                         "Date",
+                         "Raw Date",
+                         "Time",
+                         "Total Size"]
 
         idx = totalSize = 0
         myprint('Populating')
