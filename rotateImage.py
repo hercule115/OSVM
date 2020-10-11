@@ -2,6 +2,7 @@
 
 import os
 import builtins as __builtin__
+import inspect
 from PIL import Image, ImageOps  # ExifTags,
 
 moduleList = {'osvmGlobals':'globs',
