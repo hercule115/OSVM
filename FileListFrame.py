@@ -234,6 +234,16 @@ class FileListFrame(wx.Frame):
         self.FILE_SORT_ORDER = ['Ascending',
                                 'Descending']
 
+        [self.MARK_NONE,
+         self.MARK_JPG,
+         self.MARK_MOV,
+         self.MARK_ALL] = [i for i in range(4)]
+        
+        self.FILE_MARKER_CHOICE = ['Clear Marks',
+                                   'Mark JPG',
+                                   'Mark MOV',
+                                   'Mark All']
+                                   
         self.panel1 = wx.Panel(id=wx.ID_ANY, name='panel1', parent=self,
                                size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
 
@@ -280,18 +290,27 @@ class FileListFrame(wx.Frame):
         self.sb3 = wx.StaticBox(label='Markers...', parent=self.panel1, style=0)
         self.markerBS = wx.StaticBoxSizer(box=self.sb3, orient=wx.VERTICAL)
 
-        self.btnClearAll = wx.Button(label='Clear All', parent=self.panel1, style=0)
-        self.btnClearAll.Bind(wx.EVT_BUTTON, self._OnDeSelectAll)
-        self.markerBS.Add(self.btnClearAll, 0, border=0, flag=wx.EXPAND)
+        # self.btnClearAll = wx.Button(label='Clear All', parent=self.panel1, style=0)
+        # self.btnClearAll.Bind(wx.EVT_BUTTON, self._OnDeSelectAll)
+        # self.markerBS.Add(self.btnClearAll, 0, border=0, flag=wx.EXPAND)
+
+        # self.markerBS.Add(0, 8, border=0, flag=wx.EXPAND)
+
+        # self.btnMarkAll = wx.Button(label='Mark All', parent=self.panel1, style=0)
+        # self.btnMarkAll.Bind(wx.EVT_BUTTON, self._OnSelectAll)
+        # self.markerBS.Add(self.btnMarkAll, 0, border=0, flag=wx.EXPAND)
+
+        # self.markerBS.Add(0, 8, 0, border=0, flag=wx.EXPAND)
+
+        self.markerChoice = wx.Choice(choices=[v for v in self.FILE_MARKER_CHOICE],
+                                      parent=self.panel1, style=0)
+        self.markerChoice.SetToolTip('Select files to mark')
+        self.markerChoice.SetStringSelection(self.FILE_MARKER_CHOICE[0])
+        self.markerChoice.Bind(wx.EVT_CHOICE, lambda evt: self._OnParamsSelector(evt))
+        self.markerBS.Add(self.markerChoice, 0, border=0, flag=wx.EXPAND)
 
         self.markerBS.Add(0, 8, border=0, flag=wx.EXPAND)
-
-        self.btnMarkAll = wx.Button(label='Mark All', parent=self.panel1, style=0)
-        self.btnMarkAll.Bind(wx.EVT_BUTTON, self._OnSelectAll)
-        self.markerBS.Add(self.btnMarkAll, 0, border=0, flag=wx.EXPAND)
-
-        self.markerBS.Add(0, 8, 0, border=0, flag=wx.EXPAND)
-
+        
         self.btnDownload = wx.Button(label='Download...', parent=self.panel1, style=0)
         self.btnDownload.Bind(wx.EVT_BUTTON, self._OnBtnDownload)
         self.btnDownload.Enable(False)
@@ -493,9 +512,9 @@ class FileListFrame(wx.Frame):
     def _OnParamsSelector(self, event):
         self.logTC.Clear()
         self.btnDownload.Enable(False)
-        self.btnMarkAll.Enable(False)
+        #self.btnMarkAll.Enable(False)
         
-        c0,c1,c2 = self._getSortingParams()
+        c0,c1,c2,c3 = self._getSortingParams()
         
         if c0 == self.FT_REMOTE: #'All Remote Files':
             self.fileListDict, self.fileList = buildFileListDict(list(globs.availRemoteFiles.items()), c1, c2)
@@ -506,7 +525,7 @@ class FileListFrame(wx.Frame):
             # Build a list of not synced files
             dictDiff = buildDiffDict()
             self.fileListDict, self.fileList = buildFileListDict(list(dictDiff.items()), c1, c2)
-            self.btnMarkAll.Enable(True)
+            #self.btnMarkAll.Enable(True)
             if len(self.checkedItems):
                 self.btnDownload.Enable(True)
         else: # Marked Files
@@ -515,11 +534,24 @@ class FileListFrame(wx.Frame):
                 checkedItemsDict[f] = globs.availRemoteFiles[f]
             myprint(checkedItemsDict)
             self.fileListDict, self.fileList = buildFileListDict(list(checkedItemsDict.items()), c1, c2)
-        print('D',self.fileListDict)
-        print('L',self.fileList)
+        #print('D',self.fileListDict)
+        #print('L',self.fileList)
         
         # Update ListCtrl data
         cnt, size = self._populateFileListCtrl(self.fileList)
+
+        # Handle Marker selection
+        if c3 == self.MARK_NONE:
+            self._OnDeSelectAll(0)
+            pass
+        elif c3 == self.MARK_JPG:
+            self._markFilesBySuffix('jpg')
+        elif c3 == self.MARK_MOV:
+            self._markFilesBySuffix('mov')
+        else:
+            self._OnSelectAll(0)
+
+        # Update status bar
         self._update1StatusBar(cnt, size)
         
         if event:
@@ -642,8 +674,18 @@ class FileListFrame(wx.Frame):
         c1 = self.FILE_SORT_FIELD[idx][1]
 
         c2 = self.sortOrderChoice.GetSelection()
-        myprint('Sorting Parameters: Type: %s Field: %d Order: %d' % (c0,c1,c2))
-        return(c0,c1,c2)
+
+        c3 = self.markerChoice.GetSelection()
+        myprint('Criteria: Type: %s Field: %d Order: %d Marker: %d' % (c0,c1,c2,c3))
+
+        return(c0,c1,c2,c3)
+
+    def _markFilesBySuffix(self, suffix):
+        self._OnDeSelectAll(0)
+        for i in range(self.fileListCtrl.GetItemCount()):
+            filename = self.fileListCtrl.GetItem(i,self.HDR_FILENAME).GetText()
+            if filename.lower().endswith(suffix):
+                self.fileListCtrl.CheckItem(i)
 
     # Called by InstallDialog()
     def finish(self):
@@ -726,6 +768,7 @@ def main():
     globs.availRemoteFiles['P7032921.JPG'] = ['P7032921.JPG', 1522484, 1593782206, '', '/DCIM/100OLYMP', 0, 20707, 31255, 'http://192.168.0.10:80/get_thumbnail.cgi?DIR=/DCIM/100OLYMP/P7032921.JPG']
     globs.availRemoteFiles['P7062936.JPG'] = ['P7062936.JPG', 1599056, 1594058304, '', '/DCIM/100OLYMP', 0, 20710, 40780, 'http://192.168.0.10:80/get_thumbnail.cgi?DIR=/DCIM/100OLYMP/P7062936.JPG']
     globs.availRemoteFiles['P4062936.JPG'] = ['P4062936.JPG', 1509056, 1504058304, '', '/DCIM/100OLYMP', 0, 20710, 46780, 'http://192.168.0.10:80/get_thumbnail.cgi?DIR=/DCIM/100OLYMP/P4062936.JPG']
+    globs.availRemoteFiles['P1234567.MOV'] = ['P1234567.MOV', 5508000, 1504000000, '', '/DCIM/100OLYMP', 0, 20600, 12345, 'http://192.168.0.10:80/get_thumbnail.cgi?DIR=/DCIM/100OLYMP/P1234567.MOV']
 
     globs.localFileInfos['P8232966.JPG'] = ['P8232966.JPG',1538041,1598171028,'foo']
     globs.localFileInfos['P7032921.JPG'] = ['P7032921.JPG',1522484,1593782206,'bar']
