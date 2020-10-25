@@ -518,7 +518,7 @@ class FileListFrame(wx.Frame):
         
         if c0 == self.FT_REMOTE: #'All Remote Files':
             self.fileListDict, self.fileList = buildFileListDict(list(globs.availRemoteFiles.items()), c1, c2)
-            self.btnMarkAll.Enable(True)
+            #self.btnMarkAll.Enable(True)
         elif c0 == self.FT_LOCAL: #'All Local Files':
             self.fileListDict, self.fileList = buildFileListDict(list(globs.localFileInfos.items()), c1, c2)
         elif c0 == self.FT_NOTSYNCED:
