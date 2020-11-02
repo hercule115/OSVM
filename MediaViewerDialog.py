@@ -167,7 +167,7 @@ class MediaViewerDialog(wx.Dialog):
         self.bottomBtnSizer.AddStretchSpacer(prop=1)
         self.bottomBtnSizer.Add(self.btnSizer, 0, flag=wx.EXPAND| wx.ALL)
         self.bottomBtnSizer.AddStretchSpacer(prop=1)
-        self.bottomBtnSizer.Add(self.quitBoxSizer, 0, flag=wx.ALIGN_RIGHT)
+        self.bottomBtnSizer.Add(self.quitBoxSizer, 0)#211, flag=wx.ALIGN_RIGHT)
 
         self.mainSizer.Add(self.bottomBtnSizer, 0, flag=wx.EXPAND| wx.ALL)
 
