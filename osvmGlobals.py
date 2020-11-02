@@ -6,7 +6,7 @@ from wx.lib.newevent import NewEvent
 
 myName     = 'OSVM'
 myLongName = 'Olympus Sync & View Manager'
-myVersion  = '2.7.0'
+myVersion  = '2.8.0'
 
 disabledModules = list()
 pycc = True
