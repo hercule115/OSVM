@@ -79,7 +79,7 @@ class ExifDialog(wx.Dialog):
                     vST = wx.StaticText(label=str(v).strip(), parent=self.panel1)
                     bs1.Add(kST, 0, border=5, flag=wx.EXPAND|wx.ALL)
                     bs1.AddStretchSpacer(prop=1)
-                    bs1.Add(vST, 0, border=5, flag=wx.EXPAND|wx.ALL| wx.ALIGN_RIGHT)
+                    bs1.Add(vST, 0, border=5, flag=wx.EXPAND|wx.ALL)#211 | wx.ALIGN_RIGHT)
                     parent.Add(bs1, border=0, flag=wx.ALL | wx.EXPAND)
             else:
                 bs1 = wx.BoxSizer(orient=wx.HORIZONTAL)
@@ -87,7 +87,7 @@ class ExifDialog(wx.Dialog):
                 vST = wx.StaticText(label=str(v).strip(), parent=self.panel1)
                 bs1.Add(kST, 0, border=5, flag=wx.EXPAND|wx.ALL)
                 bs1.AddStretchSpacer(prop=1)
-                bs1.Add(vST, 0, border=5, flag=wx.EXPAND|wx.ALL| wx.ALIGN_RIGHT)
+                bs1.Add(vST, 0, border=5, flag=wx.EXPAND|wx.ALL)#211 | wx.ALIGN_RIGHT)
                 parent.Add(bs1, border=0, flag=wx.ALL | wx.EXPAND)
 
     # GPS Coordinates and map
