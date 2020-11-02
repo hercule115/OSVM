@@ -30,20 +30,20 @@ for k,v in moduleList.items():
 ####
 #print(__name__)
 
-def buildFileListDict(fList, sortField, sortDir):
+def buildFileListAndDict(fList, sortField, sortDir):
     myprint('Sorting criteria: Field: %d. Direction: %s' % (sortField, sortDir))
     #myprint(fList)
-    print('sorting')
+    #myprint('sorting')
     if sortField != globs.F_NAME:
         fileList = sorted(fList, key=lambda x: int(x[1][sortField]), reverse=sortDir)
     else:
         fileList = sorted(fList, key=lambda x: x[0], reverse=sortDir)
-    print('sorted')
+    #myprint('sorted')
     #myprint(fileList)
 
     d = dict()
     l = list()
-    #k = 0
+
     idx= 0
     totalSize = 0
     for v in fileList:
@@ -52,27 +52,29 @@ def buildFileListDict(fList, sortField, sortDir):
 
         totalSize += v[1][globs.F_SIZE]
 
-        d[v[1][globs.F_NAME]] = (str(idx),			# FL_IDX
+        d[v[1][globs.F_NAME]] = ('',				# FL_MARK
+                                 str(idx),			# FL_IDX
                                  v[1][globs.F_NAME],		# FL_FILENAME
                                  humanBytes(v[1][globs.F_SIZE]),# FL_SIZEINMB
-                                 v[1][globs.F_SIZE],		# FL_SIZERAW
                                  d1,				# FL_DATE
-                                 v[1][globs.F_DATEINSECS],	# FL_DATERAW
                                  t1,				# FL_TIME
-                                 humanBytes(totalSize))		# FL_SIZETOTAL
+                                 v[1][globs.F_SIZE],		# FL_SIZERAW
+                                 v[1][globs.F_DATEINSECS],	# FL_DATERAW
+                                 humanBytes(totalSize),		# FL_SIZETOTAL
+                                 0)				# FL_MARKED
 
-        l.append((idx,
+        l.append(('',
+                  idx,
                   v[1][globs.F_NAME],
                   humanBytes(v[1][globs.F_SIZE]),
-                  v[1][globs.F_SIZE],
                   d1,
-                  v[1][globs.F_DATEINSECS],
                   t1,
-                  humanBytes(totalSize)))
+                  v[1][globs.F_SIZE],
+                  v[1][globs.F_DATEINSECS],
+                  humanBytes(totalSize),
+                  0))
         idx += 1
-        #k += 1
     #print(d,l)
-    #print(d)
     return(d,l)
 
 def buildDiffDict():
@@ -103,7 +105,7 @@ def _scheduleOperation(op, e):
     op[globs.OP_SIZE]     = (fileSize, nBlocks)
     op[globs.OP_FILEDATE] = fileDate
     op[globs.OP_FILEPATH] = os.path.join(globs.osvmDownloadDir, fileName)
-    myprint(op)
+    #myprint(op)
 
 # Clear/Reset an operation
 def _clearAllOperations():
@@ -120,76 +122,161 @@ class FileListFrameEventTracker(wx.EvtHandler):
         myprint(event.resultOfFrame)
         self.processingCodeFunctionHandle(event.resultOfFrame)
         event.Skip()
-    
-class CheckListCtrl(wx.ListCtrl, CheckListCtrlMixin, ListCtrlAutoWidthMixin):
 
-    def __init__(self, parent):
-        wx.ListCtrl.__init__(self, parent, wx.ID_ANY, style=wx.LC_REPORT |
-                wx.SUNKEN_BORDER)
-        CheckListCtrlMixin.__init__(self)
-        ListCtrlAutoWidthMixin.__init__(self)
-    
+        
+# class CheckListCtrl(wx.ListCtrl, CheckListCtrlMixin, ListCtrlAutoWidthMixin):
 
-class MyListCtrl(wx.ListCtrl, CheckListCtrlMixin, ListCtrlAutoWidthMixin, ListRowHighlighter):
+#     def __init__(self, parent):
+#         wx.ListCtrl.__init__(self, parent, wx.ID_ANY, style=wx.LC_REPORT |
+#                 wx.SUNKEN_BORDER)
+#         CheckListCtrlMixin.__init__(self)
+#         ListCtrlAutoWidthMixin.__init__(self)
 
-    def __init__(self, parent, numCols, dataDict):
+        
+#class MyListCtrl(wx.ListCtrl, CheckListCtrlMixin, ListCtrlAutoWidthMixin, ListRowHighlighter):
+class MyListCtrl(wx.ListCtrl, ListCtrlAutoWidthMixin, ListRowHighlighter):
 
-        wx.ListCtrl.__init__(self, parent, wx.ID_ANY, style=wx.LC_REPORT)
+    def __init__(self, parent, cols, dataDict):
 
+        wx.ListCtrl.__init__( self, parent, wx.ID_ANY, style=wx.LC_REPORT|wx.LC_VIRTUAL|wx.LC_HRULES|wx.LC_VRULES)
         ListCtrlAutoWidthMixin.__init__(self)
         ListRowHighlighter.__init__(self)
-        CheckListCtrlMixin.__init__(self)
+        #CheckListCtrlMixin.__init__(self)
 
         self.parent = parent
+
+        self.EnableAlternateRowColours(enable=True)
+        self.EnableCheckBoxes(enable=True)
         
+        # Adding some attributes (colourful background for each item rows)
+        self.attrs = dict()
+        attr0 = wx.ItemAttr()
+        attr0.SetBackgroundColour("white")
+        self.attrs[0] = attr0
+
+        attr1 = wx.ItemAttr()
+        attr1.SetBackgroundColour("light blue")
+        self.attrs[1] = attr1
+
+        
+        # Building the columns. Each entry is: (Column Name, Column Width)
+        idx = 0
+        for c in cols:
+            self.InsertColumn(idx, c[0])
+            self.SetColumnWidth(idx, c[1])
+            idx += 1
+
+        self.UpdateDataMap(dataDict)
+        
+        # Events
+        self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self._OnItemActivated)
+        self.Bind(wx.EVT_LIST_ITEM_DESELECTED, self._OnItemDeselected)
+        self.Bind(wx.EVT_LIST_ITEM_SELECTED, self._OnItemSelected)
+        self.Bind(wx.EVT_LIST_ITEM_CHECKED, self._OnItemChecked)
+        self.Bind(wx.EVT_LIST_ITEM_UNCHECKED, self._OnItemChecked)
+        #self.Bind(wx.EVT_LIST_COL_CLICK, self.OnColumnClick)
+
+    def UpdateDataMap(self, dataDict):
         self.itemDataMap = dataDict
         self.itemIndexMap = dataDict.keys()
+        self.SetItemCount(len(dataDict))
         
-        #events
-        #self.Bind(wx.EVT_LIST_ITEM_SELECTED, self._OnItemSelected)
-        self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.OnItemActivated)
-        self.Bind(wx.EVT_LIST_ITEM_DESELECTED, self.OnItemDeselected)
-        #self.Bind(wx.EVT_LIST_ITEM_CHECKED, self.OnItemChecked)
-        #self.Bind(wx.EVT_LIST_COL_CLICK, self.OnColumnClick)
-        
+    # These methods are callbacks for implementing the
+    # "virtualness" of the list...
+    def OnGetItemText(self, item, col):
+        k = list(self.itemIndexMap)[item]
+        s = self.itemDataMap[k][col]
+        #myprint(item,col,k,str(s))
+        return str(s)
+
+    def OnGetItemImage(self, item):
+        return -1
+
+    def OnGetItemIsChecked(self, item):
+        k = list(self.itemIndexMap)[item]
+        v = self.itemDataMap[k][9]		# Get mark
+        #myprint(item,k,v)
+        return(v)
+    
+    def OnGetItemAttr(self, item):
+        k = list(self.itemIndexMap)[item]
+        idx = int(self.itemDataMap[k][1])	# Line index
+        #myprint(k,idx)
+        return self.attrs[idx%2]
+    
     def GetListCtrl(self):
         return self
 
-    def OnCheckItem(self, idx, flag):
-        myprint(idx,flag)
-        if flag: # item checked
-            evt = itemChecked()
-        else:
-            evt = itemUnChecked()
-        wx.PostEvent(self, evt)
+    # def OnCheckItem(self, idx, flag):
+    #     myprint(idx,flag)
+    #     if flag: # item checked
+    #         evt = itemChecked()
+    #     else:
+    #         evt = itemUnChecked()
+    #     wx.PostEvent(self, evt)
         
     # def OnColumnClick(self,event):
     #     print('OnColumnClick')
     #     self.RefreshRows()
     #     event.Skip()
 
-    def OnItemChecked(self, event):
-        myprint('')
-        event.Skip()
-        
-    def _OnItemSelected(self, event):
-        #item = event.GetItem()
-        #print('Item Selected:',item.GetId(), item.GetText(),item.GetData(),item.GetColumn())
-        #self.CheckItem(item.GetId())
-        event.Skip()
-        
-    def OnItemDeselected(self, event):
-        myprint('')
-        event.Skip()
-        
-    def OnItemActivated(self, event):
-        myprint('')
+    def _OnItemChecked(self, event):
+        index = event.Index
+        fname = self._getColumnText(index, 2)
+        # Convert tuple to list to update mark
+        l = list(self.itemDataMap[fname])
+        l[9] = not(l[9])		# Update Mark
+        # Convert back to tuple
+        self.itemDataMap[fname] = tuple(l)
+        myprint(index,fname,self.itemDataMap[fname])
+
+        # Notify parent
+        if l[9]:
+            evt = itemChecked()
+        else:
+            evt = itemUnChecked()
+        wx.PostEvent(self, evt)
         event.Skip()
 
-    def getColumnText(self, index, col):
+    def _getColumnText(self, index, col):
         item = self.GetItem(index, col)
         return item.GetText()
+        
+    def _OnItemSelected(self, event):
+        self.currentItem = event.Index
+        myprint('%d, %s, %s, %s, %s, %s' %
+                (self.currentItem,
+                 self.GetItemText(self.currentItem),		# Mark
+                 self._getColumnText(self.currentItem, 1),	# Idx
+                 self._getColumnText(self.currentItem, 2),	# Name
+                 self._getColumnText(self.currentItem, 3),	# Size
+                 self._getColumnText(self.currentItem, 4)))	# Date
+        event.Skip()
+        
+    def _OnItemDeselected(self, event):
+        myprint('')
+        event.Skip()
+        
+    def _OnItemActivated(self, event):
+        self.currentItem = event.Index
+        myprint(self.currentItem)
+        event.Skip()
 
+    def MarkItem(self, index, state):
+        fname = self._getColumnText(index, 2)
+        # Convert tuple to list to update mark
+        l = list(self.itemDataMap[fname])
+        l[9] = state		# Update Mark
+        # Convert back to tuple
+        self.itemDataMap[fname] = tuple(l)
+        #myprint(index,fname,self.itemDataMap[fname])
+
+    def IsMarked(self, fname):
+        v = self.itemDataMap[fname][9]		# Get mark
+        #myprint(fname,v)
+        return(v)
+
+        
 class FileListFrame(wx.Frame):
     """
     Creates and displays a window to list files
@@ -202,7 +289,7 @@ class FileListFrame(wx.Frame):
         
         self.Bind(wx.EVT_CLOSE, self._OnClose)
         
-        [self.HDR_MARK,
+        [self.HDR_CHECKBOX,
          self.HDR_FILEIDX,
          self.HDR_FILENAME,
          self.HDR_FILESIZE,
@@ -210,12 +297,35 @@ class FileListFrame(wx.Frame):
          self.HDR_FILETIME] = [i for i in range(6)]
 
         # Each column header entry of type: (label,width)
-        self.HEADERLIST = [('MARK',60),
-                           ('IDX',60),
-                           ('FILENAME',180),
-                           ('SIZE',100),
-                           ('DATE',100),
-                           ('TIME',100)]
+        self.HEADERLIST = [('MARK', 40),
+                           ('IDX',  60),
+                           ('FILENAME', 180),
+                           ('SIZE', 100),
+                           ('DATE', 100),
+                           ('TIME', 100)]
+
+        # Used when saving in CSV file
+        self.COL_HDRS = ["Checkbox",
+                         "Index",
+                         "Filename",
+                         "Size",
+                         "Raw Size",
+                         "Date",
+                         "Raw Date",
+                         "Time",
+                         "Total Size",
+                         "Marked"]
+        
+        self.FL_LIST = [self.FL_MARK,
+                        self.FL_IDX,
+                        self.FL_FILENAME,
+                        self.FL_SIZEINMB,
+                        self.FL_DATE,
+                        self.FL_TIME,
+                        self.FL_SIZERAW,
+                        self.FL_DATERAW,
+                        self.FL_SIZETOTAL,
+                        self.FL_MARKED] = [i for i in range(10)]
 
         [self.FT_REMOTE,
          self.FT_LOCAL,
@@ -249,7 +359,7 @@ class FileListFrame(wx.Frame):
 
         # Build a list of not synced files
         dictDiff = buildDiffDict()
-        self.fileListDict, self.fileList = buildFileListDict(list(dictDiff.items()), globs.F_DATEINSECS, False)
+        self.fileDict, self.fileList = buildFileListAndDict(list(dictDiff.items()), globs.F_DATEINSECS, False)
 
         # Box Sizer to contain all buttons
         self.btnBS = wx.BoxSizer(orient=wx.HORIZONTAL)
@@ -290,18 +400,6 @@ class FileListFrame(wx.Frame):
         self.sb3 = wx.StaticBox(label='Markers...', parent=self.panel1, style=0)
         self.markerBS = wx.StaticBoxSizer(box=self.sb3, orient=wx.VERTICAL)
 
-        # self.btnClearAll = wx.Button(label='Clear All', parent=self.panel1, style=0)
-        # self.btnClearAll.Bind(wx.EVT_BUTTON, self._OnDeSelectAll)
-        # self.markerBS.Add(self.btnClearAll, 0, border=0, flag=wx.EXPAND)
-
-        # self.markerBS.Add(0, 8, border=0, flag=wx.EXPAND)
-
-        # self.btnMarkAll = wx.Button(label='Mark All', parent=self.panel1, style=0)
-        # self.btnMarkAll.Bind(wx.EVT_BUTTON, self._OnSelectAll)
-        # self.markerBS.Add(self.btnMarkAll, 0, border=0, flag=wx.EXPAND)
-
-        # self.markerBS.Add(0, 8, 0, border=0, flag=wx.EXPAND)
-
         self.markerChoice = wx.Choice(choices=[v for v in self.FILE_MARKER_CHOICE],
                                       parent=self.panel1, style=0)
         self.markerChoice.SetToolTip('Select files to mark')
@@ -322,7 +420,6 @@ class FileListFrame(wx.Frame):
 
         self.btnSave = wx.Button(label='Save List', parent=self.panel1, style=0)
         self.btnSave.Bind(wx.EVT_BUTTON, self._OnBtnSave)
-        #self.rightBS.Add(self.btnSave, 0, border=0, flag=wx.EXPAND|wx.ALIGN_RIGHT)
         self.rightBS.Add(self.btnSave, 0, border=0, flag=wx.EXPAND)
 
         self.rightBS.Add(0, 8, 0, border=0, flag=wx.EXPAND)
@@ -330,11 +427,8 @@ class FileListFrame(wx.Frame):
         # Button to close the frame
         self.btnClose = wx.Button(label='Close', id=wx.ID_CLOSE, parent=self.panel1, style=0)
         self.btnClose.Bind(wx.EVT_BUTTON, self._OnBtnClose)
-        #self.btnBS.Add(self.btnClose, 0, border=0, flag=wx.EXPAND|wx.ALIGN_RIGHT)
         self.rightBS.Add(self.btnClose, 0, border=0, flag=wx.EXPAND)
 
-        #self.rightBS.Add(0, 8, border=0, flag=wx.EXPAND)
-        
         # Add all button boxes to btnBS
         self.btnBS.Add(self.fileTypesBS, 0, border=0, flag=wx.EXPAND)
         self.btnBS.Add(self.sortBS, 0, border=0, flag=wx.EXPAND)
@@ -348,9 +442,9 @@ class FileListFrame(wx.Frame):
         self.topBS.Add(0, 4, 0, border=0, flag=0)
 
         # ListCtrl to contain file list
-        self.fileListCtrl = MyListCtrl(self.panel1, len(self.HEADERLIST), self.fileListDict)
+        self.fileListCtrl = MyListCtrl(self.panel1, self.HEADERLIST, self.fileDict)
 
-        self.fileListCtrl.Bind(wx.EVT_LIST_ITEM_SELECTED, self._OnItemSelected)
+        #self.fileListCtrl.Bind(wx.EVT_LIST_ITEM_SELECTED, self._OnItemSelected)
         self.fileListCtrl.Bind(EVT_LIST_ITEM_CHECKED, self._OnListCheckUpdate)
         self.fileListCtrl.Bind(EVT_LIST_ITEM_UNCHECKED, self._OnListCheckUpdate)
         #self.fileListCtrl.Bind(wx.EVT_LIST_COL_CLICK, self.OnColumnClick)
@@ -402,20 +496,17 @@ class FileListFrame(wx.Frame):
         self.topBS.Add(self.infoSB, 0, border=0, flag=wx.EXPAND)
 
         self.checkedItems = set()
-        cnt, size = self._populateFileListCtrl(self.fileList)
-        self._update1StatusBar(cnt, size)
+        # Update statusbar
+        if not self.fileList:
+            self._update1StatusBar(0, 0)
+        else:
+            humanTotalSize = self.fileList[-1][self.FL_SIZETOTAL]
+            self._update1StatusBar(len(self.fileDict), humanTotalSize)
         
         self.panel1.SetSizerAndFit(self.topBS)
         self.SetClientSize(self.topBS.GetSize())
         self.Centre()
         self.SetFocus()
-
-
-    # def OnColumnClick(self, event):
-    #     myprint('Column clicked:',event.GetColumn() )
-    #     #myprint('Refreshing rows','col=',event.GetColumn() )
-    #     #self.fileListCtrl.RefreshRows()
-    #     self._OnParamsSelector(0)
 
     # Events
     
@@ -431,10 +522,10 @@ class FileListFrame(wx.Frame):
         cnt = size = 0
         for i in range(num):
             filename = self.fileListCtrl.GetItem(i,self.HDR_FILENAME).GetText()
-            if self.fileListCtrl.IsChecked(i):
+            if self.fileListCtrl.IsMarked(filename):
                 self.logTC.AppendText(filename + '\n')
                 cnt  += 1
-                size += self.fileListDict[filename][self.FL_SIZERAW] # Size
+                size += self.fileDict[filename][self.FL_SIZERAW]
                 self.checkedItems.add(filename)
             else:
                 self.checkedItems.discard(filename)
@@ -450,32 +541,35 @@ class FileListFrame(wx.Frame):
         print(self.checkedItems)
 
     def _OnItemSelected(self, event):
-        #item = event.GetItem()
-        #myprint('Item Selected:',item.GetId(), item.GetText(),item.GetData(),item.GetColumn())
+        item = event.GetItem()
+        myprint('Item Selected:',item.GetId(), item.GetText(),item.GetData(),item.GetColumn())
         event.Skip()
 
-    def _OnSelectAll(self, event):
+    def _OnMarkAll(self, event):
         num = self.fileListCtrl.GetItemCount()
         for i in range(num):
-            self.fileListCtrl.CheckItem(i)
+            self.fileListCtrl.MarkItem(i, True)
         self.btnDownload.Enable(True)
 
-    def _OnDeSelectAll(self, event):
+    def _OnUnMarkAll(self, event):
         num = self.fileListCtrl.GetItemCount()
         for i in range(num):
-            self.fileListCtrl.CheckItem(i, False)
+            self.fileListCtrl.MarkItem(i, False)
         self.btnDownload.Enable(False)
+        # Update the status bar
+        self.infoSB.SetStatusText('0', self.SB_MARKCNT)
+        self.infoSB.SetStatusText('0', self.SB_MARKSIZECNT)
         
     def _OnBtnDownload(self, event):
-        myprint('Item checked:',self.checkedItems)
+        myprint('Items checked:',self.checkedItems)
         # Loop thru the list of files, searching for marked files
         num = self.fileListCtrl.GetItemCount()
         for i in range(num):
             fileName = self.fileListCtrl.GetItem(i,self.HDR_FILENAME).GetText()
             if fileName in self.checkedItems:
-                # myprint(self.fileListDict[fileName][self.FL_FILENAME],
-                #         self.fileListDict[fileName][self.FL_SIZERAW],
-                #         self.fileListDict[fileName][self.FL_DATERAW])
+                # myprint(self.fileDict[fileName][self.FL_FILENAME],
+                #         self.fileDict[fileName][self.FL_SIZERAW],
+                #         self.fileDict[fileName][self.FL_DATERAW])
                 fileSize = globs.availRemoteFiles[fileName][globs.F_SIZE]
                 fileDate = globs.availRemoteFiles[fileName][globs.F_DATEINSECS]
 
@@ -512,47 +606,49 @@ class FileListFrame(wx.Frame):
     def _OnParamsSelector(self, event):
         self.logTC.Clear()
         self.btnDownload.Enable(False)
-        #self.btnMarkAll.Enable(False)
         
         c0,c1,c2,c3 = self._getSortingParams()
         
         if c0 == self.FT_REMOTE: #'All Remote Files':
-            self.fileListDict, self.fileList = buildFileListDict(list(globs.availRemoteFiles.items()), c1, c2)
-            #self.btnMarkAll.Enable(True)
+            self.fileDict, self.fileList = buildFileListAndDict(list(globs.availRemoteFiles.items()), c1, c2)
         elif c0 == self.FT_LOCAL: #'All Local Files':
-            self.fileListDict, self.fileList = buildFileListDict(list(globs.localFileInfos.items()), c1, c2)
+            self.fileDict, self.fileList = buildFileListAndDict(list(globs.localFileInfos.items()), c1, c2)
         elif c0 == self.FT_NOTSYNCED:
             # Build a list of not synced files
             dictDiff = buildDiffDict()
-            self.fileListDict, self.fileList = buildFileListDict(list(dictDiff.items()), c1, c2)
-            #self.btnMarkAll.Enable(True)
+            self.fileDict, self.fileList = buildFileListAndDict(list(dictDiff.items()), c1, c2)
             if len(self.checkedItems):
                 self.btnDownload.Enable(True)
         else: # Marked Files
             checkedItemsDict = dict()
             for f in self.checkedItems:
                 checkedItemsDict[f] = globs.availRemoteFiles[f]
-            myprint(checkedItemsDict)
-            self.fileListDict, self.fileList = buildFileListDict(list(checkedItemsDict.items()), c1, c2)
-        #print('D',self.fileListDict)
+            #myprint(checkedItemsDict)
+            self.fileDict, self.fileList = buildFileListAndDict(list(checkedItemsDict.items()), c1, c2)
+        #print('D',self.fileDict)
         #print('L',self.fileList)
         
         # Update ListCtrl data
-        cnt, size = self._populateFileListCtrl(self.fileList)
+        self.fileListCtrl.UpdateDataMap(self.fileDict)
 
         # Handle Marker selection
         if c3 == self.MARK_NONE:
-            self._OnDeSelectAll(0)
-            pass
+            self._OnUnMarkAll(0)
         elif c3 == self.MARK_JPG:
             self._markFilesBySuffix('jpg')
         elif c3 == self.MARK_MOV:
             self._markFilesBySuffix('mov')
         else:
-            self._OnSelectAll(0)
+            self._OnMarkAll(0)
 
         # Update status bar
-        self._update1StatusBar(cnt, size)
+        if not self.fileList:
+            self._update1StatusBar(0, 0)
+        else:
+            humanTotalSize = self.fileList[-1][self.FL_SIZETOTAL]
+            self._update1StatusBar(len(self.fileDict), humanTotalSize)
+
+        self._OnListCheckUpdate(0)
         
         if event:
             event.Skip()
@@ -573,7 +669,7 @@ class FileListFrame(wx.Frame):
     def _OnBtnSave(self, event):
         listType = self.FILE_TYPES[self.fileTypesChoice.GetSelection()][0]
         currentDate = time.strftime('%m%d%y', time.localtime())
-        filePath = '%s-%s.csv' % (listType,currentDate) #'foobar'
+        filePath = '%s-%s.csv' % (listType,currentDate)
 
         myprint('Saving list: %s to %s' % (listType, filePath))
         #myprint(self.fileList)
@@ -591,59 +687,40 @@ class FileListFrame(wx.Frame):
         self.PopEventHandler(True)
         event.Skip()
 
-    def _populateFileListCtrl(self, fileList):
-        self.fileListCtrl.ClearAll()
+    # def _populateFileListCtrl(self, fileList):
+    #     self.fileListCtrl.ClearAll()
 
-        #wx.STEELBLUE = wx.Colour(30, 100, 180)
+    #     #wx.STEELBLUE = wx.Colour(30, 100, 180)
         
-        col = 0
-        for h in self.HEADERLIST:
-            self.fileListCtrl.InsertColumn(col, h[0], width=h[1])
-            item = self.fileListCtrl.GetColumn(col)
-            #item.SetBackgroundColour(wx.GREEN)
-            #print(item.GetBackgroundColour())
-            col += 1
+    #     col = 0
+    #     for h in self.HEADERLIST:
+    #         self.fileListCtrl.InsertColumn(col, h[0], width=h[1])
+    #         item = self.fileListCtrl.GetColumn(col)
+    #         #item.SetBackgroundColour(wx.GREEN)
+    #         #print(item.GetBackgroundColour())
+    #         col += 1
                 
-        self.FL_LIST = [self.FL_IDX,
-                        self.FL_FILENAME,
-                        self.FL_SIZEINMB,
-                        self.FL_SIZERAW,
-                        self.FL_DATE,
-                        self.FL_DATERAW,
-                        self.FL_TIME,
-                        self.FL_SIZETOTAL] = [i for i in range(8)]
+    #     idx = totalSize = 0
+    #     myprint('Populating')
+    #     for data in fileList:
+    #         index = self.fileListCtrl.InsertItem(idx, '')
+    #         self.fileListCtrl.SetItem(index, 1, str(data[self.FL_IDX]))	# index
+    #         self.fileListCtrl.SetItem(index, 2, data[self.FL_FILENAME])	# filename
+    #         self.fileListCtrl.SetItem(index, 3, data[self.FL_SIZEINMB])	# size (in MB)
+    #         self.fileListCtrl.SetItem(index, 4, data[self.FL_DATE])		# date
+    #         self.fileListCtrl.SetItem(index, 5, data[self.FL_TIME])		# time
+    #         totalSize = data[self.FL_SIZETOTAL]	# total size
+    #         self.fileListCtrl.SetItemData(index, idx)
+    #         if data[self.FL_FILENAME] in self.checkedItems:
+    #             self.fileListCtrl.CheckItem(index, True)
+    #         idx += 1
 
-        self.COL_HDRS = ["Index",
-                         "Filename",
-                         "Size",
-                         "Raw Size",
-                         "Date",
-                         "Raw Date",
-                         "Time",
-                         "Total Size"]
-
-        idx = totalSize = 0
-        myprint('Populating')
-        for data in fileList:
-            index = self.fileListCtrl.InsertItem(idx, '')
-            self.fileListCtrl.SetItem(index, 1, str(data[self.FL_IDX]))		# index
-            self.fileListCtrl.SetItem(index, 2, data[self.FL_FILENAME])		# filename
-            self.fileListCtrl.SetItem(index, 3, data[self.FL_SIZEINMB])		# size (in MB)
-            self.fileListCtrl.SetItem(index, 4, data[self.FL_DATE])		# date
-            self.fileListCtrl.SetItem(index, 5, data[self.FL_TIME])		# time
-            #self.fileListCtrl.SetItem(index, 6, data[self.FL_SIZETOTAL])	# total size
-            totalSize = data[self.FL_SIZETOTAL]	# total size
-            self.fileListCtrl.SetItemData(index, idx)
-            if data[self.FL_FILENAME] in self.checkedItems:
-                self.fileListCtrl.CheckItem(index, True)
-            idx += 1
-
-            if (idx % 10) == 0:
-                unbufprint('[%d]\r' % (idx))
-
-        myprint('Populated')
-        self.fileListCtrl.Refresh()
-        return(idx,totalSize)
+    #         if (idx % 10) == 0:
+    #             unbufprint('[%d]\r' % (idx))
+        
+    #     myprint('Populated')
+    #     self.fileListCtrl.Refresh()
+    #     return(idx,totalSize)
 
     def _update1StatusBar(self, fileCnt, sizeTotal):
         self.infoSB.SetStatusText(str(fileCnt), self.SB_FILECNT)	# Total File count
@@ -681,11 +758,12 @@ class FileListFrame(wx.Frame):
         return(c0,c1,c2,c3)
 
     def _markFilesBySuffix(self, suffix):
-        self._OnDeSelectAll(0)
+        self._OnUnMarkAll(0)
         for i in range(self.fileListCtrl.GetItemCount()):
             filename = self.fileListCtrl.GetItem(i,self.HDR_FILENAME).GetText()
             if filename.lower().endswith(suffix):
-                self.fileListCtrl.CheckItem(i)
+                #myprint('Marking',filename)
+                self.fileListCtrl.MarkItem(i, True)
 
     # Called by InstallDialog()
     def finish(self):
@@ -770,6 +848,8 @@ def main():
     globs.availRemoteFiles['P4062936.JPG'] = ['P4062936.JPG', 1509056, 1504058304, '', '/DCIM/100OLYMP', 0, 20710, 46780, 'http://192.168.0.10:80/get_thumbnail.cgi?DIR=/DCIM/100OLYMP/P4062936.JPG']
     globs.availRemoteFiles['P1234567.MOV'] = ['P1234567.MOV', 5508000, 1504000000, '', '/DCIM/100OLYMP', 0, 20600, 12345, 'http://192.168.0.10:80/get_thumbnail.cgi?DIR=/DCIM/100OLYMP/P1234567.MOV']
 
+#    globs.availRemoteFiles = dict()
+    
     globs.localFileInfos['P8232966.JPG'] = ['P8232966.JPG',1538041,1598171028,'foo']
     globs.localFileInfos['P7032921.JPG'] = ['P7032921.JPG',1522484,1593782206,'bar']
 
