@@ -1496,7 +1496,7 @@ class OSVMConfig(wx.Frame):
     def _init_topBoxSizer1_Items(self, parent):
         parent.Add(self.titleBoxSizer1, 0, border=5, flag=wx.EXPAND | wx.ALL)
         parent.Add(4,0)
-        parent.Add(self.bottomBoxSizer, 0, border=5, flag=wx.EXPAND | wx.ALL | wx.ALIGN_BOTTOM)
+        parent.Add(self.bottomBoxSizer, 0, border=5, flag=wx.EXPAND | wx.ALL)#211 | wx.ALIGN_BOTTOM)
 
     def _init_titleBoxSizer1_Items(self, parent):
         parent.Add(self.staticBitmap1, 0, border=0, flag=wx.ALL | wx.ALIGN_CENTER)
@@ -1523,7 +1523,7 @@ class OSVMConfig(wx.Frame):
         bottomButtonBoxSizer.Add(12, 4, proportion=2, border=0, flag=0)
         bottomButtonBoxSizer.Add(self.btnExit, 0, border=0)#, flag=wx.ALIGN_LEFT)
 
-        parent.Add(bottomButtonBoxSizer, 0, border=0, flag=wx.ALIGN_BOTTOM | wx.ALIGN_RIGHT)
+        parent.Add(bottomButtonBoxSizer, 0, border=0, flag=wx.ALIGN_BOTTOM)#211 | wx.ALIGN_RIGHT)
 
     # Create controls & Sizers
     def _initGUI(self):
@@ -2534,7 +2534,8 @@ class OSVM(wx.Frame):
     # Used in globs.compactMode only
     def _init_trafficBoxSizer_Items(self, parent):
         parent.AddStretchSpacer(prop=1)
-        parent.Add(self.staticBitmap2, flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+        #parent.Add(self.staticBitmap2, flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=0)
+        parent.Add(self.staticBitmap2, border=0, flag=wx.ALL) #211 wx.ALIGN_CENTER_VERTICAL|
         parent.AddStretchSpacer(prop=1)
     
     # Used in globs.compactMode only
@@ -2564,7 +2565,7 @@ class OSVM(wx.Frame):
         parent.AddStretchSpacer(prop=1)
         parent.Add(self.bottomBoxSizer3, 0, border=0, flag=wx.ALL | wx.ALIGN_CENTER)##
         parent.AddStretchSpacer(prop=1)
-        parent.Add(self.bottomBoxSizer1, 0, border=0, flag=wx.ALL | wx.ALIGN_RIGHT)
+        parent.Add(self.bottomBoxSizer1, 0, border=0, flag=wx.ALL)#211 | wx.ALIGN_RIGHT)
 
     def _init_bottomBoxSizer3_Items(self, parent):
         parent.Add(self.btnSwitchMode, 0, border=0, flag=wx.ALL | wx.EXPAND)
