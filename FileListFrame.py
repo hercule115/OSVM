@@ -77,13 +77,26 @@ def buildFileListAndDict(fList, sortField, sortDir):
     #print(d,l)
     return(d,l)
 
-def buildDiffDict():
+def buildDiff2Dict():
     # Build a list of local files. Format:(filename, size)
     localFilesList = [(x[1][0],x[1][1]) for x in list(globs.localFileInfos.items())]
     # Build a list of remote files. Format:(filename, size)
     remoteFilesList = [(x[1][0],x[1][1]) for x in globs.availRemoteFiles.items()]
     # Get missing files list
     tmp = listDiff2(remoteFilesList, localFilesList)
+    # Build a dictionary from list above
+    dictDiff = dict()
+    for e in tmp:
+        dictDiff[e[0]] = globs.availRemoteFiles[e[0]]
+    return dictDiff
+
+def buildDiff3Dict():
+    # Build a list of local files. Format:(filename, size)
+    localFilesList = [(x[1][0],x[1][1]) for x in list(globs.localFileInfos.items())]
+    # Build a list of remote files. Format:(filename, size)
+    remoteFilesList = [(x[1][0],x[1][1]) for x in globs.availRemoteFiles.items()]
+    # Get common files list
+    tmp = listDiff3(remoteFilesList, localFilesList)
     # Build a dictionary from list above
     dictDiff = dict()
     for e in tmp:
@@ -133,15 +146,14 @@ class FileListFrameEventTracker(wx.EvtHandler):
 #         ListCtrlAutoWidthMixin.__init__(self)
 
         
-#class MyListCtrl(wx.ListCtrl, CheckListCtrlMixin, ListCtrlAutoWidthMixin, ListRowHighlighter):
-class MyListCtrl(wx.ListCtrl, ListCtrlAutoWidthMixin, ListRowHighlighter):
+#class MyListCtrl(wx.ListCtrl, ListCtrlAutoWidthMixin, ListRowHighlighter):
+class MyListCtrl(wx.ListCtrl, ListCtrlAutoWidthMixin):
 
     def __init__(self, parent, cols, dataDict):
 
         wx.ListCtrl.__init__( self, parent, wx.ID_ANY, style=wx.LC_REPORT|wx.LC_VIRTUAL|wx.LC_HRULES|wx.LC_VRULES)
         ListCtrlAutoWidthMixin.__init__(self)
-        ListRowHighlighter.__init__(self)
-        #CheckListCtrlMixin.__init__(self)
+        #ListRowHighlighter.__init__(self)
 
         self.parent = parent
 
@@ -330,9 +342,11 @@ class FileListFrame(wx.Frame):
         [self.FT_REMOTE,
          self.FT_LOCAL,
          self.FT_NOTSYNCED,
-         self.FT_MARKED] = [i for i in range(4)]
+         self.FT_SYNCED,
+         self.FT_MARKED] = [i for i in range(5)]
         
         self.FILE_TYPES = [('Remote Files Not Synced', self.FT_NOTSYNCED),
+                           ('Files Synced', self.FT_SYNCED),
                            ('Local Files', self.FT_LOCAL),
                            ('Remote Files', self.FT_REMOTE),
                            ('Marked Files', self.FT_MARKED)]
@@ -358,7 +372,7 @@ class FileListFrame(wx.Frame):
                                size=wx.DefaultSize, style=wx.TAB_TRAVERSAL)
 
         # Build a list of not synced files
-        dictDiff = buildDiffDict()
+        dictDiff = buildDiff2Dict()
         self.fileDict, self.fileList = buildFileListAndDict(list(dictDiff.items()), globs.F_DATEINSECS, False)
 
         # Box Sizer to contain all buttons
@@ -397,7 +411,7 @@ class FileListFrame(wx.Frame):
         self.sortBS.Add(self.sortOrderChoice, 0, border=0, flag=wx.EXPAND)
 
         # Markers buttons
-        self.sb3 = wx.StaticBox(label='Markers...', parent=self.panel1, style=0)
+        self.sb3 = wx.StaticBox(label='Sync Parameters...', parent=self.panel1, style=0)
         self.markerBS = wx.StaticBoxSizer(box=self.sb3, orient=wx.VERTICAL)
 
         self.markerChoice = wx.Choice(choices=[v for v in self.FILE_MARKER_CHOICE],
@@ -538,11 +552,11 @@ class FileListFrame(wx.Frame):
         # Update the status bar
         self.infoSB.SetStatusText(str(cnt), self.SB_MARKCNT)
         self.infoSB.SetStatusText(humanBytes(size), self.SB_MARKSIZECNT)
-        print(self.checkedItems)
+        #myprint(self.checkedItems)
 
     def _OnItemSelected(self, event):
         item = event.GetItem()
-        myprint('Item Selected:',item.GetId(), item.GetText(),item.GetData(),item.GetColumn())
+        #myprint(item.GetId(), item.GetText(),item.GetData(),item.GetColumn())
         event.Skip()
 
     def _OnMarkAll(self, event):
@@ -606,6 +620,8 @@ class FileListFrame(wx.Frame):
     def _OnParamsSelector(self, event):
         self.logTC.Clear()
         self.btnDownload.Enable(False)
+        self.markerChoice.Enable(False)
+        self.fileListCtrl.EnableCheckBoxes(enable=False)
         
         c0,c1,c2,c3 = self._getSortingParams()
         
@@ -615,7 +631,15 @@ class FileListFrame(wx.Frame):
             self.fileDict, self.fileList = buildFileListAndDict(list(globs.localFileInfos.items()), c1, c2)
         elif c0 == self.FT_NOTSYNCED:
             # Build a list of not synced files
-            dictDiff = buildDiffDict()
+            dictDiff = buildDiff2Dict()
+            self.fileDict, self.fileList = buildFileListAndDict(list(dictDiff.items()), c1, c2)
+            self.markerChoice.Enable(True)
+            self.fileListCtrl.EnableCheckBoxes(enable=True)
+            if len(self.checkedItems):
+                self.btnDownload.Enable(True)
+        elif c0 == self.FT_SYNCED:	# Common files
+            # Build a list of synced files (files in common)
+            dictDiff = buildDiff3Dict()
             self.fileDict, self.fileList = buildFileListAndDict(list(dictDiff.items()), c1, c2)
             if len(self.checkedItems):
                 self.btnDownload.Enable(True)
@@ -625,6 +649,8 @@ class FileListFrame(wx.Frame):
                 checkedItemsDict[f] = globs.availRemoteFiles[f]
             #myprint(checkedItemsDict)
             self.fileDict, self.fileList = buildFileListAndDict(list(checkedItemsDict.items()), c1, c2)
+            self.markerChoice.Enable(True)
+            self.fileListCtrl.EnableCheckBoxes(enable=True)
         #print('D',self.fileDict)
         #print('L',self.fileList)
         
@@ -728,7 +754,7 @@ class FileListFrame(wx.Frame):
 
     def _updateMarkedFileList(self):
         # Rebuild the list of 'not synced' files
-        notSyncedDict = buildDiffDict()
+        notSyncedDict = buildDiff2Dict()
 
         # Iterate on a copy to allow set modification in the loop
         size = 0
@@ -818,6 +844,11 @@ def listDiff(li1, li2):
 # Build a list containing elements of list1 NOT in list2
 def listDiff2(li1, li2): 
     l = [i for i in li1 if i not in li2] 
+    return l
+
+# Build a list containing elements of list1 AND in list2
+def listDiff3(li1, li2): 
+    l = [i for i in li1 if i in li2] 
     return l
 
 class MyApp(wx.App):
