@@ -160,7 +160,7 @@ class ShowCapture(wx.Dialog):
 
         self.mainSizer.Add(self.staticBit)
         self.mainSizer.Add(wx.StaticLine(self.panel1), 0, flag=wx.ALL|wx.EXPAND, border=5)
-        self.mainSizer.Add(self.bottomSizer, flag= wx.EXPAND | wx.ALIGN_RIGHT)
+        self.mainSizer.Add(self.bottomSizer, flag= wx.EXPAND)#211 | wx.ALIGN_RIGHT)
 
         # Start acquisition
         self.capture = cv2.VideoCapture(0)
@@ -241,8 +241,8 @@ class MyFrame(wx.Frame):
             scannedPasswd = OISData[2]
             myprint('Scanned SSID: %s, Scanned Password: %s' % (scannedSSID,scannedPasswd))
 
-        self.Show()
-
+        self.Destroy()
+        
 def main():
     # Init Globals instance
     globs.tmpDir = '/tmp'

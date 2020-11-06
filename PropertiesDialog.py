@@ -148,7 +148,7 @@ class PropertiesDialog(wx.Dialog):
         parent.AddStretchSpacer(prop=1)
         parent.Add(self.btnExif, 1, border=0, flag=wx.ALIGN_CENTER)
         parent.AddStretchSpacer(prop=1)
-        parent.Add(self.btnClose, 1, border=0, flag=wx.ALIGN_RIGHT)
+        parent.Add(self.btnClose, 1, border=0) #211 , flag=wx.ALIGN_RIGHT)
 
     def _init_sizers(self):
         # Create box sizers

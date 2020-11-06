@@ -116,7 +116,7 @@ class PreferencesDialog(wx.Dialog):
         parent.Add(8, 0, border=0, flag=0)
         parent.Add(self.rotImgLabel, 0, border=5, flag= wx.ALL | wx.EXPAND)
         parent.Add(4, 0, border=0, flag=0)
-        parent.Add(self.rotImgChoice, border=5, flag=wx.ALL | wx.EXPAND | wx.ALIGN_RIGHT)
+        parent.Add(self.rotImgChoice, border=5, flag=wx.ALL | wx.EXPAND) #211 | wx.ALIGN_RIGHT)
         
     # local config items
     def _init_localConfigBoxSizer_Items(self, parent):
@@ -135,7 +135,7 @@ class PreferencesDialog(wx.Dialog):
         parent.AddStretchSpacer(prop=1)
         parent.Add(self.diskSpaceLabel, 0, border=5, flag= wx.ALL | wx.EXPAND)
         parent.Add(2, 0, border=0, flag=0)
-        parent.Add(self.diskSpaceTextCtrl, proportion=1, border=5, flag=wx.ALL | wx.EXPAND | wx.ALIGN_RIGHT)
+        parent.Add(self.diskSpaceTextCtrl, proportion=1, border=5, flag=wx.ALL | wx.EXPAND)#211 | wx.ALIGN_RIGHT)
 
     def _init_configBoxSizer3_Items(self, parent):
         parent.Add(self.staticText4, 0, border=5,

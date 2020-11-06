@@ -361,7 +361,7 @@ class MediaViewerDialog(wx.Dialog):
         self.btnSizer.Add(self.btnVolume, 0, border=5, flag=wx.EXPAND| wx.ALL)
         self.btnSizer.Add(self.volSlider, flag=wx.TOP | wx.LEFT, border=5)
         self.btnSizer.AddStretchSpacer(prop=2)
-        self.btnSizer.Add(self.quitBoxSizer, 0, flag=wx.ALIGN_RIGHT)
+        self.btnSizer.Add(self.quitBoxSizer, 0)#211, flag=wx.ALIGN_RIGHT)
 
         # Put everything together
         self.mainSizer.Add(self.imageCtrl, 0, wx.ALL|wx.CENTER, border=5)
@@ -621,7 +621,7 @@ def main():
     #globs.localFileInfos['P3302742.MOV'] = ['P3302742.MOV', 0, 0, '']
     #globs.localFileInfos['P3302739.MOV'] = ['P3302739.MOV', 0, 0, '']
 
-    globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATE]), reverse=globs.fileSortRecentFirst)
+    globs.localFilesSorted = sorted(list(globs.localFileInfos.items()), key=lambda x: int(x[1][globs.F_DATEINSECS]), reverse=globs.fileSortRecentFirst)
     
     # Create DemoFrame frame, passing globals instance as parameter
     app = wx.App(False)

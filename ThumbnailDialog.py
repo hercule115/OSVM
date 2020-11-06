@@ -107,8 +107,7 @@ class MyFrame(wx.Frame):
         dlg = ThumbnailDialog(self, thumbnail=thumbnail)
         ret = dlg.ShowModal()
         dlg.Destroy()
-
-        self.Show()
+        self.Destroy()
         
 def main():
     # Create DemoFrame frame, passing globals instance as parameter

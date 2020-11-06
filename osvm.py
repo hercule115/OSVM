@@ -3772,8 +3772,7 @@ class OSVM(wx.Frame):
             fileName = f[1][globs.F_NAME]
             if not fileName.split('.')[1] in globs.FILE_SUFFIXES[fileType]:
                 continue
-
-            fileDate = f[1][globs.F_DATE]
+            fileDate = f[1][globs.F_DATEINSECS]
             button = [x[0] for x in self.thumbButtons if x[1] == fileName]
             e = [button, fileName, globs.FILE_MARK, -1, fileDate]
             try:

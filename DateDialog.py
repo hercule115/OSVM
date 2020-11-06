@@ -70,7 +70,7 @@ class DateDialog(wx.Dialog):
         self._init_sizers()
 
     def _init_topBoxSizer_Items(self, parent):
-        parent.Add(self.titleBoxSizer, 0, border=10, flag=wx.ALL | wx.EXPAND | wx.ALIGN_CENTER)
+        parent.Add(self.titleBoxSizer, 0, border=10, flag=wx.ALL | wx.EXPAND)#211 | wx.ALIGN_CENTER)
         parent.Add(self.mainBoxSizer, 1, border=10, flag=wx.EXPAND | wx.ALL)
         parent.Add(self.bottomBoxSizer, 0, border=10, flag=wx.ALL | wx.ALIGN_RIGHT)
 
@@ -131,8 +131,7 @@ class MyFrame(wx.Frame):
         dlg = DateDialog(self, remOldestDate, remNewestDate)
         ret = dlg.ShowModal()
         dlg.Destroy()
-
-        self.Show()
+        self.Destroy()
 
 def main():
     # Init Globals instance
