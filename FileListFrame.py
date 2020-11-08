@@ -740,41 +740,6 @@ class FileListFrame(wx.Frame):
         self.PopEventHandler(True)
         event.Skip()
 
-    # def _populateFileListCtrl(self, fileList):
-    #     self.fileListCtrl.ClearAll()
-
-    #     #wx.STEELBLUE = wx.Colour(30, 100, 180)
-        
-    #     col = 0
-    #     for h in self.HDR_LABELS:
-    #         self.fileListCtrl.InsertColumn(col, h[0], width=h[1])
-    #         item = self.fileListCtrl.GetColumn(col)
-    #         #item.SetBackgroundColour(wx.GREEN)
-    #         #print(item.GetBackgroundColour())
-    #         col += 1
-                
-    #     idx = totalSize = 0
-    #     myprint('Populating')
-    #     for data in fileList:
-    #         index = self.fileListCtrl.InsertItem(idx, '')
-    # 		self.fileListCtrl.SetItem(index, 1, str(data[FLF_ITEMS[FLF_IDX]]))	# index
-    # 		self.fileListCtrl.SetItem(index, 2, data[FLF_ITEMS[FLF_FILENAME]])	# filename
-    #		self.fileListCtrl.SetItem(index, 3, data[FLF_ITEMS[FLF_SIZEINMB]])	# size
-    #		 self.fileListCtrl.SetItem(index, 4, data[FLF_ITEMS[FLF_DATE]])	# date
-    # 		self.fileListCtrl.SetItem(index, 5, data[FLF_ITEMS[FLF_TIME]])	# time
-    #         totalSize = data[FLF_ITEMS[FLF_SIZETOTAL]]	# total size
-    #         self.fileListCtrl.SetItemData(index, idx)
-    #         if data[FLF_ITEMS[FLF_FILENAME]] in self.checkedItems:
-    #             self.fileListCtrl.CheckItem(index, True)
-    #         idx += 1
-
-    #         if (idx % 10) == 0:
-    #             unbufprint('[%d]\r' % (idx))
-        
-    #     myprint('Populated')
-    #     self.fileListCtrl.Refresh()
-    #     return(idx,totalSize)
-
     def _update1StatusBar(self, fileCnt, sizeTotal):
         self.infoSB.SetStatusText(str(fileCnt), self.SB_FILECNT)	# Total File count
         self.infoSB.SetStatusText(str(sizeTotal), self.SB_FILESIZECNT)	# Total File size
@@ -864,7 +829,7 @@ def humanBytes(size):
     return '%s %s' % (('%.2f' % size).rstrip('0').rstrip('.'), power_labels[n])
 
 # Build a list containing elements NOT in common to parameters
-def listDiff(li1, li2): 
+def listDiff1(li1, li2): 
     l = [i for i in li1 + li2 if i not in li1 or i not in li2] 
     return l
 
