@@ -115,7 +115,7 @@ class ExifDialog(wx.Dialog):
             else:
                 dictLen += 1
         gsNumCols = 4
-        gsNumRows = (dictLen / gsNumCols) + 1
+        gsNumRows = int((dictLen / gsNumCols) + 1)
         self.exifGS = wx.GridSizer(cols=gsNumCols, hgap=0, rows=gsNumRows, vgap=2)
 
         # Bottom button boxSizer
@@ -357,7 +357,7 @@ class MyFrame(wx.Frame):
         # Load data from file
         exifData = buildDictFromFile(exifFilePath)
         
-        fileName = 'P2272477.JPG'        
+        fileName = 'P8011766.JPG' #'P2272477.JPG'        
 
         # Get exif data from info attributes
         size = (160,120)
