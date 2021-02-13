@@ -1,6 +1,6 @@
 #! /usr/bin/python
 import sys
-sys.path.insert(1, "/usr/local/lib/python3.6/site-packages") # for cv2
+#sys.path.insert(1, "/usr/local/lib/python3.6/site-packages") # for cv2
 
 import wx
 import pyzbar.pyzbar as pyzbar
